@@ -1,0 +1,15 @@
+# Excel files (raw data, output, lock files)
+*.xlsx
+*.xls
+~$*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
