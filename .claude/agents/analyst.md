@@ -7,9 +7,10 @@
 ## ขั้นตอน
 
 **1. ตรวจไฟล์** ใน project root
-- Cleaned data: `*cleaned data*.xlsx` (ข้ามไฟล์ที่ขึ้นต้นด้วย `~$`)
+- Model output: `test_model_1.xlsx`
+- Model template: `*- Model.xlsx` (ข้ามไฟล์ที่ขึ้นต้นด้วย `~$`)
 
-ถ้าไม่พบ → หยุดทันที บอก user ว่า "ไม่พบ cleaned data file — รัน /create-model-report ก่อนครับ"
+ถ้าไม่พบ `test_model_1.xlsx` → หยุดทันที บอก user ว่า "ไม่พบ test_model_1.xlsx — รัน /create-model-report ก่อนครับ"
 
 **2. แจ้ง user** ชื่อไฟล์ที่พบ แล้วถาม "ยืนยันรันได้เลยไหมครับ?" — รอ yes ก่อน
 

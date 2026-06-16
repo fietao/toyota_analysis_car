@@ -30,3 +30,5 @@ Run the monthly model pipeline: read raw DLT data → build cleaned data + BEV p
 - BEV pivot sheets (BEV by Model, BEV by Model (2), BMW) are built from the `Data` sheet inside the Model template — update that sheet first if DLT released new model-level data
 - Raw data is cumulative: always run a full rebuild, never try to append
 - DLT retroactively corrects old months — full rebuild captures all corrections automatically
+- **Powertrain mapping** is read from the "master powertrain" sheet (right section: ชนิดเชื้อเพลิง → Powertrain, columns 4-5 from row 7). To add or change a mapping, update that sheet — no script edits needed. Unmapped fuel types fall back to "Other".
+- Close `test_model_1.xlsx` in Excel before running — xlsxwriter cannot overwrite a file that is open.
