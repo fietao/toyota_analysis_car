@@ -21,6 +21,7 @@ from pathlib import Path
 import pandas as pd
 import xlsxwriter
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -212,6 +213,10 @@ def main():
         ws_dst = wb_main.create_sheet(sheet_name)
         for row in ws_src.iter_rows(values_only=True):
             ws_dst.append(list(row))
+        # Autofilter on header row 7 (Row Labels + all year/month columns)
+        max_col = ws_dst.max_column or 1
+        max_row = ws_dst.max_row or 7
+        ws_dst.auto_filter.ref = f"A7:{get_column_letter(max_col)}{max_row}"
 
     wb_main.save(str(OUT_PATH))
     wb_main.close()

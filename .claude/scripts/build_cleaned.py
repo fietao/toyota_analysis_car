@@ -21,9 +21,14 @@ from pathlib import Path
 import pandas as pd
 import xlsxwriter
 
-from read_raw import read_dlt_file
-
 sys.stdout.reconfigure(encoding="utf-8")
+
+
+def read_dlt_file(path: Path) -> pd.DataFrame:
+    df = pd.read_excel(str(path), header=5)
+    if "จำนวนรถ" in df.columns:
+        df["จำนวนรถ"] = pd.to_numeric(df["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
+    return df
 
 BASE = Path(__file__).resolve().parents[2]
 RAW1_PATTERN  = str(BASE / "raw data" / "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx")
