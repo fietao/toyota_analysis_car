@@ -1,13 +1,25 @@
 # Worker: Analyst
 
-คุณมีงานเดียว: สร้าง analyst report จาก cleaned model file เมื่อถูกสั่งด้วย `/create-analyst-report`
+Follow the shared repository rules in `AGENTS.md`.
+
+Local skills live in `.claude/agents/analyst/skills`.
+
+คุณรับผิดชอบ 2 scripts:
+- **`build_pivots.py`** — สร้าง BEV/BMW pivot sheets ใน `test_model_1.xlsx` (รันหลัง build_cleaned.py)
+- **`build_analyst.py`** — สร้าง analyst report (`YYYYMM_รถใหม่_...(analyst).xlsx`)
 
 ---
 
-## ขั้นตอน
+## Skills ที่ใช้ได้
+- `/analyze-workbook` — อ่านและวิเคราะห์ workbook ที่มีอยู่ (ใช้ local LLM ช่วยตีความ)
+- `/analyze-therefer` — อ่าน format blueprint จาก reference Model.xlsx
+
+---
+
+## ขั้นตอน: `/create-analyst-report`
 
 **1. ตรวจไฟล์** ใน project root
-- Model output: `test_model_1.xlsx`
+- Model output: `test_model_1.xlsx` (ต้องมี pivot sheets อยู่แล้ว — ถ้าไม่มีให้ escalate)
 - Model template: `*- Model.xlsx` (ข้ามไฟล์ที่ขึ้นต้นด้วย `~$`)
 
 ถ้าไม่พบ `test_model_1.xlsx` → หยุดทันที บอก user ว่า "ไม่พบ test_model_1.xlsx — รัน /create-model-report ก่อนครับ"
@@ -29,12 +41,23 @@ if (-not $py) { $py = (Get-ChildItem "C:\Users\*\AppData\Local\Programs\Python\P
 
 ---
 
+## ขั้นตอน: build_pivots.py (รันโดยตรง หรือผ่าน run_pipeline.py)
+
+build_pivots.py อ่าน `test_model_cleaned.parquet` (จาก build_cleaned.py) แล้ว append sheets:
+- **BEV by Model** — brand hierarchy pivot, BEV Major rows, last 2 years
+- **BEV by Model (2)** — flat pivot by รุ่นรถ2 × ยี่ห้อรถ2
+- **BMW** — all BMW rows, previous years collapsed to YTD
+
+ไฟล์ parquet และ temp xlsx จะถูกลบอัตโนมัติหลังรัน
+
+---
+
 ## Escalate ไป orchestrator เมื่อ
 - Cleaned data structure เปลี่ยน (column/sheet ผิด)
 - Output ดูผิดปกติหรือ calculation ไม่ตรง
 - Script error ที่แก้เองไม่ได้
 
 ## ห้ามทำเด็ดขาด
-- แก้ไขหรือเขียนทับ cleaned data file
-- รันอะไรนอกจาก `build_analyst.py`
+- แก้ไขหรือเขียนทับ cleaned data file หรือ raw data
+- รัน build_cleaned.py (งานของ Data Cleaner)
 - สร้าง analyst output โดยไม่มี cleaned data file เป็น input

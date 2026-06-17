@@ -26,9 +26,9 @@ def _find_project_root():
     raise RuntimeError(f"Could not find project root (no CLAUDE.md above {p})")
 
 BASE = _find_project_root()
-RAW1_PATTERN  = str(BASE / "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx")
-RAW2_PATTERN  = str(BASE / "รถใหม่_ยี่ห้อรถ-รุ่นรถ-จังหวัด ปี 2564*.xlsx")
-MODEL_PATTERN = str(BASE / "*- Model.xlsx")   # hyphen required → avoids lowercase model.xlsx
+RAW1_PATTERN  = str(BASE / "raw data" / "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx")
+RAW2_PATTERN  = str(BASE / "raw data" / "รถใหม่_ยี่ห้อรถ-รุ่นรถ-จังหวัด ปี 2564*.xlsx")
+MODEL_PATTERN = str(BASE / "refer" / "*- Model.xlsx")   # hyphen required → avoids lowercase model.xlsx
 
 # ── Brand2 mapping ────────────────────────────────────────────────────────────
 BRAND2_MAP = {
@@ -37,7 +37,8 @@ BRAND2_MAP = {
     "ORA":                  "GWM",
     "GAC":                  "AION",
     "DEEPAL":               "Deepal+ChangAn",
-    "ChangAn":              "ChangAn+Deepal",
+    "CHANGAN":              "ChangAn+Deepal",
+    "CHANG AN":             "ChangAn+Deepal",
     "MERCEDES":             "Mercedes-Benz",
     "MERCEDES BENZ":        "Mercedes-Benz",
     "MERCEDES-AMG":         "Mercedes-Benz",
@@ -54,13 +55,17 @@ BRAND2_MAP = {
 
 BRAND2_TABLE = [
     ("Brand1",    "Brand2"),
-    (    "ChangAn",   "ChangAn+Deepal"),
     ("GWM",       "GWM"),
     ("GWM Tank",  "GWM"),
     ("Haval",     "GWM"),
     ("ORA",       "GWM"),
     ("GAC",       "AION"),
     ("Deepal",    "Deepal+ChangAn"),
+    ("ChangAn",   "ChangAn+Deepal"),
+    ("Mercedes",  "Mercedes-Benz"),
+    ("ZX Auto",   "ZX Auto"),
+    ("Star8",     "Star8"),
+    ("ไม่ระบุ",   "ไม่ระบุ"),
 ]
 
 THAI_MONTHS = {
@@ -69,6 +74,34 @@ THAI_MONTHS = {
     9:"กันยายน", 10:"ตุลาคม",   11:"พฤศจิกายน", 12:"ธันวาคม",
 }
 MONTH_ORDER = [THAI_MONTHS[i] for i in range(1, 13)]
+
+MASTER_POWERTRAIN_ORDER = [
+    ("CNG", "ICE"),
+    ("CNG-LPG", "ICE"),
+    ("CNG-ดีเซล", "ICE"),
+    ("CNG-เบนซิน", "ICE"),
+    ("LPG-ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก", "PHEV"),
+    ("LPG-เบนซิน-ไฟฟ้า", "HEV"),
+    ("LPGและดีเซล", "ICE"),
+    ("LPGและเบนซิน", "ICE"),
+    ("ก๊าซ LPG", "ICE"),
+    ("ดีเซล", "ICE"),
+    ("ดีเซล-ไฟฟ้า", "HEV"),
+    ("ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก", "PHEV"),
+    ("เบนซิน", "ICE"),
+    ("เบนซิน-ไฟฟ้า", "HEV"),
+    ("เบนซิน-ไฟฟ้าแบบเสียบปลั๊ก", "PHEV"),
+    ("ไฟฟ้า", "BEV"),
+    ("ไม่ใช้เชื้อเพลิง", None),
+    (None, None),
+    ("ไฮโดรเจน", "ICE"),
+]
+
+FINAL_COLS = ["ปี", "เดือน", "ประเภทรถ", "จังหวัด",
+              "ยี่ห้อรถ", "ยี่ห้อรถ2",
+              "รุ่นรถ", "รุ่นรถ2",
+              "ชนิดเชื้อเพลิง", "Powertrain",
+              "จำนวนรถ"]
 
 
 # ── File helpers ──────────────────────────────────────────────────────────────
@@ -105,6 +138,46 @@ def write_rows(ws, df, start_row=0):
             if pd.isna(val):
                 continue
             ws.write(r_idx, c_idx, val)
+
+
+def add_brand2(df):
+    brand_upper = df["ยี่ห้อรถ"].astype(str).str.strip().str.upper()
+    df.insert(df.columns.get_loc("ยี่ห้อรถ") + 1, "ยี่ห้อรถ2",
+              brand_upper.map(BRAND2_MAP).fillna(df["ยี่ห้อรถ"]))
+
+
+def ordered_cols(df):
+    cols = [c for c in FINAL_COLS if c in df.columns]
+    extra = [c for c in df.columns if c not in FINAL_COLS]
+    return df[cols + extra]
+
+
+def compare_reference_structure(out_file, model_file):
+    import openpyxl
+
+    wb_out = openpyxl.load_workbook(out_file, read_only=True, data_only=True)
+    wb_ref = openpyxl.load_workbook(model_file, read_only=True, data_only=True)
+    print("\n── Reference compare ───────────────────────────────────────")
+    print(f"  Generated sheets: {wb_out.sheetnames}")
+    print(f"  Reference sheets: {wb_ref.sheetnames}")
+
+    for out_name, ref_name in [
+        ("Cleaned Data", "Data"),
+        ("master powertrain", "master powertrain"),
+        ("BEV Series Name Table", "BEV Series Name Table"),
+        ("BEV by Model", "BEV by Model"),
+        ("BEV by Model (2)", "BEV by Model (2)"),
+        ("BMW", "BMW"),
+    ]:
+        if out_name not in wb_out.sheetnames or ref_name not in wb_ref.sheetnames:
+            print(f"  Missing compare sheet: generated={out_name}, reference={ref_name}")
+            continue
+        ws_out = wb_out[out_name]
+        ws_ref = wb_ref[ref_name]
+        print(f"  {out_name} vs {ref_name}: {ws_out.max_row}x{ws_out.max_column} vs {ws_ref.max_row}x{ws_ref.max_column}")
+
+    wb_out.close()
+    wb_ref.close()
 
 
 # ── Data sheet reader ─────────────────────────────────────────────────────────
@@ -204,41 +277,72 @@ def _write_col_headers(ws, ym, specs, data_start_col, fmt_h):
 
 
 # ── Master powertrain sheet builder ──────────────────────────────────────────
-def build_master_powertrain_sheet(workbook, df, df_template, fmt_h, fmt_bold):
+def build_master_powertrain_sheet(workbook, df, df_template, fmt_h, fmt_bold_blue, fmt_warn, powertrain_map):
     ws = workbook.add_worksheet("master powertrain")
 
-    # Cols A-C: pivot from Cleaned Data (File 1 rows that have ชนิดเชื้อเพลิง)
-    df_fuel = df[df["ชนิดเชื้อเพลิง"].notna()].copy()
-    summary = (df_fuel.groupby(["ชนิดเชื้อเพลิง", "Powertrain"], dropna=False)["จำนวนรถ"]
-               .sum().reset_index()
-               .sort_values("จำนวนรถ", ascending=False))
+    fuel_totals = (df.groupby("ชนิดเชื้อเพลิง", dropna=False)["จำนวนรถ"]
+                   .sum().to_dict())
+    active_fuels = {
+        str(fuel).strip()
+        for fuel, total in fuel_totals.items()
+        if pd.notna(fuel) and total > 0
+    }
 
-    ws.write(5, 0, "Sum of จำนวนรถ")
-    ws.write(6, 0, "ชนิดเชื้อเพลิง", fmt_h)
-    ws.write(6, 1, "Powertrain", fmt_h)
-    ws.write(6, 2, "Total", fmt_h)
-
-    r = 7
-    for _, row in summary.iterrows():
-        ws.write(r, 0, row["ชนิดเชื้อเพลิง"])
-        ws.write(r, 1, row["Powertrain"])
-        ws.write(r, 2, int(row["จำนวนรถ"]))
-        r += 1
-    ws.write(r, 0, "Grand Total")
-    ws.write(r, 2, int(df_fuel["จำนวนรถ"].sum()))
-
-    # Cols E-F: copy template as-is; bold rows whose ชนิดเชื้อเพลิง appears in cols A-C
-    active_fuels = set(summary["ชนิดเชื้อเพลิง"].str.strip().dropna())
+    # Cols E-F: copy reference mapping first; active rows are marked after A:C is built from it.
     for r_idx, tup in enumerate(df_template.itertuples(index=False, name=None)):
         val_e = tup[4] if len(tup) > 4 else None
         val_f = tup[5] if len(tup) > 5 else None
         is_active = not pd.isna(val_e) and str(val_e).strip() in active_fuels
-        fmt = fmt_bold if is_active else None
+
+        if r_idx == 6:
+            fmt = fmt_h
+        elif is_active:
+            fmt = fmt_bold_blue
+        else:
+            fmt = None
+
         if not pd.isna(val_e):
             ws.write(r_idx, 4, val_e, fmt)
         if not pd.isna(val_f):
             ws.write(r_idx, 5, val_f, fmt)
 
+    ws.write(5, 0, "Sum of จำนวนรถ", fmt_h)
+    ws.write(6, 0, "ชนิดเชื้อเพลิง", fmt_h)
+    ws.write(6, 1, "Powertrain", fmt_h)
+    ws.write(6, 2, "Total", fmt_h)
+
+    r = 7
+    written_fuels = set()
+    for fuel, pt in MASTER_POWERTRAIN_ORDER:
+        total = int(fuel_totals.get(fuel, 0))
+        if fuel is not None:
+            ws.write(r, 0, fuel)
+            written_fuels.add(fuel)
+        if pt is not None:
+            ws.write(r, 1, pt)
+        ws.write(r, 2, total)
+        r += 1
+
+    extras = []
+    for fuel, total in fuel_totals.items():
+        if pd.isna(fuel):
+            continue
+        fuel_key = str(fuel).strip()
+        if fuel_key not in written_fuels:
+            extras.append((fuel_key, powertrain_map.get(fuel_key, "Other"), int(total)))
+    for fuel, pt, total in sorted(extras, key=lambda item: item[0]):
+        ws.write(r, 0, fuel, fmt_warn)
+        if pt is not None:
+            ws.write(r, 1, pt, fmt_warn)
+        ws.write(r, 2, total, fmt_warn)
+        r += 1
+
+    ws.autofilter(6, 0, r - 1, 2)
+    ws.write(r, 0, "Grand Total")
+    ws.write(r, 2, int(df["จำนวนรถ"].sum()))
+
+    if extras:
+        print(f"      master powertrain extra fuel types: {[fuel for fuel, _, _ in extras]}")
     print("      master powertrain done")
 
 
@@ -327,49 +431,72 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")
 
     raw_file   = find_file(RAW2_PATTERN,  "model raw data")  # Model file uses RAW2 (model-level raw data)
+    raw1_file  = find_file(RAW1_PATTERN,  "fuel raw data")
     model_file = find_file(MODEL_PATTERN, "Model template")
 
-    print(f"Raw   : {raw_file.name}")
-    print(f"Model : {model_file.name}")
+    print(f"Raw 1 (Fuel) : {raw1_file.name}")
+    print(f"Raw 2 (Model): {raw_file.name}")
+    print(f"Model Temp   : {model_file.name}")
 
     # ── 1. Read reference tables ──────────────────────────────────────────────
     print("\n[1/5] Reading reference tables...", flush=True)
 
     df_powertrain = read_sheet_raw(model_file, "master powertrain")
-    _pt = df_powertrain.iloc[7:, [4, 5]].dropna(subset=[4, 5])
-    powertrain_map = dict(zip(_pt.iloc[:, 0].str.strip(), _pt.iloc[:, 1].str.strip()))
+    _pt = df_powertrain.iloc[7:, [4, 5]].dropna(subset=[4])
+    powertrain_map = {}
+    for k, v in zip(_pt.iloc[:, 0], _pt.iloc[:, 1]):
+        if pd.isna(k):
+            continue
+        key = str(k).strip()
+        val = str(v).strip() if pd.notna(v) else None
+        powertrain_map[key] = val
     print(f"      {len(powertrain_map)} powertrain mappings (master powertrain)")
 
     df_bev_table = read_sheet_raw(model_file, "BEV Series Name Table")
     _bev = df_bev_table.iloc[1:, [1, 2, 3]].dropna(subset=[1])
-    model2_map        = dict(zip(_bev.iloc[:, 0].str.strip(), _bev.iloc[:, 1].str.strip()))
-    pt_from_model_map = dict(zip(_bev.iloc[:, 0].str.strip(), _bev.iloc[:, 2].str.strip()))
+    model2_map        = {str(k).strip().upper(): str(v).strip() for k, v in zip(_bev.iloc[:, 0], _bev.iloc[:, 1])}
+    pt_from_model_map = {str(k).strip().upper(): str(v).strip() for k, v in zip(_bev.iloc[:, 0], _bev.iloc[:, 2])}
     print(f"      {len(model2_map)} รุ่นรถ2 mappings (BEV Series Name Table)")
 
-    # ── 2. Pull raw file ──────────────────────────────────────────────────────
+    # ── 2. Pull raw files ──────────────────────────────────────────────────────
     print("\n[2/5] Reading raw data...", flush=True)
     df = pd.read_excel(str(raw_file), header=5)
-    print(f"      {len(df):,} rows loaded")
+    print(f"      {len(df):,} model rows loaded")
+
+    df_fuel_raw = pd.read_excel(str(raw1_file), header=5)
+    df_fuel_raw["จำนวนรถ"] = pd.to_numeric(df_fuel_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
+
+    def get_fuel_pt(fuel_val):
+        if pd.isna(fuel_val):
+            return None
+        fuel_str = str(fuel_val).strip()
+        if fuel_str in powertrain_map:
+            return powertrain_map[fuel_str]
+        return "Other"
+
+    add_brand2(df_fuel_raw)
+    df_fuel_raw.insert(df_fuel_raw.columns.get_loc("ยี่ห้อรถ2") + 1, "รุ่นรถ", None)
+    df_fuel_raw.insert(df_fuel_raw.columns.get_loc("รุ่นรถ") + 1, "รุ่นรถ2", None)
+    df_fuel_raw["Powertrain"] = df_fuel_raw["ชนิดเชื้อเพลิง"].apply(get_fuel_pt)
+    print(f"      {len(df_fuel_raw):,} fuel rows loaded")
 
     # ── 3. Add derived columns → organize ────────────────────────────────────
     print("\n[3/5] Adding derived columns...", flush=True)
 
     # ยี่ห้อรถ2
-    brand_stripped = df["ยี่ห้อรถ"].str.strip()
-    df.insert(df.columns.get_loc("ยี่ห้อรถ") + 1, "ยี่ห้อรถ2",
-              brand_stripped.map(BRAND2_MAP).fillna(brand_stripped).fillna("ไม่ระบุ"))
+    add_brand2(df)
 
     # รุ่นรถ2 (only when รุ่นรถ column exists)
     if "รุ่นรถ" in df.columns:
-        model_stripped = df["รุ่นรถ"].str.strip()
+        model_upper = df["รุ่นรถ"].astype(str).str.strip().str.upper()
         df.insert(df.columns.get_loc("รุ่นรถ") + 1, "รุ่นรถ2",
-                  model_stripped.map(model2_map).fillna(model_stripped))
+                  model_upper.map(model2_map).fillna(df["รุ่นรถ"]))
 
     # Powertrain: ชนิดเชื้อเพลิง-based (File 1) takes priority; รุ่นรถ-based (File 2) fills the rest
-    pt_fuel  = (df["ชนิดเชื้อเพลิง"].str.strip().map(powertrain_map)
+    pt_fuel  = (df["ชนิดเชื้อเพลิง"].astype(str).str.strip().map(powertrain_map)
                 if "ชนิดเชื้อเพลิง" in df.columns
                 else pd.Series(dtype=object, index=df.index))
-    pt_model = (df["รุ่นรถ"].str.strip().map(pt_from_model_map)
+    pt_model = (df["รุ่นรถ"].astype(str).str.strip().str.upper().map(pt_from_model_map)
                 if "รุ่นรถ" in df.columns
                 else pd.Series(dtype=object, index=df.index))
     powertrain = pt_fuel.combine_first(pt_model).fillna("Other")
@@ -379,21 +506,16 @@ def main():
     else:
         df["Powertrain"] = powertrain
 
-    # Organize column order
-    FINAL_COLS = ["ปี", "เดือน", "ประเภทรถ", "จังหวัด",
-                  "ยี่ห้อรถ", "ยี่ห้อรถ2",
-                  "รุ่นรถ", "รุ่นรถ2",
-                  "ชนิดเชื้อเพลิง", "Powertrain",
-                  "จำนวนรถ"]
-    cols  = [c for c in FINAL_COLS if c in df.columns]
-    extra = [c for c in df.columns if c not in FINAL_COLS]
-    df = df[cols + extra]
-    print(f"      Columns: {list(df.columns)}")
+    df.insert(df.columns.get_loc("รุ่นรถ2") + 1, "ชนิดเชื้อเพลิง", None)
+    df = ordered_cols(df)
+    df_fuel_raw = ordered_cols(df_fuel_raw)
+    df_cleaned = pd.concat([df_fuel_raw, df], ignore_index=True)
+    print(f"      Columns: {list(df_cleaned.columns)}")
 
     # ── Filter subsets for BEV pivot builders ────────────────────────────────
     bev_data = df[df["Powertrain"] == "BEV Major"]
     bmw_data = df[df["ยี่ห้อรถ2"] == "BMW"]
-    print(f"      {len(df):,} rows | years: {sorted(df['ปี'].unique())}")
+    print(f"      {len(df_cleaned):,} combined rows | years: {sorted(df_cleaned['ปี'].unique())}")
     print(f"      BEV Major rows: {len(bev_data):,}")
 
     # ── 4. Build output file ──────────────────────────────────────────────────
@@ -407,14 +529,22 @@ def main():
         "border": 1, "align": "center", "valign": "vcenter",
     })
     fmt_title = workbook.add_format({"bold": True, "font_size": 12})
-    fmt_bold  = workbook.add_format({"bold": True})
+    fmt_bold_blue = workbook.add_format({
+        "bold": True,
+        "font_color": "#4472C4"
+    })
+    fmt_warn = workbook.add_format({
+        "bold": True,
+        "bg_color": "#FFF2CC",
+        "font_color": "#9C6500"
+    })
 
     # ── Cleaned Data sheet ────────────────────────────────────────────────────
     ws = workbook.add_worksheet("Cleaned Data")
     DATA_ROW = 5
 
-    max_yr_raw = int(df["ปี"].max())
-    last_yr_rows = df[df["ปี"] == max_yr_raw]
+    max_yr_raw = int(df_cleaned["ปี"].max())
+    last_yr_rows = df_cleaned[df_cleaned["ปี"] == max_yr_raw]
     end_month = [m for m in MONTH_ORDER if m in last_yr_rows["เดือน"].unique()][-1]
     end_year  = max_yr_raw
 
@@ -433,15 +563,15 @@ def main():
         ws.write(r, 13, b1, fmt)
         ws.write(r, 14, b2, fmt)
 
-    total = len(df)
+    total = len(df_cleaned)
     CHUNK = 10000
     for i in range(0, total, CHUNK):
-        write_rows(ws, df.iloc[i:i+CHUNK], start_row=DATA_ROW + 1 + i)
+        write_rows(ws, df_cleaned.iloc[i:i+CHUNK], start_row=DATA_ROW + 1 + i)
         print(f"      Written {min(i+CHUNK, total):,} / {total:,} rows...", flush=True)
 
-    ws.add_table(DATA_ROW, 0, DATA_ROW + total, len(df.columns) - 1, {
+    ws.add_table(DATA_ROW, 0, DATA_ROW + total, len(df_cleaned.columns) - 1, {
         'style': 'Table Style Medium 2',
-        'columns': [{'header': col, 'header_format': fmt_header} for col in df.columns],
+        'columns': [{'header': col, 'header_format': fmt_header} for col in df_cleaned.columns],
     })
     col_widths = {
         "ปี": 8, "เดือน": 12, "ประเภทรถ": 35, "จังหวัด": 20,
@@ -449,14 +579,14 @@ def main():
         "รุ่นรถ": 28, "รุ่นรถ2": 25,
         "ชนิดเชื้อเพลิง": 25, "Powertrain": 15, "จำนวนรถ": 12,
     }
-    for i, col in enumerate(df.columns):
+    for i, col in enumerate(df_cleaned.columns):
         if col in col_widths:
             ws.set_column(i, i, col_widths[col])
     ws.set_column(13, 14, 18)  # BRAND2_TABLE reference
     print("      Cleaned Data done")
 
     # ── Static / generated sheets ─────────────────────────────────────────────
-    build_master_powertrain_sheet(workbook, df, df_powertrain, fmt_header, fmt_bold)
+    build_master_powertrain_sheet(workbook, df_fuel_raw, df_powertrain, fmt_header, fmt_bold_blue, fmt_warn, powertrain_map)
 
     ws_bev = workbook.add_worksheet("BEV Series Name Table")
     if not df_bev_table.empty:
@@ -471,11 +601,13 @@ def main():
 
     workbook.close()
     print(f"\nOutput: {out_file}")
+    compare_reference_structure(out_file, model_file)
 
     # ── End-of-run report ─────────────────────────────────────────────────────
     print("\n── Report ───────────────────────────────────────────────────")
-    print(f"  Raw file used  : {raw_file.name}")
-    print(f"  Total rows     : {len(df):,}")
+    print(f"  Raw 1 file used: {raw1_file.name}")
+    print(f"  Raw 2 file used: {raw_file.name}")
+    print(f"  Total rows     : {len(df_cleaned):,}")
 
     if "รุ่นรถ" in df.columns:
         unmapped_models = df["รุ่นรถ"].dropna().str.strip()

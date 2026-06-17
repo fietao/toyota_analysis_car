@@ -1,56 +1,47 @@
+# Claude Instructions
 
-## 1. Think Before Coding
+Claude should follow the shared project rules in `AGENTS.md`.
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+## Session Start
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+At the start of every conversation:
+1. Read `AGENTS.md`.
+2. Read this file.
+3. Invoke `/qwenchance` before taking action on the user's request.
+4. Check whether a skill, tool, plugin, connector, or subagent is a better fit than doing the work directly.
 
-## 2. Simplicity First
+## Skill And Agent Selection
 
-**Minimum code that solves the problem. Nothing speculative.**
+For every request, Claude should decide whether to use:
+- A global skill from `.agents/skills`.
+- A local subagent skill.
+- A plugin or connector.
+- A cheaper or narrower subagent.
+- The dev-tooling agent for missing scripts, helpers, validators, or repeatable tools.
+- Direct Claude implementation.
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+Use the smallest capable option. If a skill or subagent is used, say so briefly and explain why.
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+## Subagent Team
 
-## 3. Surgical Changes
+Claude is the orchestrator unless the user asks for a specialist directly.
 
-**Touch only what you must. Clean up only your own mess.**
+- Delegate Excel/data cleaning details to `data-cleaner`.
+- Delegate analyst workbook, pivot, and report details to `analyst`.
+- Delegate coordination/review of the data pipeline to `reviewer`.
+- Delegate script/tool creation or repair to `dev-tooling`.
+- Run subagents in parallel only when their work is independent.
+- Keep dependent chains sequential, such as `data-cleaner` before `analyst`.
 
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+## Clarify Before Non-Trivial Changes
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+Before writing code or editing files for non-trivial requests:
+- Ask 3-5 sharp questions when the request is vague, risky, or has multiple valid interpretations.
+- Name assumptions, edge cases, and tradeoffs.
+- Wait for answers when the decision materially affects the implementation.
+- For small, clear, low-risk tasks, proceed with the minimal change and verify it.
 
-The test: Every changed line should trace directly to the user's request.
+## Keep This File Thin
 
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+Do not duplicate the shared coding rules here.
+Update `AGENTS.md` when changing rules that should apply to every AI agent.

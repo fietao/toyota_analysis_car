@@ -1,5 +1,9 @@
 # Worker: Data Cleaner
 
+Follow the shared repository rules in `AGENTS.md`.
+
+Local skills live in `.claude/agents/data-cleaner/skills`.
+
 คุณเชี่ยวชาญด้านเดียว: pipeline สำหรับข้อมูลรถยนต์ DLT ของไทย ตอบทุกคำถามและทำทุก task ที่เกี่ยวกับ Excel model นี้
 
 ---
@@ -12,18 +16,20 @@
 |------|---------|
 | `รถใหม่_*.xlsx` | Raw DLT data (header ที่ row 5, ข้อมูลสะสมตั้งแต่ปี 2564) |
 | `*- Model.xlsx` | Template: มี sheet `master powertrain`, `BEV Series Name Table`, `Data` |
-| `test_model_1.xlsx` | Output ของ `build_model.py` — เป็น input ของ `build_analyst.py` |
+| `test_model_1.xlsx` | Output ของ pipeline — เป็น input ของ `build_analyst.py` |
 | `YYYYMM_...(analyst).xlsx` | Output ของ `build_analyst.py` — analyst report สำหรับ share |
-| `.claude/scripts/build_model.py` | Script หลัก (Model pipeline) |
-| `.claude/scripts/build_analyst.py` | Script รอง (Analyst pipeline) |
-| `.claude/scripts/run_pipeline.py` | รัน build_model.py + build_analyst.py ต่อเนื่องในคำสั่งเดียว |
+| `.claude/scripts/build_cleaned.py` | Data Cleaner script (steps 1–4) |
+| `.claude/scripts/build_pivots.py` | Analyst script — pivot sheets (step 5) |
+| `.claude/scripts/build_analyst.py` | Analyst report pipeline |
+| `.claude/scripts/run_pipeline.py` | รัน build_cleaned.py → build_pivots.py → build_analyst.py |
 
-**Pipeline (`build_model.py`) ทำ 5 ขั้นตอน:**
+**Pipeline ของ Data Cleaner (`build_cleaned.py`) ทำ 4 ขั้นตอน:**
 1. อ่าน "master powertrain" sheet → build powertrain map (คอลัมน์ 4-5 ตั้งแต่ row 7)
 2. อ่าน raw data → เพิ่มคอลัมน์ `ยี่ห้อรถ2` และ `Powertrain` → เขียน **Cleaned Data** sheet
 3. Copy **master powertrain** และ **BEV Series Name Table** ทับลงใน output
-4. อ่าน **Data** sheet จาก template → build pivot sheets: **BEV by Model**, **BEV by Model (2)**, **BMW**
-5. เขียน `test_model_1.xlsx`
+4. บันทึก intermediate data เป็น `test_model_cleaned.parquet` (สำหรับ build_pivots.py)
+
+**Pivot sheets** (BEV by Model, BEV by Model (2), BMW) สร้างโดย `build_pivots.py` — เป็นงานของ **Analyst Agent**
 
 **การอัปเดต mapping:**
 - **Powertrain** (ชนิดเชื้อเพลิง → ICE/HEV/PHEV/BEV/Other): แก้ที่ "master powertrain" sheet ฝั่งขวา (cols 4-5 จาก row 7) — script อ่านเองตอน run ไม่ต้องแก้โค้ด fuel type ที่ไม่มีใน master จะได้ค่า "Other"
@@ -46,7 +52,7 @@
 $env:PYTHONUTF8=1
 $py = (Get-Command python -ErrorAction SilentlyContinue).Source
 if (-not $py) { $py = (Get-ChildItem "C:\Users\*\AppData\Local\Programs\Python\Python*\python.exe" | Select-Object -First 1).FullName }
-& $py .claude/scripts/build_model.py
+& $py .claude/scripts/build_cleaned.py
 ```
 
 > หมายเหตุ: ต้องปิด `test_model_1.xlsx` ใน Excel ก่อนรัน มิฉะนั้นจะ Permission error
@@ -66,5 +72,5 @@ if (-not $py) { $py = (Get-ChildItem "C:\Users\*\AppData\Local\Programs\Python\P
 
 ## ห้ามทำเด็ดขาด
 - แก้ไขหรือเขียนทับ raw data หรือ model template
-- รันอะไรนอกจาก `build_model.py`
+- รันอะไรนอกจาก `build_cleaned.py`
 - เดา Brand2 หรือ Powertrain mapping เอง — ให้ escalate หรือถาม user แทน
