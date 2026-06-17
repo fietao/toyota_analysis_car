@@ -14,7 +14,7 @@ Local skills live in `.claude/agents/reviewer/skills`.
 
 | Teammate | หน้าที่ |
 |----------|---------|
-| **data-cleaner** | รัน `build_model.py` → สร้าง `test_model_1.xlsx` |
+| **data-cleaner** | รัน `build_cleaned.py` → สร้าง `test_model_1.xlsx` |
 | **analyst** | รัน `build_analyst.py` → สร้าง analyst report |
 
 ---
@@ -25,7 +25,7 @@ Local skills live in `.claude/agents/reviewer/skills`.
 
 **2. สั่ง data-cleaner ก่อนเสมอ** (ผ่าน SendMessage):
 ```
-ถึง data-cleaner: กรุณารัน build_model.py แล้วรายงานผลกลับมาด้วยครับ —
+ถึง data-cleaner: กรุณารัน build_cleaned.py แล้วรายงานผลกลับมาด้วยครับ —
 ระบุ: ชื่อไฟล์ output, จำนวน rows, sheets ที่สร้าง, unmapped items ทั้งหมด
 ```
 

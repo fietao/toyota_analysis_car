@@ -66,14 +66,6 @@ THAI_MONTHS = {
 }
 MONTH_ORDER = [THAI_MONTHS[i] for i in range(1, 13)]
 
-MASTER_POWERTRAIN_ORDER = [
-    ("CNG", "ICE"), ("CNG-LPG", "ICE"), ("CNG-ดีเซล", "ICE"), ("CNG-เบนซิน", "ICE"),
-    ("LPG-ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก", "PHEV"), ("LPG-เบนซิน-ไฟฟ้า", "HEV"),
-    ("LPGและดีเซล", "ICE"), ("LPGและเบนซิน", "ICE"), ("ก๊าซ LPG", "ICE"),
-    ("ดีเซล", "ICE"), ("ดีเซล-ไฟฟ้า", "HEV"), ("ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก", "PHEV"),
-    ("เบนซิน", "ICE"), ("เบนซิน-ไฟฟ้า", "HEV"), ("เบนซิน-ไฟฟ้าแบบเสียบปลั๊ก", "PHEV"),
-    ("ไฟฟ้า", "BEV"), ("ไม่ใช้เชื้อเพลิง", None), (None, None), ("ไฮโดรเจน", "ICE"),
-]
 
 FINAL_COLS = ["ปี", "เดือน", "ประเภทรถ", "จังหวัด",
               "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2",
@@ -118,52 +110,71 @@ def write_rows(ws, df, start_row=0):
                 ws.write(r_idx, c_idx, val)
 
 
+def clean_powertrain_value(value):
+    if pd.isna(value):
+        return "Other"
+    value = str(value).strip()
+    return value if value and value.lower() != "nan" and value != "(blank)" else "Other"
+
+
+def sort_cleaned_data(df):
+    out = df.copy()
+    month_rank = {month: idx for idx, month in enumerate(MONTH_ORDER, start=1)}
+    out["_month_sort"] = out["เดือน"].map(month_rank).fillna(99)
+    out["_source_sort"] = out["รุ่นรถ"].notna().astype(int)
+
+    sort_cols = [
+        "ปี", "_month_sort", "ประเภทรถ", "จังหวัด",
+        "ยี่ห้อรถ2", "ยี่ห้อรถ", "_source_sort",
+        "ชนิดเชื้อเพลิง", "รุ่นรถ2", "รุ่นรถ",
+    ]
+    sort_cols = [col for col in sort_cols if col in out.columns]
+    out = out.sort_values(sort_cols, kind="mergesort", na_position="last")
+    return out.drop(columns=["_month_sort", "_source_sort"], errors="ignore")
+
+
 # ── Sheet builders ────────────────────────────────────────────────────────────
 
-def build_master_powertrain(workbook, df_fuel, df_template, fmt_h, fmt_bold_blue, fmt_warn, powertrain_map):
+def build_master_powertrain(workbook, df_fuel, df_template, fmt_h, powertrain_map):
     ws = workbook.add_worksheet("master powertrain")
 
-    fuel_totals  = df_fuel.groupby("ชนิดเชื้อเพลิง", dropna=False)["จำนวนรถ"].sum().to_dict()
-    active_fuels = {str(f).strip() for f, t in fuel_totals.items() if pd.notna(f) and t > 0}
+    fuel_totals = df_fuel.groupby("ชนิดเชื้อเพลิง", dropna=False)["จำนวนรถ"].sum().to_dict()
 
+    # Copy E-F reference columns from template as-is
     for r_idx, tup in enumerate(df_template.itertuples(index=False, name=None)):
         val_e = tup[4] if len(tup) > 4 else None
         val_f = tup[5] if len(tup) > 5 else None
-        is_active = not pd.isna(val_e) and str(val_e).strip() in active_fuels
-        fmt = fmt_h if r_idx == 6 else (fmt_bold_blue if is_active else None)
-        if not pd.isna(val_e): ws.write(r_idx, 4, val_e, fmt)
-        if not pd.isna(val_f): ws.write(r_idx, 5, val_f, fmt)
+        if not pd.isna(val_e): ws.write(r_idx, 4, val_e)
+        if not pd.isna(val_f): ws.write(r_idx, 5, val_f)
 
     ws.write(5, 0, "Sum of จำนวนรถ", fmt_h)
     ws.write(6, 0, "ชนิดเชื้อเพลิง", fmt_h)
     ws.write(6, 1, "Powertrain", fmt_h)
     ws.write(6, 2, "Total", fmt_h)
 
+    # Walk E-F rows → write count; skip if 0
     r = 7
-    written = set()
-    for fuel, pt in MASTER_POWERTRAIN_ORDER:
-        if fuel is not None:
-            ws.write(r, 0, fuel); written.add(fuel)
-        if pt is not None:
+    for r_idx, tup in enumerate(df_template.itertuples(index=False, name=None)):
+        if r_idx < 7:
+            continue
+        val_e = tup[4] if len(tup) > 4 else None
+        val_f = tup[5] if len(tup) > 5 else None
+        if pd.isna(val_e):
+            continue
+        fuel  = str(val_e).strip()
+        total = int(fuel_totals.get(fuel, 0))
+        if total == 0:
+            continue
+        pt = str(val_f).strip() if not pd.isna(val_f) else None
+        ws.write(r, 0, fuel)
+        if pt:
             ws.write(r, 1, pt)
-        ws.write(r, 2, int(fuel_totals.get(fuel, 0)))
-        r += 1
-
-    extras = [(str(f).strip(), powertrain_map.get(str(f).strip(), "Other"), int(t))
-              for f, t in fuel_totals.items()
-              if not pd.isna(f) and str(f).strip() not in written]
-    for fuel, pt, total in sorted(extras):
-        ws.write(r, 0, fuel, fmt_warn)
-        if pt: ws.write(r, 1, pt, fmt_warn)
-        ws.write(r, 2, total, fmt_warn)
+        ws.write(r, 2, total)
         r += 1
 
     ws.autofilter(6, 0, r - 1, 2)
     ws.write(r, 0, "Grand Total")
     ws.write(r, 2, int(df_fuel["จำนวนรถ"].sum()))
-
-    if extras:
-        print(f"      master powertrain extras: {[f for f,_,_ in extras]}")
     print("      master powertrain done")
 
 
@@ -182,7 +193,7 @@ def main():
     print("\n[1/4] Reading reference tables...", flush=True)
     df_pt  = read_sheet_raw(model_file, "master powertrain")
     _pt    = df_pt.iloc[7:, [4, 5]].dropna(subset=[4])
-    powertrain_map = {str(k).strip(): (str(v).strip() if pd.notna(v) else None)
+    powertrain_map = {str(k).strip(): clean_powertrain_value(v)
                       for k, v in zip(_pt.iloc[:, 0], _pt.iloc[:, 1]) if not pd.isna(k)}
     print(f"      {len(powertrain_map)} powertrain mappings")
 
@@ -230,6 +241,7 @@ def main():
         df_model.insert(df_model.columns.get_loc("ชนิดเชื้อเพลิง") + 1, "Powertrain", powertrain_col)
 
     df_cleaned = pd.concat([ordered_cols(df_fuel), ordered_cols(df_model)], ignore_index=True)
+    df_cleaned = sort_cleaned_data(df_cleaned)
     print(f"      {len(df_cleaned):,} combined rows | cols: {list(df_cleaned.columns)}")
 
     # Save intermediate for pivot builder (parquet: safe, fast, preserves dtypes)
@@ -296,7 +308,7 @@ def main():
     ws.set_column(13, 14, 18)
     print("      Cleaned Data done")
 
-    build_master_powertrain(workbook, df_fuel, df_pt, fmt_h, fmt_bold_blue, fmt_warn, powertrain_map)
+    build_master_powertrain(workbook, df_fuel, df_pt, fmt_h, powertrain_map)
 
     ws_bev = workbook.add_worksheet("BEV Series Name Table")
     if not df_bev_tbl.empty:

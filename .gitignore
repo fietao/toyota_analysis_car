@@ -3,6 +3,11 @@
 *.xls
 ~$*
 
+# Generated pipeline outputs
+*.parquet
+scratch/
+planbreadown_eachsheet_eachfile
+
 # Python
 __pycache__/
 *.pyc

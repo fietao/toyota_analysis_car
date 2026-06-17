@@ -33,7 +33,7 @@ Local skills live in `.claude/agents/data-cleaner/skills`.
 
 **การอัปเดต mapping:**
 - **Powertrain** (ชนิดเชื้อเพลิง → ICE/HEV/PHEV/BEV/Other): แก้ที่ "master powertrain" sheet ฝั่งขวา (cols 4-5 จาก row 7) — script อ่านเองตอน run ไม่ต้องแก้โค้ด fuel type ที่ไม่มีใน master จะได้ค่า "Other"
-- **Brand2** (ยี่ห้อรถ grouping): hardcoded `BRAND2_MAP` ใน `build_model.py`
+- **Brand2** (ยี่ห้อรถ grouping): hardcoded `BRAND2_MAP` ใน `build_cleaned.py`
 
 ---
 
