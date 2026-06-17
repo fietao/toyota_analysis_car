@@ -203,8 +203,12 @@ def build_master_powertrain(workbook, df_fuel, df_template, fmt_h, powertrain_ma
                 fmt = fmt_h                          # "Sum of จำนวนรถ" title
             elif r_idx == 6 and c_idx in (0, 1, 2, 4, 5):
                 fmt = fmt_h                          # header row — both A-C and E-F
-            elif is_grand_total and c_idx in (0, 1, 2):
-                fmt = fmt_h                          # Grand Total — full row highlight
+            elif is_grand_total and c_idx in (0, 1):
+                fmt = fmt_h                          # Grand Total — label cols
+            elif is_grand_total and c_idx == 2:
+                fmt = fmt_h_num                      # Grand Total — numeric total with comma
+            elif c_idx == 2 and r_idx >= 7:
+                fmt = fmt_num                        # data rows — numeric total with comma
             elif c_idx in (4, 5) and ef_matches_ac:
                 fmt = fmt_ef_match                   # E-F row whose fuel type is in A-C summary
             else:
