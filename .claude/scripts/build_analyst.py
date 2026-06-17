@@ -3,7 +3,7 @@ Builds the monthly analyst report from the model output.
 
 Input:  test_model_1.xlsx  (Cleaned Data sheet)
         *- Model.xlsx       (Data sheet for BEV Major, master powertrain, BEV Series Name Table)
-Output: YYYYMM_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - เดือนXXXX(analyst).xlsx
+Output: YYYYMM_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - เดือนXXXX(test analyst).xlsx
 """
 
 import glob, sys, os
@@ -456,7 +456,7 @@ def copy_cleaned_data(cleaned_path, wb_out, df_raw):
     """Write Data sheet from the cleaned DataFrame."""
     import openpyxl
     wb_src = openpyxl.load_workbook(cleaned_path, read_only=True, data_only=True)
-    ws_src = wb_src["Cleaned Data"]
+    ws_src = wb_src["Data"]
     ws_dst = wb_out.add_worksheet("Data")
     for r_idx, row in enumerate(ws_src.iter_rows(values_only=True)):
         for c_idx, val in enumerate(row):
@@ -473,7 +473,7 @@ def make_output_name(prev_year, curr_year, curr_months):
     greg_year  = curr_year - 543
     prefix     = f"{greg_year}{month_num:02d}"
     end_month_en = thai_month
-    return BASE / f"{prefix}_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - {end_month_en} {curr_year}(analyst).xlsx"
+    return BASE / f"{prefix}_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - {end_month_en} {curr_year}(test analyst).xlsx"
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -488,7 +488,7 @@ def main():
 
     # ── 1. Load Cleaned Data ──────────────────────────────────────────────────
     print("\n[1/4] Loading Cleaned Data...", flush=True)
-    df_raw = pd.read_excel(str(CLEANED_FILE), sheet_name="Cleaned Data", header=5)
+    df_raw = pd.read_excel(str(CLEANED_FILE), sheet_name="Data", header=5)
     df_raw["จำนวนรถ"] = pd.to_numeric(df_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df_raw["ปี"]      = pd.to_numeric(df_raw["ปี"],      errors="coerce").dropna().astype(int)
     df_raw = df_raw.dropna(subset=["ปี"]).copy()

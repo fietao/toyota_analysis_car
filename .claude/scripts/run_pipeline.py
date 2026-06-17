@@ -2,12 +2,14 @@
 Full monthly pipeline runner.
 
 Usage:
-    python .claude/scripts/run_pipeline.py
+    python .claude/scripts/run_pipeline.py           # full run (incl. model2 map)
+    python .claude/scripts/run_pipeline.py --skip-map  # skip model2_map (already built)
 
 Steps:
-  1. build_cleaned.py  → test_model_1.xlsx  (Cleaned Data + master powertrain + BEV table)
-  2. build_pivots.py   → appends BEV/BMW pivot sheets to test_model_1.xlsx
-  3. build_analyst.py  → YYYYMM_รถใหม่_...(analyst).xlsx
+  0. build_model2_map.py → refer/model2_map.csv      (incremental, skippable)
+  1. build_cleaned.py    → test_model_1.xlsx          (Data + master powertrain + BEV table)
+  2. build_pivots.py     → appends BEV/BMW pivot sheets to test_model_1.xlsx
+  3. build_analyst.py    → YYYYMM_รถใหม่_...(analyst).xlsx
 """
 
 import subprocess, sys, os
@@ -37,6 +39,13 @@ def run(script):
         sys.exit(result.returncode)
 
 if __name__ == "__main__":
+    skip_map = "--skip-map" in sys.argv
+
+    if not skip_map:
+        run(SCRIPTS / "build_model2_map.py")
+    else:
+        print("\n[Skipping build_model2_map.py — remove --skip-map to include]")
+
     run(SCRIPTS / "build_cleaned.py")
     run(SCRIPTS / "build_pivots.py")
     run(SCRIPTS / "build_analyst.py")

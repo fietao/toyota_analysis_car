@@ -1,0 +1,4 @@
+interface:
+  display_name: "Spreadsheet Spec Writer"
+  short_description: "Draft spreadsheet build specs"
+  default_prompt: "Use $spreadsheet-spec-writer to write a clear spreadsheet implementation spec from my notes, workbook, or screenshot."

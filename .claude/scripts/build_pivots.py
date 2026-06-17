@@ -84,6 +84,7 @@ def _row_values(row_series, specs):
 
 
 def _write_vals(ws, row, vals, start):
+    #what is enmerate for? it is for getting the index and value of the list at the same time. it is used to write the values in the correct column in the excel sheet.
     for c, v in enumerate(vals, start=start):
         if v is not None:
             ws.write(row, c, v)
@@ -228,7 +229,7 @@ def main():
     print(f"  Cleaned up temp files")
 
     print(f"\nOutput: {OUT_PATH}")
-    print(f"  Sheets: Cleaned Data | master powertrain | BEV Series Name Table | BEV by Model | BEV by Model (2) | BMW")
+    print(f"  Sheets: Data | master powertrain | BEV Series Name Table | BEV by Model | BEV by Model (2) | BMW")
     print("Done.")
 
 

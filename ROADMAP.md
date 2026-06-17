@@ -15,6 +15,8 @@ Last updated: 2026-06-17
 - `analyst_read_workbook.py` — fixed memory leak, large-sheet skip, sort sample size
 - `read_refer_format.py` — extracts format blueprint from reference Model.xlsx
 - Skills: `analyze-workbook`, `analyze-therefer`
+- **`build_model2_map.py` wired into `build_cleaned.py`** — `build_cleaned.py` now loads `refer/model2_map.csv` (if present) and merges it as the primary source for `รุ่นรถ2` mapping; BEV table in Excel is the fallback
+- **ยี่ห้อรถ2 map/sort read from refer1** — brand → ยี่ห้อรถ2 map and sort order now read from E-F rows 0–6 of "master powertrain" sheet in refer1 (hardcoded BRAND2_MAP is fallback); reference table in Cleaned Data sheet (col N-O) also comes from Excel
 
 ---
 
@@ -26,31 +28,31 @@ Last updated: 2026-06-17
 
 ## To Do
 
-### 1. Unblock & verify pipeline
-- [ ] Install pyarrow
-- [ ] Run `build_cleaned.py` → `build_pivots.py` end-to-end
-- [ ] Verify `test_model_1.xlsx` has all 6 sheets: Cleaned Data, master powertrain, BEV Series Name Table, BEV by Model, BEV by Model (2), BMW
+### 1. Generate `model2_map.csv` (prerequisite for รุ่นรถ2)
+- [ ] Run `build_model2_map.py` once — needs Ollama + `qwen3:8b` running locally
+- [ ] Output lands at `refer/model2_map.csv`; every subsequent run is incremental (new months only)
 
-### 2. Resolve Analyst vs Cleaner architecture (discussion first, then code)
-Open questions to answer before touching anything:
+### 2. Unblock & verify pipeline
+- [ ] Install pyarrow
+- [ ] Run `build_cleaned.py` and check console output:
+  - `X ยี่ห้อรถ2 entries from refer1 (E-F rows 0-6)` → brand table read from Excel ✓
+  - `ยี่ห้อรถ2: using hardcoded table` → E-F rows 0-6 were empty; confirm actual row range in refer1 and fix offset
+- [ ] Run `build_cleaned.py` → `build_pivots.py` end-to-end
+- [ ] Verify `test_model_1.xlsx`: Cleaned Data sorted by ยี่ห้อรถ2 in refer1 order, master powertrain matches refer1 E-F exactly
+
+### 3. Resolve Analyst vs Cleaner architecture (discussion first, then code)
+Open questions:
 - Is Analyst read-only (never runs a build script)?
 - Does Analyst own `build_pivots.py` or does Cleaner own everything that writes xlsx?
-- What does "send a brief to Cleaner" look like — a markdown file? a prompt?
 - What triggers the Analyst — manual skill call or step 0 of `run_pipeline.py`?
-- Who owns pivot sheets — Analyst (decides what to build) or Cleaner (executes the build)?
 
 Then redesign:
 - [ ] Analyst: reads raw/refer → analyzes → writes structured brief
 - [ ] Cleaner: reads brief → runs `build_cleaned.py` → runs `build_pivots.py`
 - [ ] Update agent `.md` files accordingly
 
-### 3. Fix `G6 → "G 6"` cosmetic bug
+### 4. Fix `G6 → "G 6"` cosmetic bug
 - [ ] In `build_cleaned.py` normalization: change letter-digit split regex so it only triggers on 3+ digit numbers (not `G6`, `X5`, etc.)
-
-### 4. Decide on `รุ่นรถ2` normalization (`build_model2_map.py`)
-- [ ] Either integrate Python-only normalization into `build_cleaned.py`
-- [ ] Or decide LLM approach (qwen3:8b incremental mapping) is worth it and wire it in
-- [ ] `build_model2_map.py` exists but is not connected to the pipeline yet
 
 ### 5. Full pipeline test
 - [ ] Run `run_pipeline.py` end-to-end
@@ -66,4 +68,4 @@ Then redesign:
 
 - `build_pivots.py` copies sheets via openpyxl `append()` — values only, no cell formatting carried over from xlsxwriter
 - Ollama `qwen3:8b` runs on CPU (~25s/call) because `qwen3:32b` occupies the GPU — slow for large LLM tasks
-- `build_model2_map.py` written but not integrated
+- Brand table row range in refer1 assumed to be E-F rows 0–6 — needs verification on first run
