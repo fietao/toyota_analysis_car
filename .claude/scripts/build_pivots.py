@@ -9,7 +9,7 @@ Steps:
   1. Load df_cleaned from test_model_cleaned.pkl
   2. Filter BEV Major rows and BMW rows
   3. Build pivot sheets: BEV by Model, BEV by Model (2), BMW
-  4. Append sheets to test_model_1.xlsx
+  4. Append BEV Series Name Table + pivot sheets to test_model_1.xlsx
   5. Delete the pickle
 
 Run AFTER build_cleaned.py.
@@ -21,13 +21,15 @@ from pathlib import Path
 import pandas as pd
 import xlsxwriter
 from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-BASE     = Path(__file__).resolve().parents[2]
-PKL_PATH = BASE / "test_model_cleaned.parquet"
-OUT_PATH = BASE / "test_model_1.xlsx"
+BASE         = Path(__file__).resolve().parents[2]
+PKL_PATH     = BASE / "test_model_cleaned.parquet"
+OUT_PATH     = BASE / "test_model_1.xlsx"
+CSV_BEV_PATH = BASE / "refer" / "bev_series_name_table_template_rows.csv"
 
 THAI_MONTHS = {
     1:"มกราคม", 2:"กุมภาพันธ์", 3:"มีนาคม",    4:"เมษายน",
@@ -167,6 +169,45 @@ def _flat_pivot(workbook, df, sheet_name, index_cols, label_names, pt_label, bmw
     print(f"      {sheet_name} done")
 
 
+# ── BEV Series Name Table ─────────────────────────────────────────────────────
+
+def build_bev_series_name_table(wb_main, df_model, oth_df):
+    df_bev = df_model[df_model["Powertrain"].isin(["BEV Major", "BEV"])][
+        ["ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]
+    ].drop_duplicates().rename(columns={"ยี่ห้อรถ2": "Brand"})
+
+    df_table = pd.concat([df_bev, oth_df], ignore_index=True).drop_duplicates()
+    df_table = df_table.sort_values(["Brand", "รุ่นรถ2", "รุ่นรถ"]).reset_index(drop=True)
+
+    ws = wb_main.create_sheet("BEV Series Name Table")
+
+    hdr_font  = Font(bold=True)
+    hdr_fill  = PatternFill("solid", fgColor="BDD7EE")
+    data_font = Font(name="Aptos Narrow", size=11)
+    bold_font = Font(name="Aptos Narrow", size=11, bold=True)
+
+    for col_letter, width in zip("ABCD", [23.63, 42.27, 20.73, 20.73]):
+        ws.column_dimensions[col_letter].width = width
+
+    ws.row_dimensions[1].height = 20.5
+    for col_idx, hdr in enumerate(["Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain"], 1):
+        cell = ws.cell(row=1, column=col_idx, value=hdr)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+
+    for row_idx, row in enumerate(df_table.itertuples(index=False, name=None), start=2):
+        ws.row_dimensions[row_idx].height = 17.5
+        if row[3] == "OTH":
+            ws.row_dimensions[row_idx].hidden = True
+        for col_idx, val in enumerate(row, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.font = bold_font if col_idx == 1 else data_font
+
+    ws.auto_filter.ref = f"A1:D{len(df_table) + 1}"
+    print(f"      BEV Series Name Table done ({len(df_table)} rows, "
+          f"{df_table['Powertrain'].value_counts().to_dict()})")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -188,6 +229,10 @@ def main():
     print(f"  BEV Major rows: {len(bev_data):,}")
     print(f"  BMW rows      : {len(bmw_data):,}")
 
+    df_oth = pd.read_csv(str(CSV_BEV_PATH), encoding="utf-8-sig")
+    oth_df = df_oth[df_oth["Powertrain"] == "OTH"][["Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]].copy()
+    print(f"  OTH seed rows : {len(oth_df)}")
+
     # Write pivot sheets to a temp file, then copy into the main xlsx
     tmp_path = BASE / "_pivots_tmp.xlsx"
     print(f"\nBuilding pivot sheets...", flush=True)
@@ -208,6 +253,8 @@ def main():
     print(f"\nAppending pivot sheets to {OUT_PATH.name}...", flush=True)
     wb_main = load_workbook(str(OUT_PATH))
     wb_tmp  = load_workbook(str(tmp_path))
+
+    build_bev_series_name_table(wb_main, df_model, oth_df)
 
     for sheet_name in wb_tmp.sheetnames:
         ws_src = wb_tmp[sheet_name]

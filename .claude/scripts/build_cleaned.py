@@ -6,11 +6,11 @@ Steps:
   1. Read reference tables from Model.xlsx (powertrain map, BEV series name table)
   2. Read both raw DLT files (fuel + model)
   3. Add derived columns: ยี่ห้อรถ2, รุ่นรถ2, Powertrain
-  4. Write Cleaned Data + master powertrain + BEV Series Name Table sheets
+  4. Write Cleaned Data + master powertrain sheets
   5. Save df_cleaned as pickle for build_pivots.py
 
 Output:
-  test_model_1.xlsx  (Cleaned Data, master powertrain, BEV Series Name Table)
+  test_model_1.xlsx  (Cleaned Data, master powertrain)
   test_model_cleaned.pkl  (intermediate for pivot builder)
 """
 
@@ -89,6 +89,7 @@ def find_file(pattern, label):
     return Path(max(matches, key=os.path.getmtime))
 
 
+# what is kwargs 
 def read_sheet_raw(path, sheet_name, **kwargs):
     try:
         return pd.read_excel(str(path), sheet_name=sheet_name, header=None, **kwargs)
@@ -213,7 +214,12 @@ def build_master_powertrain(workbook, df_fuel, df_template, fmt_h, powertrain_ma
                 fmt = fmt_ef_match                   # E-F row whose fuel type is in A-C summary
             else:
                 fmt = None
-            ws.write(r_idx, c_idx, val, fmt) if fmt else ws.write(r_idx, c_idx, val)
+            if is_grand_total and c_idx == 2:
+                ws.write_formula(r_idx, c_idx, f"=SUM(C8:C{last_data_row + 1})", fmt_h_num)
+            elif fmt:
+                ws.write(r_idx, c_idx, val, fmt)
+            else:
+                ws.write(r_idx, c_idx, val)
 
         val_a = tup[0] if tup else None
         if r_idx >= 7 and not pd.isna(val_a) and str(val_a).strip() != "Grand Total":
@@ -382,15 +388,10 @@ def main():
 
     build_master_powertrain(workbook, df_fuel, df_pt, fmt_h, powertrain_map)
 
-    ws_bev = workbook.add_worksheet("BEV Series Name Table")
-    if not df_bev_tbl.empty:
-        write_rows(ws_bev, df_bev_tbl)
-    print("      BEV Series Name Table done")
-
     workbook.close()
     print(f"\nOutput : {out_file}")
     print(f"  Rows : {len(df_cleaned):,}")
-    print(f"  Sheets: Data | master powertrain | BEV Series Name Table")
+    print(f"  Sheets: Data | master powertrain")
     print("  → Run build_pivots.py to add BEV/BMW sheets")
 
 

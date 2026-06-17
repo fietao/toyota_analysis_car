@@ -40,6 +40,10 @@ Open Questions
 
 Keep each section short and direct. Prefer tables or bullet lists when they reduce ambiguity.
 
+## Formulas Over Hard-Coded Values
+
+Grand Total cells and any other summary/aggregate cells must always be written as Excel formulas (e.g., `=SUM(C8:C20)`), never as hard-coded numbers. The formula range should be derived from the actual data row range at write-time. This ensures the cell stays correct if rows are added or removed, and makes the formula visible and auditable in the formula bar.
+
 ## Rules For Spreadsheet Specs
 
 - Save all generated specifications to the `specs/` directory in the root of the workspace (e.g., `specs/<sheet_name>_spec.md`).

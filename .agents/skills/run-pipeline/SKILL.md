@@ -41,8 +41,8 @@ C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-read
 | Step | Output | Rows |
 |---|---|---|
 | build_model2_map | `refer/model2_map.csv` | 8,358 mappings |
-| build_cleaned | `test_model_1.xlsx` (3 sheets) | 636,333 rows |
-| build_pivots | appends BEV/BMW sheets to `test_model_1.xlsx` | 6 sheets total |
+| build_cleaned | `test_model_1.xlsx` (2 sheets: Data, master powertrain) | 636,333 rows |
+| build_pivots | appends BEV Series Name Table + BEV/BMW sheets to `test_model_1.xlsx` | 6 sheets total |
 | build_analyst | `YYYYMM_รถใหม่_...(analyst).xlsx` | final report |
 
 ## Rules

@@ -6,7 +6,7 @@
 # Generated pipeline outputs
 *.parquet
 scratch/
-planbreadown_eachsheet_eachfile
+specs/plan_breakdown.txt
 
 # Python
 __pycache__/
