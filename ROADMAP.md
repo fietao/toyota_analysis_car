@@ -1,6 +1,6 @@
 # Project Roadmap
 
-Last updated: 2026-06-17
+Last updated: 2026-06-17 (session 2)
 
 ---
 
@@ -17,30 +17,18 @@ Last updated: 2026-06-17
 - Skills: `analyze-workbook`, `analyze-therefer`
 - **`build_model2_map.py` wired into `build_cleaned.py`** — `build_cleaned.py` now loads `refer/model2_map.csv` (if present) and merges it as the primary source for `รุ่นรถ2` mapping; BEV table in Excel is the fallback
 - **ยี่ห้อรถ2 map/sort read from refer1** — brand → ยี่ห้อรถ2 map and sort order now read from E-F rows 0–6 of "master powertrain" sheet in refer1 (hardcoded BRAND2_MAP is fallback); reference table in Cleaned Data sheet (col N-O) also comes from Excel
-
----
-
-## Blocked (fix first)
-
-- [ ] **`pyarrow` not installed** — `build_cleaned.py` crashes on `to_parquet()`. Run `pip install pyarrow` in the correct venv before anything else.
+- **pyarrow unblocked** — installed; pipeline runs successfully end-to-end (636,333 rows)
+- **`build_model2_map.py` run** — `refer/model2_map.csv` exists with 8,358 mappings; confirmed wired into `build_cleaned.py`
+- **master powertrain source-of-truth fix** — sheet now copied as-is from `*- Model.xlsx` template (not recomputed from raw data); Grand Total matches hand-calculated reference (14,601,983)
+- **master powertrain formatting** — header row (A-C + E-F) highlighted blue bold; E-F rows whose fuel type appears in A-C summary are bold + light blue (`#BDD7EE`); Grand Total row fully highlighted; `(blank)` and `ไม่ใช้เชื้อเพลิง` Powertrain → `N/A`; `keep_default_na=False` preserves `N/A` strings from template
+- **master powertrain col C comma format** — all numeric totals (data rows + Grand Total) use `#,##0` thousands-separator format
+- **Status line configured** — persistent bar showing repo | model | ctx% | 5h% via `~/.claude/statusline-command.sh`
 
 ---
 
 ## To Do
 
-### 1. Generate `model2_map.csv` (prerequisite for รุ่นรถ2)
-- [ ] Run `build_model2_map.py` once — needs Ollama + `qwen3:8b` running locally
-- [ ] Output lands at `refer/model2_map.csv`; every subsequent run is incremental (new months only)
-
-### 2. Unblock & verify pipeline
-- [ ] Install pyarrow
-- [ ] Run `build_cleaned.py` and check console output:
-  - `X ยี่ห้อรถ2 entries from refer1 (E-F rows 0-6)` → brand table read from Excel ✓
-  - `ยี่ห้อรถ2: using hardcoded table` → E-F rows 0-6 were empty; confirm actual row range in refer1 and fix offset
-- [ ] Run `build_cleaned.py` → `build_pivots.py` end-to-end
-- [ ] Verify `test_model_1.xlsx`: Cleaned Data sorted by ยี่ห้อรถ2 in refer1 order, master powertrain matches refer1 E-F exactly
-
-### 3. Resolve Analyst vs Cleaner architecture (discussion first, then code)
+### 1. Resolve Analyst vs Cleaner architecture (discussion first, then code)
 Open questions:
 - Is Analyst read-only (never runs a build script)?
 - Does Analyst own `build_pivots.py` or does Cleaner own everything that writes xlsx?
@@ -51,15 +39,15 @@ Then redesign:
 - [ ] Cleaner: reads brief → runs `build_cleaned.py` → runs `build_pivots.py`
 - [ ] Update agent `.md` files accordingly
 
-### 4. Fix `G6 → "G 6"` cosmetic bug
+### 2. Fix `G6 → "G 6"` cosmetic bug
 - [ ] In `build_cleaned.py` normalization: change letter-digit split regex so it only triggers on 3+ digit numbers (not `G6`, `X5`, etc.)
 
-### 5. Full pipeline test
+### 3. Full pipeline test
 - [ ] Run `run_pipeline.py` end-to-end
 - [ ] Verify `test_model_1.xlsx` → `build_analyst.py` → analyst xlsx looks correct
 - [ ] Check pivot sheet formatting (openpyxl copy only copies values, not styles — may need fix)
 
-### 6. Clean up `build_model.py`
+### 4. Clean up `build_model.py`
 - [ ] Nothing calls it anymore — delete or archive once pipeline is verified working
 
 ---
@@ -68,4 +56,3 @@ Then redesign:
 
 - `build_pivots.py` copies sheets via openpyxl `append()` — values only, no cell formatting carried over from xlsxwriter
 - Ollama `qwen3:8b` runs on CPU (~25s/call) because `qwen3:32b` occupies the GPU — slow for large LLM tasks
-- Brand table row range in refer1 assumed to be E-F rows 0–6 — needs verification on first run
