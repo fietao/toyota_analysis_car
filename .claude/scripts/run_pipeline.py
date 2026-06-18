@@ -47,6 +47,6 @@ if __name__ == "__main__":
         print("\n[Skipping build_model2_map.py — remove --skip-map to include]")
 
     run(SCRIPTS / "build_cleaned.py")
-    run(SCRIPTS / "build_pivots.py")
-    run(SCRIPTS / "build_analyst.py")
+    run(SCRIPTS / "model" / "build_BEV.py")
+    run(SCRIPTS / "calculation" / "build_analyst.py")
     print("\n\nPipeline complete.")

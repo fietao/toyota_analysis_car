@@ -302,7 +302,7 @@ def build_reg_powertrain(wb, df, prev_year, curr_year, prev_prev_year, curr_mont
         write_data_row(ws, data_row, [pt], vals)
         data_row += 1
 
-    # Secondary section: Jan-CurrMonth YoY vs prev_prev_year
+    # Secondary section: Jan-May share of Full Year
     data_row += 1
     labels_sec = ["Grand Total"] + pts
     all_sec = [grand_c] + [row_c(pt) for pt in pts]
@@ -434,35 +434,26 @@ def build_rank_bev_model(wb, bev, prev_year, curr_year, curr_months, fmt_h):
 
 # ── Copy sheets from source workbook ─────────────────────────────────────────
 def copy_sheet_raw(src_path, sheet_name, wb_out, out_name=None):
-    """Copy a sheet cell-by-cell (values only) into wb_out."""
-    import openpyxl
+    """Copy a sheet into wb_out."""
     out_name = out_name or sheet_name
-    wb_src = openpyxl.load_workbook(src_path, read_only=True, data_only=True)
-    if sheet_name not in wb_src.sheetnames:
+    try:
+        df = pd.read_excel(src_path, sheet_name=sheet_name, header=None)
+    except ValueError:
         print(f"      Warning: sheet '{sheet_name}' not found in {Path(src_path).name}")
-        wb_src.close(); return
-    ws_src = wb_src[sheet_name]
+        return
     ws_dst = wb_out.add_worksheet(out_name)
-    for r_idx, row in enumerate(ws_src.iter_rows(values_only=True)):
-        for c_idx, val in enumerate(row):
-            if val is not None:
-                ws_dst.write(r_idx, c_idx, val)
-    wb_src.close()
+    for r_idx, row in enumerate(df.itertuples(index=False)):
+        ws_dst.write_row(r_idx, 0, [v if pd.notna(v) else None for v in row])
     print(f"      {out_name} copied")
 
 
 # ── Copy Cleaned Data rows ────────────────────────────────────────────────────
 def copy_cleaned_data(cleaned_path, wb_out, df_raw):
     """Write Data sheet from the cleaned DataFrame."""
-    import openpyxl
-    wb_src = openpyxl.load_workbook(cleaned_path, read_only=True, data_only=True)
-    ws_src = wb_src["Data"]
+    df = pd.read_excel(cleaned_path, sheet_name="Data", header=None)
     ws_dst = wb_out.add_worksheet("Data")
-    for r_idx, row in enumerate(ws_src.iter_rows(values_only=True)):
-        for c_idx, val in enumerate(row):
-            if val is not None:
-                ws_dst.write(r_idx, c_idx, val)
-    wb_src.close()
+    for r_idx, row in enumerate(df.itertuples(index=False)):
+        ws_dst.write_row(r_idx, 0, [v if pd.notna(v) else None for v in row])
     print("      Data copied")
 
 
@@ -488,7 +479,7 @@ def main():
 
     # ── 1. Load Cleaned Data ──────────────────────────────────────────────────
     print("\n[1/4] Loading Cleaned Data...", flush=True)
-    df_raw = pd.read_excel(str(CLEANED_FILE), sheet_name="Data", header=5)
+    df_raw = pd.read_excel(str(CLEANED_FILE), sheet_name="Data", header=0)
     df_raw["จำนวนรถ"] = pd.to_numeric(df_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df_raw["ปี"]      = pd.to_numeric(df_raw["ปี"],      errors="coerce").dropna().astype(int)
     df_raw = df_raw.dropna(subset=["ปี"]).copy()
@@ -504,16 +495,9 @@ def main():
     curr_month = curr_months[-1]
     print(f"      Years: prev={prev_year}, curr={curr_year}, curr_months={curr_months}")
 
-    # ── 2. Load BEV Major from model Data sheet ───────────────────────────────
+    # ── 2. Load BEV Major from Cleaned Data ───────────────────────────────
     print("\n[2/4] Loading BEV Major data...", flush=True)
-    df_model_data = pd.read_excel(str(model_file), sheet_name="Data", header=6,
-                                   usecols=range(10))
-    df_model_data.columns = ["ปี","เดือน","ประเภทรถ","จังหวัด","ยี่ห้อรถ",
-                              "ยี่ห้อรถ2","รุ่นรถ","รุ่นรถ2","Powertrain","จำนวนรถ"]
-    df_model_data = df_model_data.dropna(subset=["ปี"]).copy()
-    df_model_data["ปี"]      = df_model_data["ปี"].astype(int)
-    df_model_data["จำนวนรถ"] = pd.to_numeric(df_model_data["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
-    bev = filter_ry(df_model_data[df_model_data["Powertrain"] == "BEV Major"])
+    bev = filter_ry(df_raw[df_raw["Powertrain"] == "BEV Major"].copy())
     print(f"      BEV Major rows: {len(bev):,}")
 
     # ── 3. Build output file ──────────────────────────────────────────────────
@@ -536,9 +520,9 @@ def main():
 
     # ── 4. Copy reference sheets ──────────────────────────────────────────────
     print("\n[4/4] Copying reference sheets...", flush=True)
+    copy_sheet_raw(str(CLEANED_FILE), "master powertrain",     wb)
+    copy_sheet_raw(str(CLEANED_FILE), "BEV Series Name Table", wb)
     copy_cleaned_data(str(CLEANED_FILE), wb, df_raw)
-    copy_sheet_raw(str(model_file), "master powertrain",     wb)
-    copy_sheet_raw(str(model_file), "BEV Series Name Table", wb)
 
     wb.close()
     print(f"\nOutput: {out_file.name}")
@@ -555,3 +539,5 @@ def _get_year_info(df):
 
 if __name__ == "__main__":
     main()
+
+

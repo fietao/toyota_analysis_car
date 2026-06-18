@@ -19,7 +19,6 @@ from datetime import date
 from pathlib import Path
 
 import pandas as pd
-import xlsxwriter
 from openpyxl import load_workbook
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -35,6 +34,7 @@ BASE = Path(__file__).resolve().parents[2]
 RAW1_PATTERN  = str(BASE / "raw data" / "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx")
 RAW2_PATTERN  = str(BASE / "raw data" / "รถใหม่_ยี่ห้อรถ-รุ่นรถ-จังหวัด ปี 2564*.xlsx")
 MODEL_PATTERN = str(BASE / "refer" / "*- Model.xlsx")
+CALC_PATTERN  = str(BASE / "refer" / "*(calculation).xlsx")
 
 BRAND2_MAP = {
     "GWM TANK":             "GWM",
@@ -168,66 +168,6 @@ def sort_cleaned_data(df, brand2_order=None):
     return out.drop(columns=["_month_sort", "_source_sort", "_brand2_sort"], errors="ignore")
 
 
-# ── Sheet builders ────────────────────────────────────────────────────────────
-
-def build_master_powertrain(workbook, df_fuel, df_template, fmt_h, powertrain_map):
-    ws = workbook.add_worksheet("master powertrain")
-
-    fmt_ef_match = workbook.add_format({"bold": True, "bg_color": "#BDD7EE"})
-    fmt_num      = workbook.add_format({"num_format": "#,##0"})
-    fmt_h_num    = workbook.add_format({"bold": True, "bg_color": "#4472C4", "font_color": "#FFFFFF",
-                                        "border": 1, "align": "center", "valign": "vcenter",
-                                        "num_format": "#,##0"})
-
-    # Collect fuel types present in the A-C summary (col A, rows 7+)
-    ac_fuels = set()
-    for r_idx, tup in enumerate(df_template.itertuples(index=False, name=None)):
-        if r_idx >= 7:
-            val_a = tup[0] if tup else None
-            if not pd.isna(val_a) and str(val_a).strip() != "Grand Total":
-                ac_fuels.add(str(val_a).strip())
-
-    last_data_row = 6
-    for r_idx, tup in enumerate(df_template.itertuples(index=False, name=None)):
-        val_a = tup[0] if tup else None
-        val_e = tup[4] if len(tup) > 4 else None
-        is_grand_total = not pd.isna(val_a) and str(val_a).strip() == "Grand Total"
-        ef_matches_ac  = r_idx >= 7 and not pd.isna(val_e) and str(val_e).strip() in ac_fuels
-
-        for c_idx, val in enumerate(tup):
-            if pd.isna(val):
-                continue
-            # Replace any (blank) in the Powertrain column (B) with N/A
-            if c_idx == 1 and str(val).strip() == "(blank)":
-                val = "N/A"
-            if r_idx == 5 and c_idx == 0:
-                fmt = fmt_h                          # "Sum of จำนวนรถ" title
-            elif r_idx == 6 and c_idx in (0, 1, 2, 4, 5):
-                fmt = fmt_h                          # header row — both A-C and E-F
-            elif is_grand_total and c_idx in (0, 1):
-                fmt = fmt_h                          # Grand Total — label cols
-            elif is_grand_total and c_idx == 2:
-                fmt = fmt_h_num                      # Grand Total — numeric total with comma
-            elif c_idx == 2 and r_idx >= 7:
-                fmt = fmt_num                        # data rows — numeric total with comma
-            elif c_idx in (4, 5) and ef_matches_ac:
-                fmt = fmt_ef_match                   # E-F row whose fuel type is in A-C summary
-            else:
-                fmt = None
-            if is_grand_total and c_idx == 2:
-                ws.write_formula(r_idx, c_idx, f"=SUM(C8:C{last_data_row + 1})", fmt_h_num)
-            elif fmt:
-                ws.write(r_idx, c_idx, val, fmt)
-            else:
-                ws.write(r_idx, c_idx, val)
-
-        val_a = tup[0] if tup else None
-        if r_idx >= 7 and not pd.isna(val_a) and str(val_a).strip() != "Grand Total":
-            last_data_row = r_idx
-
-    ws.autofilter(6, 0, last_data_row, 2)
-    print("      master powertrain done")
-
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -235,10 +175,12 @@ def main():
     raw1_file  = find_file(RAW1_PATTERN,  "fuel raw data")
     raw2_file  = find_file(RAW2_PATTERN,  "model raw data")
     model_file = find_file(MODEL_PATTERN, "Model template")
+    calc_file  = find_file(CALC_PATTERN,  "Calculation template")
 
     print(f"Raw 1 (Fuel) : {raw1_file.name}")
     print(f"Raw 2 (Model): {raw2_file.name}")
     print(f"Model Temp   : {model_file.name}")
+    print(f"Calc Temp    : {calc_file.name}")
 
     # 1. Reference tables
     print("\n[1/4] Reading reference tables...", flush=True)
@@ -329,70 +271,35 @@ def main():
     df_cleaned.to_parquet(str(pq_path), index=False)
     print(f"      Saved intermediate: {pq_path.name}")
 
-    # 4. Write output xlsx (cleaned sheets only)
+    # 4. Write output xlsx (preserve formatting from template)
     out_file = BASE / "test_model_1.xlsx"
-    print(f"\n[4/4] Writing {out_file.name}...", flush=True)
-    workbook = xlsxwriter.Workbook(str(out_file))
-
-    fmt_h         = workbook.add_format({"bold": True, "bg_color": "#4472C4",
-                                         "font_color": "#FFFFFF", "border": 1,
-                                         "align": "center", "valign": "vcenter"})
-    fmt_title     = workbook.add_format({"bold": True, "font_size": 12})
-    fmt_bold_blue = workbook.add_format({"bold": True, "font_color": "#4472C4"})
-    fmt_warn      = workbook.add_format({"bold": True, "bg_color": "#FFF2CC",
-                                         "font_color": "#9C6500"})
-
-    # Data
-    ws = workbook.add_worksheet("Data")
-    DATA_ROW = 5
-
-    max_yr    = int(df_cleaned["ปี"].max())
-    end_month = [m for m in MONTH_ORDER
-                 if m in df_cleaned[df_cleaned["ปี"] == max_yr]["เดือน"].unique()][-1]
-    today     = date.today()
-    proc_mon  = THAI_MONTHS.get(today.month, "")
-    proc_yr   = today.year + 543
-
-    ws.write(0, 0, "สถิติการจดทะเบียนรถใหม่ ตามกฎหมายว่าด้วยรถยนต์ จำแนกตามยี่ห้อรถ ชนิดเชื้อเพลิง และจังหวัด", fmt_title)
-    ws.write(1, 0, f"เดือนมกราคม ปี พ.ศ. 2564 - เดือน{end_month} ปี พ.ศ. {max_yr}")
-    ws.write(2, 0, "หน่วย: คัน")
-    ws.write(3, 0, f"ประมวลผลข้อมูล วันที่ {today.day} เดือน{proc_mon} ปี พ.ศ. {proc_yr}")
-    ws.write(4, 0, "หมายเหตุ: นับเฉพาะรถใหม่ ไม่รวมรถที่ใช้แล้วนำกลับมาจดทะเบียนใหม่")
-
-    for r, (b1, b2) in enumerate(brand2_table):
-        ws.write(r, 13, b1, fmt_h if r == 0 else None)
-        ws.write(r, 14, b2, fmt_h if r == 0 else None)
-
-    total = len(df_cleaned)
-    for i in range(0, total, 10000):
-        chunk = df_cleaned.iloc[i:i+10000]
-        for r_idx, row in enumerate(chunk.itertuples(index=False, name=None), start=DATA_ROW + 1 + i):
-            for c_idx, val in enumerate(row):
-                if not pd.isna(val):
-                    ws.write(r_idx, c_idx, val)
-        print(f"      Written {min(i+10000, total):,} / {total:,} rows...", flush=True)
-
-    ws.add_table(DATA_ROW, 0, DATA_ROW + total, len(df_cleaned.columns) - 1, {
-        "style": "Table Style Medium 2",
-        "columns": [{"header": c, "header_format": fmt_h} for c in df_cleaned.columns],
-    })
-    col_widths = {"ปี": 8, "เดือน": 12, "ประเภทรถ": 35, "จังหวัด": 20,
-                  "ยี่ห้อรถ": 20, "ยี่ห้อรถ2": 20, "รุ่นรถ": 28, "รุ่นรถ2": 25,
-                  "ชนิดเชื้อเพลิง": 25, "Powertrain": 15, "จำนวนรถ": 12}
-    for i, col in enumerate(df_cleaned.columns):
-        if col in col_widths:
-            ws.set_column(i, i, col_widths[col])
-    ws.set_column(13, 14, 18)
-    print("      Data done")
+    import shutil
+    print(f"\n[4/4] Copying template and replacing data in {out_file.name}...", flush=True)
     
+    # Copy the model template (preserves all Pivot Tables, charts, formatting)
+    shutil.copy2(model_file, out_file)
 
-    build_master_powertrain(workbook, df_fuel, df_pt, fmt_h, powertrain_map)
+    # Copy the calculation template for Stage 3 (build_analyst.py)
+    calc_out = BASE / "test_calculation.xlsx"
+    shutil.copy2(calc_file, calc_out)
+    print(f"      Calculation template copied → {calc_out.name}")
 
-    workbook.close()
+    print("      Writing new Data sheet (this may take a few minutes)...")
+    # Use pandas to replace the Data sheet. This preserves the rest of the workbook.
+    with pd.ExcelWriter(out_file, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+        df_cleaned.to_excel(writer, sheet_name="Data", index=False)
+        print("      Data sheet replaced successfully.")
+
+    # Write cleaned data (without Powertrain column) into the calculation template
+    df_calc = df_cleaned.drop(columns=["Powertrain"], errors="ignore")
+    with pd.ExcelWriter(calc_out, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+        df_calc.to_excel(writer, sheet_name="Data", index=False)
+        print("      Calculation Data sheet replaced (Powertrain column removed).")
+
     print(f"\nOutput : {out_file}")
+    print(f"         {calc_out.name}")
     print(f"  Rows : {len(df_cleaned):,}")
-    print(f"  Sheets: Data | master powertrain")
-    print("  → Run build_pivots.py to add BEV/BMW sheets")
+    print("  → Data sheet replaced. All original template sheets, pivots, and charts are preserved.")
 
 
 if __name__ == "__main__":

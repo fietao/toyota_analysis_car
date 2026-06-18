@@ -110,6 +110,77 @@ Every spec must end with checks such as:
 - No unexpected blanks in key columns.
 - Known sample records map correctly.
 
+## Why Specs Get Ignored — And How To Prevent It
+
+Agents drift from specs for these predictable reasons. Address each one while writing:
+
+### 1. No MUST / MUST NOT signal
+Agents treat everything as a suggestion unless you mark priority. Use:
+- `MUST` — non-negotiable; fail the implementation if missing
+- `MUST NOT` — explicitly forbidden; list the wrong thing the agent will naturally do
+- `SHOULD` — default behavior unless the user overrides
+- `MAY` — optional
+
+Example:
+```
+B1 MUST contain the static text "(Multiple Items)".
+B1 MUST NOT contain a comma-separated list of car types.
+```
+
+### 2. Visual description without machine-readable equivalent
+"Grey column" tells a human what to see. It does not tell code what to write.
+Every color, border, font, or fill in the spec MUST include the exact hex value and the property name.
+
+Example:
+```
+Year-total and Grand Total columns: fill=solid, fgColor=#D9D9D9 (grey).
+NOT: "make it grey".
+```
+
+### 3. No negative examples
+Agents fill gaps with plausible-looking wrong behavior. For every non-obvious requirement, add a "DO NOT" line that names the thing the agent will naturally do wrong.
+
+Example:
+```
+Grand Total row: MUST always exist as the last row. MUST NOT be omitted when data is empty.
+Grey fill: MUST cover the header row AND all data rows below. MUST NOT apply only to data rows.
+```
+
+### 4. No verification gate in the spec
+Verification checks that are vague (e.g., "totals reconcile") get skipped. Write checks the implementation agent can run deterministically:
+
+```
+CHECK: cell A{last_row} == "Grand Total"
+CHECK: fill of N6 == #D9D9D9
+CHECK: fill of N{last_row} == #D9D9D9
+CHECK: len(unique fills in column N data rows) == 1 and that fill == #D9D9D9
+```
+
+### 5. Spec not referenced at implementation time
+Agents re-derive requirements from memory rather than reading the spec. The spec MUST include this line at the top of every spec file:
+
+```
+IMPLEMENTATION NOTE: Read this spec completely before writing any code.
+After each section is implemented, tick the verification check for that section.
+```
+
+### 6. No anti-pattern section
+Document the specific wrong behaviors that were previously produced. Agents learn from negative examples as well as positive ones.
+
+```
+## Anti-Patterns (Previous Wrong Implementations)
+- B1 showed "BEV Major, BEV, OTH" — this is wrong; it must be "(Multiple Items)"
+- Grand Total row was missing — it must always be written, even if all values are 0
+- Year-total column header row was blue — it must be grey (#D9D9D9) same as data rows
+```
+
+## Color Reference From Refer Sheet
+
+When a `refer/` Excel workbook exists, always read actual cell fill colors from it — do not guess or hardcode hex values.
+- Open the refer workbook and read the `fgColor` of the target cell.
+- Record colors as hex `#RRGGBB` (from `refer/<filename>`, sheet `<sheetname>`, cell `<ref>`)
+- If no refer sheet exists, document as `unknown` and list under Open Questions for the user to confirm visually.
+
 ## Tone
 
 Write as a handoff to an implementation agent. Be plain, calm, and explicit. If the user is still exploring, call it a draft spec and list the questions that would make it final.
