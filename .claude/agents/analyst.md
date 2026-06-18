@@ -44,6 +44,7 @@ if (-not $py) { $py = (Get-ChildItem "C:\Users\*\AppData\Local\Programs\Python\P
 ## ขั้นตอน: build_pivots.py (รันโดยตรง หรือผ่าน run_pipeline.py)
 
 build_pivots.py อ่าน `test_model_cleaned.parquet` (จาก build_cleaned.py) แล้ว append sheets:
+- **BEV Series Name Table** — unique Brand × รุ่นรถ × รุ่นรถ2 × Powertrain; OTH rows hidden; seed from `refer/bev_series_name_table_template_rows.csv`
 - **BEV by Model** — brand hierarchy pivot, BEV Major rows, last 2 years
 - **BEV by Model (2)** — flat pivot by รุ่นรถ2 × ยี่ห้อรถ2
 - **BMW** — all BMW rows, previous years collapsed to YTD

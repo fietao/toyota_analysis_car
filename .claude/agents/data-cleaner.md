@@ -25,8 +25,8 @@ Local skills live in `.claude/agents/data-cleaner/skills`.
 
 **Pipeline ของ Data Cleaner (`build_cleaned.py`) ทำ 4 ขั้นตอน:**
 1. อ่าน "master powertrain" sheet → build powertrain map (คอลัมน์ 4-5 ตั้งแต่ row 7)
-2. อ่าน raw data → เพิ่มคอลัมน์ `ยี่ห้อรถ2` และ `Powertrain` → เขียน **Cleaned Data** sheet
-3. Copy **master powertrain** และ **BEV Series Name Table** ทับลงใน output
+2. อ่าน raw data → เพิ่มคอลัมน์ `ยี่ห้อรถ2` และ `Powertrain` → เขียน **Data** sheet
+3. Copy **master powertrain** sheet จาก template ทับลงใน output
 4. บันทึก intermediate data เป็น `test_model_cleaned.parquet` (สำหรับ build_pivots.py)
 
 **Pivot sheets** (BEV by Model, BEV by Model (2), BMW) สร้างโดย `build_pivots.py` — เป็นงานของ **Analyst Agent**
