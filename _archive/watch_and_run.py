@@ -18,6 +18,11 @@ OUTPUT_DIR = BASE / "output"
 RAW_DIR = BASE / "raw data"
 PIPELINE_SCRIPT = BASE / ".claude" / "scripts" / "run_pipeline.py"
 
+RAW_PATTERNS = [
+    "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx",
+    "รถใหม่_ยี่ห้อรถ-รุ่นรถ-จังหวัด ปี 2564*.xlsx",
+]
+
 # Ensure directories exist
 INPUT_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -34,8 +39,14 @@ class ExcelHandler(FileSystemEventHandler):
             # Wait for file to finish copying
             time.sleep(2)
             
-            # Move the file to raw data directory
+            # Move the file to raw data directory (delete old matching file first)
             try:
+                for pattern in RAW_PATTERNS:
+                    for old_file in RAW_DIR.glob(pattern):
+                        if old_file.name != filepath.name:
+                            old_file.unlink()
+                            print(f"[Watcher] Deleted old file: {old_file.name}")
+
                 dest = RAW_DIR / filepath.name
                 shutil.move(str(filepath), str(dest))
                 print(f"[Watcher] Moved to raw data folder.")

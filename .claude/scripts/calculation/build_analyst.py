@@ -6,10 +6,10 @@ Input:  test_model_1.xlsx  (Cleaned Data sheet)
 Output: YYYYMM_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - เดือนXXXX(test analyst).xlsx
 """
 
-import glob, sys, os
+import glob, sys, os, shutil
 from pathlib import Path
 import pandas as pd
-import xlsxwriter
+from openpyxl import load_workbook
 
 def _find_root():
     p = Path(__file__).resolve()
@@ -18,9 +18,12 @@ def _find_root():
             return parent
     raise RuntimeError("Could not find project root (no CLAUDE.md)")
 
-BASE          = _find_root()
-MODEL_PATTERN = str(BASE / "refer" / "*- Model.xlsx")
-CLEANED_FILE  = BASE / "test_model_1.xlsx"
+BASE         = _find_root()
+CLEANED_FILE = BASE / "test_fuel_cleaned.parquet"
+
+# Find master Cal in root, fallback to test_calculation.xlsx
+_calc_matches = [p for p in glob.glob(str(BASE / "*(master cal).xlsx")) if "~$" not in p]
+CALC_FILE    = Path(_calc_matches[0]) if _calc_matches else BASE / "test_calculation.xlsx"
 
 THAI_MONTHS = {
     1:"มกราคม", 2:"กุมภาพันธ์", 3:"มีนาคม",    4:"เมษายน",
@@ -467,19 +470,70 @@ def make_output_name(prev_year, curr_year, curr_months):
     return BASE / f"{prefix}_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - {end_month_en} {curr_year}(test analyst).xlsx"
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ── Data sort (mirrors build_cleaned.sort_cleaned_data, no brand2_order) ──────
+def _sort_data(df):
+    out = df.copy()
+    month_rank = {m: i for i, m in enumerate(MONTH_ORDER, 1)}
+    if "เดือน" in out.columns:
+        out["_month_sort"] = out["เดือน"].map(month_rank).fillna(99)
+    else:
+        out["_month_sort"] = 99
+    out["_source_sort"] = out["รุ่นรถ"].notna().astype(int) if "รุ่นรถ" in out.columns else 0
+    sort_cols = ["ปี", "_month_sort", "ประเภทรถ", "จังหวัด",
+                 "ยี่ห้อรถ2", "ยี่ห้อรถ", "_source_sort",
+                 "ชนิดเชื้อเพลิง", "รุ่นรถ2", "รุ่นรถ"]
+    sort_cols = [c for c in sort_cols if c in out.columns]
+    out = out.sort_values(sort_cols, kind="mergesort", na_position="last")
+    return out.drop(columns=["_month_sort", "_source_sort"], errors="ignore")
+
+
+def enable_pivot_refresh(wb):
+    """Set refreshOnLoad to True for all pivot tables in the workbook."""
+    try:
+        for ws in wb.worksheets:
+            for pivot in ws._pivots:
+                if pivot.cache:
+                    pivot.cache.refreshOnLoad = True
+    except Exception as e:
+        print(f"  Warning: Could not set refreshOnLoad on pivots: {e}")
+
+
+def write_calculation_data_sheet(path, df):
+    """Replace the calculation data sheet while keeping metadata rows 1-5 intact."""
+    meta_df = pd.read_excel(str(path), sheet_name="Data", nrows=5, header=None)
+    cols = [
+        "ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ", "ยี่ห้อรถ2",
+        "ชนิดเชื้อเพลิง", "Powertrain", "จำนวนรถ",
+    ]
+    df_out = df[[c for c in cols if c in df.columns]].copy()
+    with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+        meta_df.to_excel(writer, sheet_name="Data", index=False, header=False)
+        df_out.to_excel(writer, sheet_name="Data", index=False, startrow=5)
+
+    wb = load_workbook(str(path))
+    enable_pivot_refresh(wb)
+    try:
+        wb.calculation.fullCalcOnLoad = True
+        wb.calculation.forceFullCalc = True
+    except AttributeError:
+        pass
+    wb.save(str(path))
+    wb.close()
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
-
     if not CLEANED_FILE.exists():
-        print(f"ERROR: {CLEANED_FILE.name} not found — run /create-model-report first"); sys.exit(1)
-    model_file = find_file(MODEL_PATTERN, "Model template")
+        print(f"ERROR: {CLEANED_FILE.name} not found.")
+        sys.exit(1)
+    if not CALC_FILE.exists():
+        print(f"ERROR: {CALC_FILE.name} not found — run build_cleaned.py first")
+        sys.exit(1)
     print(f"Cleaned : {CLEANED_FILE.name}")
-    print(f"Model   : {model_file.name}")
+    print(f"Calc    : {CALC_FILE.name}")
 
-    # ── 1. Load Cleaned Data ──────────────────────────────────────────────────
-    print("\n[1/4] Loading Cleaned Data...", flush=True)
-    df_raw = pd.read_excel(str(CLEANED_FILE), sheet_name="Data", header=0)
+    # 1. Load Data
+    print("Loading cleaned fuel data...", flush=True)
+    df_raw = pd.read_parquet(str(CLEANED_FILE))
     df_raw["จำนวนรถ"] = pd.to_numeric(df_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df_raw["ปี"]      = pd.to_numeric(df_raw["ปี"],      errors="coerce").dropna().astype(int)
     df_raw = df_raw.dropna(subset=["ปี"]).copy()
@@ -495,36 +549,26 @@ def main():
     curr_month = curr_months[-1]
     print(f"      Years: prev={prev_year}, curr={curr_year}, curr_months={curr_months}")
 
-    # ── 2. Load BEV Major from Cleaned Data ───────────────────────────────
+    # ── 2. Load BEV Major from Model Data ───────────────────────────────
     print("\n[2/4] Loading BEV Major data...", flush=True)
-    bev = filter_ry(df_raw[df_raw["Powertrain"] == "BEV Major"].copy())
+    MODEL_FILE = BASE / "test_model_cleaned.parquet"
+    if not MODEL_FILE.exists():
+        print(f"ERROR: {MODEL_FILE.name} not found.")
+        sys.exit(1)
+    df_model_raw = pd.read_parquet(str(MODEL_FILE))
+    df_model_raw["จำนวนรถ"] = pd.to_numeric(df_model_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
+    df_model_raw["ปี"]      = pd.to_numeric(df_model_raw["ปี"],      errors="coerce").dropna().astype(int)
+    bev = filter_ry(df_model_raw[df_model_raw["Powertrain"] == "BEV Major"].copy())
     print(f"      BEV Major rows: {len(bev):,}")
 
-    # ── 3. Build output file ──────────────────────────────────────────────────
     out_file = make_output_name(prev_year, curr_year, curr_months)
-    print(f"\n[3/4] Writing {out_file.name}...", flush=True)
+    print(f"\n[3/4] Copying calculation template → {out_file.name}...", flush=True)
+    shutil.copy2(str(CALC_FILE), str(out_file))
 
-    wb  = xlsxwriter.Workbook(str(out_file))
-    fmh = wb.add_format({"bold": True, "bg_color": "#4472C4", "font_color": "#FFFFFF",
-                          "border": 1, "align": "center", "valign": "vcenter"})
+    print("\n[4/4] Refreshing template Data sheet...", flush=True)
+    write_calculation_data_sheet(out_file, _sort_data(df_raw))
+    print("      Data sheet updated; calculation sheets preserved.")
 
-    build_pivot(wb, df, prev_year, curr_year, curr_months, fmh)
-    build_reg_powertrain(wb, df, prev_year, curr_year, prev_prev_year, curr_months, fmh)
-    build_brand_sheet(wb, df, "2.Rank by Brand",   "Registration by Brand",     "ALL",  prev_year, curr_year, curr_months, fmh, "rank")
-    build_brand_sheet(wb, df, "3.ICE by Brand",    "ICE Registration by Brand", "ICE",  prev_year, curr_year, curr_months, fmh, "brand_pt")
-    build_brand_sheet(wb, df, "4.BEV by Brand",    "BEV Registration by Brand", "BEV",  prev_year, curr_year, curr_months, fmh, "brand_pt")
-    build_brand_sheet(wb, df, "5.HEV by Brand",    "HEV Registration by Brand", "HEV",  prev_year, curr_year, curr_months, fmh, "brand_pt")
-    build_brand_sheet(wb, df, "6.PHEV by Brand",   "PHEV Registration by Brand","PHEV", prev_year, curr_year, curr_months, fmh, "brand_pt")
-    build_bev_by_model(wb, bev, prev_year, curr_year, curr_months, fmh)
-    build_rank_bev_model(wb, bev, prev_year, curr_year, curr_months, fmh)
-
-    # ── 4. Copy reference sheets ──────────────────────────────────────────────
-    print("\n[4/4] Copying reference sheets...", flush=True)
-    copy_sheet_raw(str(CLEANED_FILE), "master powertrain",     wb)
-    copy_sheet_raw(str(CLEANED_FILE), "BEV Series Name Table", wb)
-    copy_cleaned_data(str(CLEANED_FILE), wb, df_raw)
-
-    wb.close()
     print(f"\nOutput: {out_file.name}")
 
 
@@ -539,5 +583,3 @@ def _get_year_info(df):
 
 if __name__ == "__main__":
     main()
-
-

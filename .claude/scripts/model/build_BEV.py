@@ -16,6 +16,7 @@ Run AFTER build_cleaned.py.
 """
 
 import sys
+import glob
 from pathlib import Path
 
 import pandas as pd
@@ -26,10 +27,12 @@ from openpyxl.utils import get_column_letter
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-BASE         = Path(__file__).resolve().parents[2]
-PKL_PATH     = BASE / "test_model_cleaned.parquet"
-OUT_PATH     = BASE / "test_model_1.xlsx"
-CSV_BEV_PATH = BASE / "refer" / "bev_series_name_table_template_rows.csv"
+BASE     = Path(__file__).resolve().parents[3]
+PKL_PATH = BASE / "test_model_cleaned.parquet"
+
+# Find master Model in root, fallback to test_model_1.xlsx
+_model_matches = [p for p in glob.glob(str(BASE / "*master Model.xlsx")) if "~$" not in p]
+OUT_PATH = Path(_model_matches[0]) if _model_matches else BASE / "test_model_1.xlsx"
 
 THAI_MONTHS = {
     1:"มกราคม", 2:"กุมภาพันธ์", 3:"มีนาคม",    4:"เมษายน",
@@ -208,6 +211,17 @@ def build_bev_series_name_table(wb_main, df_model, oth_df):
           f"{df_table['Powertrain'].value_counts().to_dict()})")
 
 
+def enable_pivot_refresh(wb):
+    """Set refreshOnLoad to True for all pivot tables in the workbook."""
+    try:
+        for ws in wb.worksheets:
+            for pivot in ws._pivots:
+                if pivot.cache:
+                    pivot.cache.refreshOnLoad = True
+    except Exception as e:
+        print(f"  Warning: Could not set refreshOnLoad on pivots: {e}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -229,8 +243,8 @@ def main():
     print(f"  BEV Major rows: {len(bev_data):,}")
     print(f"  BMW rows      : {len(bmw_data):,}")
 
-    df_oth = pd.read_csv(str(CSV_BEV_PATH), encoding="utf-8-sig")
-    oth_df = df_oth[df_oth["Powertrain"] == "OTH"][["Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]].copy()
+    df_bev_tbl = pd.read_excel(str(OUT_PATH), sheet_name="BEV Series Name Table", header=0)
+    oth_df = df_bev_tbl[df_bev_tbl["Powertrain"] == "OTH"][["Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]].copy()
     print(f"  OTH seed rows : {len(oth_df)}")
 
     # Write pivot sheets to a temp file, then copy into the main xlsx
@@ -266,14 +280,13 @@ def main():
         max_row = ws_dst.max_row or 7
         ws_dst.auto_filter.ref = f"A7:{get_column_letter(max_col)}{max_row}"
 
+    enable_pivot_refresh(wb_main)
     wb_main.save(str(OUT_PATH))
     wb_main.close()
     wb_tmp.close()
 
-    # Cleanup
     tmp_path.unlink(missing_ok=True)
     PKL_PATH.unlink(missing_ok=True)
-    print(f"  Cleaned up temp files")
 
     print(f"\nOutput: {OUT_PATH}")
     print(f"  Sheets: Data | master powertrain | BEV Series Name Table | BEV by Model | BEV by Model (2) | BMW")

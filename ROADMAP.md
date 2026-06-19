@@ -29,6 +29,25 @@ Last updated: 2026-06-18 (session 3)
 
 ---
 
+## Monthly Update Workflow
+
+One command does everything:
+
+```
+python update_raw_data.py <new_fuel.xlsx> <new_model.xlsx>
+```
+
+Steps it runs automatically:
+1. Replace master raw files in `raw data/`
+2. Enrich model file with `ชนิดเชื้อเพลิง` from fuel file
+3. Auto-add any new fuel types to `master powertrain` in the refer file
+4. Run full pipeline (`build_cleaned` → `build_BEV` → `build_analyst`)
+5. Export dashboard data (`export_dashboard.py`)
+
+Old scripts moved to `_archive/` — logic preserved, not deleted.
+
+---
+
 ## To Do
 
 ### 1. Resolve Analyst vs Cleaner architecture (discussion first, then code)

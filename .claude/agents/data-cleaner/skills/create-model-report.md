@@ -9,8 +9,11 @@ Use this skill when the user needs the cleaned model workbook or asks for
 
 - Owns the raw-data to cleaned-model part of the pipeline.
 - Uses `.claude/scripts/build_cleaned.py`.
-- Produces or updates `test_model_1.xlsx`.
-- Produces `test_model_cleaned.parquet` for downstream analyst work.
+- Finds templates via glob: `refer/*- Model.xlsx` and `refer/*(calculation).xlsx`.
+- Copies Model template → `test_model_1.xlsx`; replaces its `Data` sheet with all cleaned model rows (includes `Powertrain`).
+- Copies Calculation template → `test_calculation.xlsx`; replaces its `Data` sheet with cleaned fuel rows **without** the `Powertrain` column.
+- Produces `test_model_cleaned.parquet` (model rows) and `test_fuel_cleaned.parquet` (fuel rows) for downstream use.
+- When updating `test_calculation.xlsx`, preserve the calculation template layout: keep title/metadata rows, write headers at Excel row 6, and keep `Powertrain` only in `test_model_1.xlsx`.
 
 ## Not This Skill
 

@@ -9,9 +9,9 @@ FRONTEND_DATA_DIR = BASE / "dashboard" / "public" / "data"
 FRONTEND_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 def export_data():
-    reports = list(OUTPUT_DIR.glob("*(test analyst).xlsx"))
+    reports = list(BASE.glob("*(test analyst).xlsx"))
     if not reports:
-        print("No analyst report found in output/ directory.")
+        print("No analyst report found in base directory.")
         return
     
     # Use the latest report

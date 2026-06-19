@@ -169,13 +169,38 @@ def sort_cleaned_data(df, brand2_order=None):
 
 
 
+def enable_pivot_refresh(wb):
+    """Set refreshOnLoad to True for all pivot tables in the workbook."""
+    try:
+        for ws in wb.worksheets:
+            for pivot in ws._pivots:
+                if pivot.cache:
+                    pivot.cache.refreshOnLoad = True
+    except Exception as e:
+        print(f"  Warning: Could not set refreshOnLoad on pivots: {e}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     raw1_file  = find_file(RAW1_PATTERN,  "fuel raw data")
     raw2_file  = find_file(RAW2_PATTERN,  "model raw data")
-    model_file = find_file(MODEL_PATTERN, "Model template")
-    calc_file  = find_file(CALC_PATTERN,  "Calculation template")
+
+    # Look for master Model in root first, fallback to refer folder
+    model_matches = [p for p in glob.glob(str(BASE / "*master Model.xlsx")) if "~$" not in p]
+    if model_matches:
+        model_file = Path(max(model_matches, key=os.path.getmtime))
+        print(f"Using master Model from root: {model_file.name}")
+    else:
+        model_file = find_file(MODEL_PATTERN, "Model template")
+
+    # Look for master Cal in root first, fallback to refer folder
+    calc_matches = [p for p in glob.glob(str(BASE / "*(master cal).xlsx")) if "~$" not in p]
+    if calc_matches:
+        calc_file = Path(max(calc_matches, key=os.path.getmtime))
+        print(f"Using master Cal from root: {calc_file.name}")
+    else:
+        calc_file = find_file(CALC_PATTERN, "Calculation template")
 
     print(f"Raw 1 (Fuel) : {raw1_file.name}")
     print(f"Raw 2 (Model): {raw2_file.name}")
@@ -272,17 +297,19 @@ def main():
     print(f"      Saved intermediate: {pq_path.name}")
 
     # 4. Write output xlsx (preserve formatting from template)
-    out_file = BASE / "test_model_1.xlsx"
+    out_file = model_file if model_file.parent == BASE else BASE / "test_model_1.xlsx"
+    calc_out = calc_file if calc_file.parent == BASE else BASE / "test_calculation.xlsx"
     import shutil
-    print(f"\n[4/4] Copying template and replacing data in {out_file.name}...", flush=True)
+    print(f"\n[4/4] Preparing output files: Model={out_file.name}, Cal={calc_out.name}...", flush=True)
     
-    # Copy the model template (preserves all Pivot Tables, charts, formatting)
-    shutil.copy2(model_file, out_file)
+    # Copy the templates if they are different paths
+    if model_file.resolve() != out_file.resolve():
+        shutil.copy2(model_file, out_file)
+        print("      Copied Model template.")
 
-    # Copy the calculation template for Stage 3 (build_analyst.py)
-    calc_out = BASE / "test_calculation.xlsx"
-    shutil.copy2(calc_file, calc_out)
-    print(f"      Calculation template copied → {calc_out.name}")
+    if calc_file.resolve() != calc_out.resolve():
+        shutil.copy2(calc_file, calc_out)
+        print(f"      Calculation template copied → {calc_out.name}")
 
     print("      Writing new Data sheet (this may take a few minutes)...")
     # Use pandas to replace the Data sheet. This preserves the rest of the workbook.
@@ -295,6 +322,17 @@ def main():
     with pd.ExcelWriter(calc_out, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         df_calc.to_excel(writer, sheet_name="Data", index=False)
         print("      Calculation Data sheet replaced (Powertrain column removed).")
+
+    # Enable pivot refresh on load for both files
+    try:
+        for path in [out_file, calc_out]:
+            wb = load_workbook(str(path))
+            enable_pivot_refresh(wb)
+            wb.save(str(path))
+            wb.close()
+        print("      Enabled auto-refresh on load for all Pivot Tables.")
+    except Exception as e:
+        print(f"  Warning: failed to enable pivot refresh: {e}")
 
     print(f"\nOutput : {out_file}")
     print(f"         {calc_out.name}")
