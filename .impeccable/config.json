@@ -1,0 +1,40 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      "frontend/public/models.html"
+    ],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "reason": "Geist is documented in DESIGN.md as the project font stack",
+        "createdAt": "2026-06-22T07:26:22.880Z"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "2px",
+        "reason": "2px on scrollbar thumb only — browser chrome micro-element outside component radius scale",
+        "createdAt": "2026-06-22T07:26:24.458Z"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "reason": "Geist Mono is documented in DESIGN.md for monospace numeric columns",
+        "createdAt": "2026-06-22T07:26:27.936Z"
+      },
+      {
+        "rule": "overused-font",
+        "value": "google fonts",
+        "reason": "Google Fonts is the load mechanism for Geist, which is documented in DESIGN.md",
+        "createdAt": "2026-06-22T07:27:31.281Z"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "8px",
+        "reason": "8px used only in Recharts tooltip contentStyle (third-party inline config), not a design-system component",
+        "createdAt": "2026-06-22T07:28:44.056Z"
+      }
+    ]
+  }
+}

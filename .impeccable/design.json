@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-22T11:09:00Z",
+  "title": "Design System: Thailand EV Registration",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Depth Black",
+        "canonical": "oklch(0.09 0.007 254)",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f1f5f9"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface Charcoal",
+        "canonical": "oklch(0.13 0.009 254)",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f1f5f9"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Grid Line",
+        "canonical": "oklch(0.20 0.011 254)",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f1f5f9"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.94 0.003 254)",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f1f5f9"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "oklch(0.65 0.015 254)",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f1f5f9"]
+      },
+      "ink-subtle": {
+        "role": "neutral",
+        "displayName": "Ink Subtle / ICE",
+        "canonical": "oklch(0.56 0.013 254)",
+        "note": "Doubles as the ICE powertrain chart color. The semantic overlap is intentional: ICE is both neutral text and the neutral baseline powertrain.",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f1f5f9"]
+      },
+      "accent-bev": {
+        "role": "primary",
+        "displayName": "Electric Teal",
+        "canonical": "oklch(0.82 0.13 178)",
+        "note": "BEV signal color. Used exclusively for Battery Electric Vehicle data.",
+        "tonalRamp": ["#001917", "#003028", "#004d3f", "#006d58", "#009075", "#01b596", "#2dd4bf", "#a9f0e5"]
+      },
+      "accent-hev": {
+        "role": "secondary",
+        "displayName": "Hybrid Amber",
+        "canonical": "oklch(0.87 0.16 82)",
+        "note": "HEV powertrain in all charts.",
+        "tonalRamp": ["#2a1a00", "#3f2700", "#5c3800", "#7a4c00", "#9a6500", "#c08200", "#fbbf24", "#fde68a"]
+      },
+      "accent-phev": {
+        "role": "tertiary",
+        "displayName": "Plugin Orange",
+        "canonical": "oklch(0.78 0.17 47)",
+        "note": "PHEV powertrain in all charts.",
+        "tonalRamp": ["#231100", "#3a1d00", "#552b00", "#6f3c00", "#924e00", "#b56411", "#fb923c", "#fed7aa"]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page title in sticky header. The only 14px text in the system. Compact by design — this is not a marketing surface."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Figcaptions, stat descriptor labels, chart legend text, secondary information."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Chart axis tick labels. Smallest legible text in the system."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "All numeric metric values: stat strip, future data tables, any column of numbers. Always paired with tabular-nums feature."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "colors-fast",
+        "value": "transition-property: color, background-color, border-color; transition-duration: 200ms; transition-timing-function: ease-out;",
+        "purpose": "Default transition — scoped to color properties only, never transition-all."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px", "note": "Stat strip switches from column to row layout" },
+      { "name": "md", "value": "768px", "note": "Chart heights increase from h-64 to h-80" },
+      { "name": "lg", "value": "1024px", "note": "Chart grid switches from 1-column to 2-column" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Stat Strip",
+      "kind": "custom",
+      "refersTo": "stat-strip",
+      "description": "Compact metric summary in the sticky header. Replaces hero-metric KPI card grids. Three data points: YTD Total (neutral), BEV Share (Electric Teal — the EV story), Top Brand (neutral).",
+      "html": "<div class=\"ds-stat-strip\"><dl class=\"ds-stats\"><div class=\"ds-stat\"><dt class=\"ds-stat__label\">YTD Total</dt><dd class=\"ds-stat__value\">622,438</dd></div><div class=\"ds-stat__divider\" aria-hidden=\"true\"></div><div class=\"ds-stat\"><dt class=\"ds-stat__label\">BEV Share</dt><dd class=\"ds-stat__value ds-stat__value--bev\">18.4%</dd></div><div class=\"ds-stat__divider\" aria-hidden=\"true\"></div><div class=\"ds-stat\"><dt class=\"ds-stat__label\">Top Brand</dt><dd class=\"ds-stat__value\">Toyota</dd></div></dl></div>",
+      "css": ".ds-stat-strip { background: #020617; padding: 16px 24px; border-bottom: 1px solid #1e293b; } .ds-stats { display: flex; align-items: center; gap: 20px; list-style: none; margin: 0; padding: 0; } .ds-stat { display: flex; flex-direction: column; gap: 2px; } .ds-stat__label { color: #64748b; font-family: 'Geist', system-ui, sans-serif; font-size: 12px; font-weight: 400; line-height: 1.4; } .ds-stat__value { color: #f1f5f9; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.2; } .ds-stat__value--bev { color: #2dd4bf; } .ds-stat__divider { width: 1px; height: 28px; background: #1e293b; flex-shrink: 0; }"
+    },
+    {
+      "name": "Chart Panel",
+      "kind": "card",
+      "refersTo": "chart-panel",
+      "description": "Primary data surface. A structural container — not a decorative card. No shadow, no blur. Border functions as a grid line. The chart data reads without competition from its container.",
+      "html": "<figure class=\"ds-chart-panel\" aria-label=\"Powertrain distribution pie chart\"><figcaption class=\"ds-chart-panel__caption\">Powertrain Distribution</figcaption><div class=\"ds-chart-panel__body\" style=\"display:flex;align-items:center;justify-content:center;\"><svg width=\"120\" height=\"80\" viewBox=\"0 0 120 80\"><circle cx=\"60\" cy=\"40\" r=\"30\" fill=\"none\" stroke=\"#2dd4bf\" stroke-width=\"12\" stroke-dasharray=\"56 132\" stroke-dashoffset=\"0\"/><circle cx=\"60\" cy=\"40\" r=\"30\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"12\" stroke-dasharray=\"94 132\" stroke-dashoffset=\"-56\"/><circle cx=\"60\" cy=\"40\" r=\"18\" fill=\"#0f172a\"/><text x=\"60\" y=\"44\" text-anchor=\"middle\" fill=\"#94a3b8\" font-size=\"9\" font-family=\"Geist Mono, monospace\">YTD</text></svg></div></figure>",
+      "css": ".ds-chart-panel { background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 24px; display: flex; flex-direction: column; height: 320px; margin: 0; } .ds-chart-panel__caption { color: #94a3b8; font-family: 'Geist', system-ui, sans-serif; font-size: 12px; font-weight: 500; line-height: 1.4; margin: 0 0 16px 0; } .ds-chart-panel__body { flex: 1; display: flex; align-items: center; justify-content: center; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The DLT Terminal",
+    "overview": "This system reads and behaves like a terminal-native data display. Chrome disappears. Every pixel earns its place by serving the data. Hierarchy does not come from the visual weight of containers — it comes from the numbers themselves, and from the semantic colors assigned to the powertrain categories they represent.\n\nThe palette is deep-dark with near-invisible surfaces. Electric Teal signals the most important trend (BEV growth). Hybrid Amber and Plugin Orange tag the supporting categories. ICE — the established majority — is rendered in the same muted slate as secondary text: neutral, present, not highlighted. The system directs the eye toward what is changing, not toward what has always been there.\n\nThis system explicitly rejects the aesthetic it replaced: glassmorphism-as-default, gradient text on headings, hero-metric KPI cards with colored icon badges, and the generic SaaS dark-mode palette of blue/purple/emerald that signals AI-generated dashboard from across a room.",
+    "keyCharacteristics": [
+      "Near-invisible surfaces — panels defined by 1px borders, not shadows or blur",
+      "Monospaced numeric values (Geist Mono, tabular-nums) for scannable columns",
+      "Minimal type scale — 14px/12px/11px; no display or hero sizes",
+      "Chart colors carry semantic weight: teal = BEV, amber = HEV, orange = PHEV, slate = ICE",
+      "Key metrics live in the sticky header stat strip, not in a grid of KPI cards"
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Electric Teal (#2dd4bf) represents BEV data, and nothing else. It is not a general-purpose accent. Any new feature that needs a highlight color should use weight, position, or a border — not teal.", "section": "colors" },
+      { "name": "The ICE-as-Neutral Rule", "body": "ICE vehicles are the established baseline; they are visually subordinate. The eye lands on teal first, then amber, then orange. ICE arrives last because it requires no signal. This color assignment is non-negotiable.", "section": "colors" },
+      { "name": "The No-General-Accent Rule", "body": "This system has no general-purpose UI accent color. State indicators use increased weight or a border treatment. The three chart colors are data colors, not UI colors.", "section": "colors" },
+      { "name": "The No-Display Rule", "body": "There are no display or hero heading sizes in this system. The largest text is the page title at 14px. Adding a clamp-scaled h1 or a 3rem hero is prohibited.", "section": "typography" },
+      { "name": "The Mono-for-Numbers Rule", "body": "Every numeric metric uses Geist Mono with tabular-nums. Proportional figures are never used for data.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "If you are about to add box-shadow, stop. Use border: 1px solid #1e293b instead. Elevation is tonal: a lighter surface within a darker container. No exceptions in the data display layer.", "section": "elevation" }
+    ],
+    "dos": [
+      "Use <figure aria-label=\"...\"> + <figcaption> on every chart panel",
+      "Use Geist Mono with tabular-nums and font-weight: 600 for every numeric metric value",
+      "Keep chart color assignments semantically constant: Electric Teal = BEV, Hybrid Amber = HEV, Plugin Orange = PHEV, Ink Subtle = ICE",
+      "Use border: 1px solid #1e293b as the only surface separator",
+      "Derive all displayed metric values from actual data; show — when data is missing",
+      "Scope transitions to the exact properties that change: transition-colors duration-200",
+      "Respect prefers-reduced-motion — the rule is in globals.css"
+    ],
+    "donts": [
+      "Don't use backdrop-filter: blur() or backdrop-blur on data surfaces — glassmorphism is prohibited",
+      "Don't use gradient text (background-clip: text with a gradient background) — banned unconditionally",
+      "Don't add a hero-metric KPI card grid — summary metrics live in the stat strip",
+      "Don't use #3b82f6 blue, #8b5cf6 purple, or #10b981 emerald as general UI accents",
+      "Don't add decorative background blobs, radial gradients, or animated glow effects",
+      "Don't hardcode metric values — any static number that is not a design constant is a data integrity bug",
+      "Don't use transition-all — scope to transition-colors",
+      "Don't build loading states as a centered spinner — use a skeleton layout or inline text placeholder",
+      "Don't add pulsing 'Live Data Sync' badges unless the data stream is genuinely real-time",
+      "Don't use display fonts, hero sizing, or clamp-scaled headings"
+    ]
+  }
+}

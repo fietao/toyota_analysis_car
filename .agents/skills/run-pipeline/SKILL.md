@@ -1,6 +1,6 @@
 ---
 name: run-pipeline
-description: Run the monthly car registration data pipeline. Use when the user says "run pipeline", "run cleaned", "run pivots", "run analyst", "build the report", "run the scripts", or asks to process/update the data. Runs build_cleaned.py -> model/build_BEV.py -> calculation/build_analyst.py in order. Can run individual steps or the full sequence.
+description: Run the monthly car registration data pipeline. Use when the user says "run pipeline", "run cleaned", "run analyst", "build the report", "run the scripts", or asks to process/update the data. Runs build_cleaned.py -> build_BEV.py -> build_analyst.py in order. Can run individual steps or the full sequence.
 ---
 
 # run-pipeline
@@ -12,28 +12,28 @@ Runs the monthly DLT car registration pipeline scripts in the correct order.
 ```text
 0. build_model2_map.py          -> one-time setup only; skip for normal monthly runs
 1. build_cleaned.py             -> raw data to model/calculation intermediates
-2. model/build_BEV.py           -> append BEV/BMW pivot sheets to test_model_1.xlsx
-3. calculation/build_analyst.py -> copy calculation template and refresh Data
+2. build_BEV.py                 -> append approved BEV Series Name Table rows
+3. build_analyst.py             -> copy calculation template and refresh Data
 ```
 
 ## Commands
 
 Full pipeline, including map rebuild:
 ```bash
-C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/.claude/scripts/run_pipeline.py
+C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/run_pipeline.py
 ```
 
 Full pipeline, skip map for normal monthly run:
 ```bash
-C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/.claude/scripts/run_pipeline.py --skip-map
+C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/run_pipeline.py --skip-map
 ```
 
 Individual steps:
 ```bash
-C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/.claude/scripts/build_model2_map.py
-C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/.claude/scripts/build_cleaned.py
-C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/.claude/scripts/model/build_BEV.py
-C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/.claude/scripts/calculation/build_analyst.py
+C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/build_model2_map.py
+C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/build_cleaned.py
+C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/build_BEV.py
+C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-reading-car-analysis/build_analyst.py
 ```
 
 ## What each step produces
@@ -41,16 +41,16 @@ C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-read
 | Step | Output | Notes |
 |---|---|---|
 | build_model2_map | `refer/model2_map.csv` | Model-name mappings |
-| build_cleaned | `test_model_1.xlsx`, `test_calculation.xlsx`, `test_model_cleaned.parquet`, `test_fuel_cleaned.parquet` | Copies refer templates; replaces Data sheets; calc Data has no Powertrain column |
-| model/build_BEV | BEV Series Name Table + BEV/BMW sheets appended to `test_model_1.xlsx` | Reads data from `test_model_cleaned.parquet` (fast); reads BEV table from `test_model_1.xlsx` |
-| calculation/build_analyst | `YYYYMM_รถใหม่_...(test analyst).xlsx` | Copies `test_calculation.xlsx`; refreshes Data; no refer/ reads |
+| build_cleaned | master Model workbook + `test_model_cleaned.parquet` | Blocks on unknown BEV models before official workbook writes |
+| build_BEV | Approved rows appended to BEV Series Name Table | Does not write BEV/BMW pivot sheets |
+| build_analyst | `YYYYMM_รถใหม่_...(test analyst).xlsx` | Copies calculation template; refreshes Data; no refer/ reads |
 
-## Drop-folder automation
+## Operator trigger
 
-`watch_and_run.py` monitors `input/` for new `.xlsx` files:
-- Automatically deletes the old matching raw file from `raw data/` before moving the new one in.
-- Triggers the full pipeline and moves the analyst report to `output/`.
-- Raw files are cumulative (full history since 2018); each new file replaces the previous month's.
+`UPDATE.bat` (project root) — double-click trigger for non-technical operators:
+- Drop the two new DLT `.xlsx` files into `raw data/`, then run UPDATE.bat.
+- Calls `update_raw_data.py` (no arguments needed); auto-detects newest files.
+- Raw files are cumulative (full history); each new file replaces the previous month's.
 
 ## Refer folder
 
