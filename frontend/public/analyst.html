@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyst Calculation Table | Thailand EV Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Geist', system-ui, 'Noto Sans Thai', sans-serif; }
+        .font-mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .shimmer {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            color: transparent !important;
+            border-radius: 6px;
+        }
+        th, td { padding: 0.75rem 1rem; }
+        .num-cell { font-variant-numeric: tabular-nums; }
+        .sort-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.25rem;
+            width: 100%;
+            color: inherit;
+        }
+        .sort-button:hover { color: #f1f5f9; }
+        .sort-indicator {
+            display: inline-block;
+            min-width: 0.65rem;
+            color: #2dd4bf;
+        }
+
+        /* Fix missing horizontal borders caused by border-separate */
+        th { border-bottom: 1px solid #334155; }
+        td { border-bottom: 1px solid rgba(30, 41, 59, 0.8); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 p-6 min-h-screen">
+    <div class="max-w-[90rem] mx-auto space-y-4">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center">
+            <a href="/" class="flex items-center gap-1.5 text-sm text-slate-400 hover:text-teal-400 transition-colors duration-150">
+                <span aria-hidden="true">←</span>
+                <span>Back to Dashboard</span>
+            </a>
+        </nav>
+
+        <!-- Header & Filters -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-semibold text-teal-400 tracking-tight">Analyst Calculation Table</h1>
+                <span id="period-badge" class="shimmer text-xs bg-slate-800 text-slate-400 px-3 py-1.5 rounded border border-slate-700">Loading period...</span>
+            </div>
+            
+            <!-- Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-1">
+                <div>
+                    <label for="filter-viewby" class="block text-slate-400 mb-1.5 font-medium text-xs">View By</label>
+                    <select id="filter-viewby" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 text-xs">
+                        <option value="brand">Brand</option>
+                        <option value="model">Model</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filter-powertrain" class="block text-slate-400 mb-1.5 font-medium text-xs">Powertrain</label>
+                    <select id="filter-powertrain" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 text-xs">
+                        <option value="ALL">ALL</option>
+                        <option value="ICE">ICE</option>
+                        <option value="BEV">BEV</option>
+                        <option value="HEV">HEV</option>
+                        <option value="PHEV">PHEV</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+            <div class="overflow-x-auto overflow-y-auto max-h-[75vh] custom-scrollbar">
+                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                    <thead id="table-head" class="sticky top-0 z-30 shadow-md bg-slate-800"></thead>
+                    <tbody id="table-body" class="divide-y divide-slate-800/80">
+                        <tr><td colspan="12" class="p-10 text-center text-slate-500">
+                            <div class="flex justify-center items-center gap-2">
+                                <div class="w-4 h-4 rounded-full border-2 border-t-transparent border-teal-500 animate-spin"></div>
+                                Loading data...
+                            </div>
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let globalData = {};
+        let globalMeta = {};
+        let currentViewBy = "brand";
+        let currentPowertrain = "ALL";
+        let sortState = { field: "curr_ytd_units", direction: "desc" };
+        const MISSING = "\u2014";
+
+        async function init() {
+            try {
+                const res = await fetch("/data/analyst_data.json");
+                if (!res.ok) throw new Error("Failed to load");
+                const json = await res.json();
+                globalMeta = json.meta || {};
+                
+                const periodBadge = document.getElementById("period-badge");
+                const enMonth = MONTHS_EN[globalMeta.current_month_num - 1] || "";
+                periodBadge.textContent = `${enMonth} ${globalMeta.current_year}`;
+                periodBadge.classList.remove("shimmer", "text-slate-400");
+                periodBadge.classList.add("text-teal-300", "font-semibold");
+
+                globalData = json.data;
+
+                document.getElementById("filter-viewby").addEventListener("change", (e) => {
+                    currentViewBy = e.target.value;
+                    renderTable();
+                });
+                
+                document.getElementById("filter-powertrain").addEventListener("change", (e) => {
+                    currentPowertrain = e.target.value;
+                    renderTable();
+                });
+
+                renderTable();
+
+            } catch(e) {
+                console.error("Failed to load data", e);
+                document.getElementById("table-body").innerHTML = `<tr><td colspan="20" class="p-10 text-center text-red-400">Failed to load data. Please run backend/export_analyst.py first.</td></tr>`;
+            }
+        }
+
+        function formatNum(n) {
+            if (n === null || n === undefined) return MISSING;
+            return new Intl.NumberFormat('en-US').format(n);
+        }
+
+        function formatPct(n) {
+            if (n === null || n === undefined) return MISSING;
+            return new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n);
+        }
+
+        function formatSignedPct(n) {
+            if (n === null || n === undefined) return MISSING;
+            const sign = n > 0 ? "+" : "";
+            return `${sign}${formatPct(n)}`;
+        }
+
+        function formatPP(n) {
+            if (n === null || n === undefined) return MISSING;
+            const sign = n > 0 ? "+" : "";
+            return `${sign}${(n * 100).toFixed(1)} pp`;
+        }
+
+        function trendClass(n) {
+            if (n > 0) return "text-emerald-400";
+            if (n < 0) return "text-rose-400";
+            return "text-slate-300";
+        }
+
+        function rankDiffHtml(value) {
+            if (value === null || value === undefined || value === MISSING) return MISSING;
+            const stringValue = String(value);
+            if (stringValue.startsWith("+") || stringValue === "NEW") {
+                return `<span class="text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded">${stringValue}</span>`;
+            }
+            if (stringValue.startsWith("-")) {
+                return `<span class="text-rose-400 font-bold bg-rose-400/10 px-2 py-0.5 rounded">${stringValue}</span>`;
+            }
+            return stringValue;
+        }
+
+        function getPeriodLabels() {
+            const currYear = globalMeta.current_year;
+            const prevYear = currYear ? currYear - 1 : "Previous Year";
+            const month = MONTHS_EN[globalMeta.current_month_num - 1] || "Current Month";
+            return { currYear, prevYear, month };
+        }
+
+        function getColumns() {
+            const isModelView = currentViewBy === "model";
+            const { currYear, prevYear, month } = getPeriodLabels();
+            const columns = [
+                { field: "brand", label: "Brand", type: "text", classes: "sticky left-0 z-20 bg-slate-900 text-left pl-4 border-r border-slate-800/80 shadow-[4px_0_10px_rgba(0,0,0,0.2)]", headerClasses: "text-left pl-4" },
+            ];
+
+            return columns.concat([
+                { field: "prev_month_units", type: "num", format: formatNum, classes: "text-right text-slate-400" },
+                { field: "prev_month_share", type: "pct", format: formatPct, classes: "text-right text-slate-400" },
+                { field: "prev_ytd_units", type: "num", format: formatNum, classes: "text-right text-slate-400" },
+                { field: "prev_ytd_share", type: "pct", format: formatPct, classes: "text-right text-slate-400" },
+                { field: "prev_full_units", type: "num", format: formatNum, classes: "text-right text-slate-400" },
+                { field: "prev_full_share", type: "pct", format: formatPct, classes: "text-right text-slate-400 border-r border-slate-800/80" },
+                { field: "curr_month_units", type: "num", format: formatNum, classes: "text-right font-semibold text-white" },
+                { field: "curr_month_share", type: "pct", format: formatPct, classes: "text-right font-semibold text-white" },
+                { field: "curr_month_diff", type: "pp", format: formatPP, classes: "text-right" },
+                { field: "curr_growth_vs_prev_month", type: "growth", format: formatSignedPct, classes: "text-right" },
+                { field: "curr_growth_vs_same_month_prev_year", type: "growth", format: formatSignedPct, classes: "text-right" },
+                { field: "curr_ytd_units", type: "num", format: formatNum, classes: "text-right font-semibold text-white" },
+                { field: "curr_ytd_share", type: "pct", format: formatPct, classes: "text-right font-semibold text-white" },
+                { field: "curr_ytd_diff", type: "pp", format: formatPP, classes: "text-right" },
+                { field: "curr_ytd_growth", type: "growth", format: formatSignedPct, classes: "text-right border-r border-slate-800/80" },
+                { field: "prev_rank", type: "rank", format: formatNum, classes: "text-center text-slate-400" },
+                { field: "curr_rank", type: "rank", format: formatNum, classes: "text-center font-medium" },
+                { field: "rank_diff", type: "rank-diff", format: rankDiffHtml, classes: "text-center" },
+            ]);
+        }
+
+        function sortButton(field, label, align = "right") {
+            const active = sortState.field === field;
+            const indicator = active ? (sortState.direction === "asc" ? "▲" : "▼") : "";
+            const alignClass = align === "center" ? "justify-center" : "justify-end";
+            return `<button type="button" class="sort-button ${alignClass}" data-sort-field="${field}">
+                <span>${label}</span><span class="sort-indicator">${indicator}</span>
+            </button>`;
+        }
+
+        function renderHeader() {
+            const thead = document.getElementById("table-head");
+            const isModelView = currentViewBy === "model";
+            const { currYear, prevYear, month } = getPeriodLabels();
+
+            thead.innerHTML = `
+                <tr class="bg-slate-800 text-slate-300 border-b border-slate-700 text-center">
+                    <th class="sticky left-0 z-30 bg-slate-800 border-r border-slate-700 shadow-[4px_0_10px_rgba(0,0,0,0.2)]">Identity</th>
+                    <th colspan="6" class="border-r border-slate-700">${prevYear}</th>
+                    <th colspan="9" class="border-r border-slate-700">${currYear}</th>
+                    <th colspan="3">Rank</th>
+                </tr>
+                <tr class="bg-slate-800 text-slate-400 border-b border-slate-700 text-center text-[10px] uppercase tracking-wider">
+                    <th rowspan="2" class="sticky left-0 z-30 bg-slate-800 text-left pl-4 border-r border-slate-700 shadow-[4px_0_10px_rgba(0,0,0,0.2)]">${isModelView ? "Brand / Model" : "Brand"}</th>
+                    <th colspan="2" class="border-r border-slate-800">${month}</th>
+                    <th colspan="2" class="border-r border-slate-800">Jan-${month}</th>
+                    <th colspan="2" class="border-r border-slate-700">${prevYear} Total</th>
+                    <th colspan="5" class="border-r border-slate-800">${month}</th>
+                    <th colspan="4" class="border-r border-slate-700">Jan-${month} ${currYear}</th>
+                    <th rowspan="2">${sortButton("prev_rank", prevYear, "center")}</th>
+                    <th rowspan="2">${sortButton("curr_rank", currYear, "center")}</th>
+                    <th rowspan="2">${sortButton("rank_diff", "Diff", "center")}</th>
+                </tr>
+                <tr class="bg-slate-800 text-slate-400 border-b border-slate-700 text-center text-[10px] uppercase tracking-wider">
+                    <th>${sortButton("prev_month_units", "Units")}</th>
+                    <th class="border-r border-slate-800">${sortButton("prev_month_share", "Share")}</th>
+                    <th>${sortButton("prev_ytd_units", "Units")}</th>
+                    <th class="border-r border-slate-800">${sortButton("prev_ytd_share", "Share")}</th>
+                    <th>${sortButton("prev_full_units", "Units")}</th>
+                    <th class="border-r border-slate-700">${sortButton("prev_full_share", "Share")}</th>
+                    <th class="text-slate-300 font-semibold">${sortButton("curr_month_units", "Units")}</th>
+                    <th class="text-slate-300 font-semibold">${sortButton("curr_month_share", "Share")}</th>
+                    <th>${sortButton("curr_month_diff", "Diff")}</th>
+                    <th>${sortButton("curr_growth_vs_prev_month", "Gr vs prev mo")}</th>
+                    <th class="border-r border-slate-800">${sortButton("curr_growth_vs_same_month_prev_year", `Gr vs ${month} ${prevYear}`)}</th>
+                    <th class="text-slate-300 font-semibold">${sortButton("curr_ytd_units", "Units")}</th>
+                    <th class="text-slate-300 font-semibold">${sortButton("curr_ytd_share", "Share")}</th>
+                    <th>${sortButton("curr_ytd_diff", "Diff")}</th>
+                    <th class="border-r border-slate-700">${sortButton("curr_ytd_growth", "Growth")}</th>
+                </tr>
+            `;
+
+            thead.querySelectorAll("[data-sort-field]").forEach((button) => {
+                button.addEventListener("click", () => setSort(button.dataset.sortField));
+            });
+        }
+
+        function setSort(field) {
+            if (sortState.field === field) {
+                sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+            } else {
+                sortState = { field, direction: "desc" };
+            }
+            renderTable();
+        }
+
+        function sortValue(row, field) {
+            const value = row[field];
+            if (value === null || value === undefined || value === MISSING || value === "") return null;
+            if (field === "rank_diff" && value === "NEW") return Number.POSITIVE_INFINITY;
+            if (typeof value === "string") {
+                const parsed = Number(value.replace(/,/g, ""));
+                return Number.isNaN(parsed) ? null : parsed;
+            }
+            return value;
+        }
+
+        function sortRows(rows) {
+            const grandTotalRows = rows.filter((row) => row.is_grand_total);
+            const detailRows = rows.filter((row) => !row.is_grand_total);
+            const direction = sortState.direction === "asc" ? 1 : -1;
+
+            detailRows.sort((a, b) => {
+                const aValue = sortValue(a, sortState.field);
+                const bValue = sortValue(b, sortState.field);
+                if (aValue === null && bValue === null) return 0;
+                if (aValue === null) return 1;
+                if (bValue === null) return -1;
+                if (aValue === bValue) return 0;
+                return aValue > bValue ? direction : -direction;
+            });
+
+            return grandTotalRows.concat(detailRows);
+        }
+
+        function cellHtml(row, column, isGrandTotal) {
+            let value = row[column.field];
+            let content;
+
+            if (column.field === "brand" && currentViewBy === "model" && !isGrandTotal) {
+                content = `<div class="font-medium text-slate-200 leading-tight">${row.brand}</div><div class="text-[10px] text-slate-500 font-normal mt-0.5">${row.model || MISSING}</div>`;
+            } else {
+                const formatter = column.format || ((v) => v || MISSING);
+                content = column.type === "text" ? (value || MISSING) : formatter(value);
+            }
+
+            const trend = column.type === "growth" || column.type === "pp" ? trendClass(value) : "";
+            const mono = column.type !== "text" ? "font-mono num-cell" : "";
+            const identity = column.field === "brand" && !isGrandTotal && currentViewBy !== "model" ? "font-medium text-slate-200" : "";
+            const grandTotal = column.field === "brand" && isGrandTotal ? "text-teal-400" : "";
+
+            return `<td class="${column.classes || ""} ${trend} ${mono} ${identity} ${grandTotal}">${content}</td>`;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById("table-body");
+            const columns = getColumns();
+            renderHeader();
+            tbody.innerHTML = "";
+
+            const rows = globalData[currentViewBy]?.[currentPowertrain];
+            if (!rows || rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${columns.length}" class="p-10 text-center text-slate-500">No data available</td></tr>`;
+                return;
+            }
+
+            let html = "";
+            for (const r of sortRows(rows.slice())) {
+                const isGrandTotal = r.is_grand_total;
+                const trClass = isGrandTotal 
+                    ? "bg-slate-900/80 font-bold text-teal-400" 
+                    : "hover:bg-slate-800/40 text-slate-300 transition-colors";
+                html += `<tr class="${trClass}">${columns.map((column) => cellHtml(r, column, isGrandTotal)).join("")}</tr>`;
+            }
+            tbody.innerHTML = html;
+        }
+
+        document.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+</html>

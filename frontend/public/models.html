@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand & Model Deep-Dive | Thailand EV Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Geist', system-ui, 'Noto Sans Thai', sans-serif; }
+        .font-mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+
+        /* Thin dark scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Sticky column shadow — replaces non-existent shadow-r */
+        .sticky-col { box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4); }
+
+        /* Skeleton shimmer */
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .shimmer {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            color: transparent !important;
+            border-radius: 6px; /* design-system rounded.md */
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .shimmer { animation: none; background: #1e293b; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 p-6 min-h-screen">
+
+    <div class="max-w-7xl mx-auto space-y-4">
+
+        <!-- Breadcrumb -->
+        <nav class="flex items-center">
+            <a href="/" class="flex items-center gap-1.5 text-sm text-slate-400 hover:text-teal-400 transition-colors duration-150">
+                <span aria-hidden="true">←</span>
+                <span>Back to Dashboard</span>
+            </a>
+        </nav>
+
+        <!-- Header & Filters -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div>
+                    <h1 class="text-lg font-semibold text-teal-400 tracking-tight">
+                        Brand & Model Deep-Dive
+                    </h1>
+                    <p class="text-xs text-slate-500 mt-0.5">Thailand DLT New Registrations</p>
+                </div>
+                <span id="grand-total-ref-badge" class="shimmer text-xs bg-slate-800 text-slate-400 px-3 py-1.5 rounded border border-slate-700 min-w-[240px] tabular-nums">
+                    &nbsp;
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm pt-1">
+
+                <!-- Province -->
+                <div id="province-filter-panel">
+                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Province</label>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                        <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
+                            <input id="filter-province-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
+                            <span>All</span>
+                        </label>
+                        <div id="province-cb-container" class="custom-scrollbar mt-1.5 max-h-28 overflow-y-auto space-y-1 pr-1">
+                            <!-- Populated from meta.provinces after data loads -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Powertrain — active -->
+                <div>
+                    <label for="filter-powertrain" class="block text-slate-400 mb-1.5 font-medium text-xs">Powertrain</label>
+                    <select id="filter-powertrain" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-colors text-xs">
+                        <option value="ALL">All</option>
+                        <option value="BEV" selected>BEV (100% electric)</option>
+                        <option value="HEV">HEV</option>
+                        <option value="PHEV">PHEV</option>
+                        <option value="ICE">ICE</option>
+                    </select>
+                </div>
+
+                <!-- Vehicle Type -->
+                <div>
+                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Vehicle Type</label>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                        <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
+                            <input id="filter-vehicle-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
+                            <span>All</span>
+                        </label>
+                        <div id="vehicle-cb-container" class="custom-scrollbar mt-1.5 max-h-28 overflow-y-auto space-y-1 pr-1">
+                            <!-- Populated from meta.vehicle_types_list after data loads -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Year checkboxes — dynamically populated from meta.years -->
+                <div>
+                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Year (B.E.)</label>
+                    <div id="year-cb-container" class="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 font-semibold text-teal-300 text-xs min-h-[28px]">
+                        <!-- Populated after data loads -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                    <thead>
+                        <tr id="table-header-row" class="bg-slate-800 border-b border-slate-700 text-slate-300 font-semibold align-middle">
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-800/80">
+                        <tr>
+                            <td colspan="30" class="p-10 text-center text-slate-500">
+                                <div class="flex items-center justify-center gap-3">
+                                    <div class="h-4 w-4 rounded-full border-2 border-teal-500 border-t-transparent animate-spin"></div>
+                                    <span>Loading data...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="bg-slate-950 p-5 border-t border-slate-800 flex justify-between items-center text-sm font-bold text-slate-300">
+                <span class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Filtered Grand Total:
+                </span>
+                <span id="grand-total-badge" class="text-teal-400 text-xl font-mono tabular-nums shimmer min-w-[130px] text-right">&nbsp;</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ─── Constants ────────────────────────────────────────────────────────────
+
+        const MONTH_ORDER = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const MONTHS_EN   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const PT_FUEL     = { BEV: "ไฟฟ้า (BEV)", HEV: "ไฮบริด (HEV)", PHEV: "ปลั๊กอินไฮบริด (PHEV)", ICE: "เครื่องยนต์สันดาป (ICE)" };
+
+        // ─── State ────────────────────────────────────────────────────────────────
+
+        let rawVehicleMatrix = [];
+        let allYears         = [];
+        let latestYear       = null;
+        let expandedBrands   = new Set();
+
+        // ─── Build year checkboxes from meta.years ────────────────────────────────
+
+        function buildYearCheckboxes(years) {
+            const container = document.getElementById('year-cb-container');
+            container.innerHTML = '';
+            latestYear = String(years[years.length - 1]);
+            const defaultChecked = new Set(years.slice(-3).map(String));
+
+            years.forEach(year => {
+                const yStr     = String(year);
+                const isLatest = yStr === latestYear;
+                const label    = document.createElement('label');
+                label.className = 'flex items-center space-x-1 cursor-pointer';
+                label.innerHTML = `
+                    <input type="checkbox" ${defaultChecked.has(yStr) ? 'checked' : ''}
+                        class="year-cb rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4"
+                        value="${yStr}">
+                    <span>${yStr}${isLatest ? ' (YTD)' : ''}</span>
+                `;
+                label.querySelector('.year-cb').addEventListener('change', renderMatrixTable);
+                container.appendChild(label);
+            });
+        }
+
+        // ─── Monthly accumulator ─────────────────────────────────────────────────
+        // node.monthly is { v_code: { province: { year: [12] } } }. Returns a [12] array for one year.
+
+        function getMonthly(node, year, selectedVehicleTypes, selectedProvinces) {
+            const out = Array(12).fill(0);
+            const buckets = node.monthly || {};
+            selectedVehicleTypes.forEach(vc => {
+                const vehicleBucket = buckets[vc];
+                if (!vehicleBucket) return;
+
+                // Backward-compatible path for older dashboard_data.json exports.
+                if (Array.isArray(vehicleBucket[year])) {
+                    for (let i = 0; i < 12; i++) out[i] += vehicleBucket[year][i] || 0;
+                    return;
+                }
+
+                selectedProvinces.forEach(province => {
+                    const arr = vehicleBucket[province] && vehicleBucket[province][year];
+                    if (arr) for (let i = 0; i < 12; i++) out[i] += arr[i] || 0;
+                });
+            });
+            return out;
+        }
+
+        // ─── Render table ─────────────────────────────────────────────────────────
+
+        function renderMatrixTable() {
+            const activeYears = Array.from(document.querySelectorAll('.year-cb:checked')).map(cb => cb.value).sort();
+            const ptFilter    = document.getElementById('filter-powertrain').value;
+            const selectedVehicleTypes = getSelectedValues('vehicle');
+            const selectedProvinces = getSelectedValues('province');
+
+            // Header
+            const headerRow = document.getElementById('table-header-row');
+            let headerHTML = `
+                <th class="p-3.5 w-52 sticky left-0 bg-slate-800 z-20 sticky-col">Brand / Model</th>
+                <th class="p-3.5 w-28 text-slate-400">Fuel Type</th>
+            `;
+            activeYears.forEach(year => {
+                headerHTML += MONTHS_EN.map(m =>
+                    `<th class="p-2 border-l border-slate-700/60 text-center font-normal text-slate-400 min-w-[50px]">${m}</th>`
+                ).join('');
+                headerHTML += `<th class="p-2.5 border-l-2 border-slate-600 bg-slate-700/50 text-center font-bold text-teal-300 min-w-[75px]">Total ${year}${year === latestYear ? '*' : ''}</th>`;
+            });
+            headerHTML += `
+                <th class="p-3.5 border-l-2 border-slate-600 text-right text-emerald-400 font-bold bg-slate-800/90">YTD</th>
+                <th class="p-3.5 border-l border-slate-600 text-right text-amber-400 font-bold bg-slate-800">Grand Total</th>
+            `;
+            headerRow.innerHTML = headerHTML;
+
+            // Body
+            const tbody = document.getElementById('table-body');
+            let bodyHTML        = '';
+            let superGrandTotal = 0;
+
+            rawVehicleMatrix.forEach(brandNode => {
+                if (ptFilter !== "ALL" && brandNode.powertrain !== ptFilter) return;
+
+                const toggleKey  = `${brandNode.brand}||${brandNode.powertrain}`;
+                const isExpanded = expandedBrands.has(toggleKey);
+                let brandCellsHTML = '';
+                let brandGrandTotal = 0;
+                let brandYtd = 0;
+
+                activeYears.forEach(year => {
+                    let yearSum = 0;
+                    const monthlyArray = getMonthly(brandNode, year, selectedVehicleTypes, selectedProvinces);
+                    monthlyArray.forEach((val, mIdx) => {
+                        yearSum += val;
+                        if (year === latestYear && val > 0) brandYtd += val;
+                        brandCellsHTML += `<td class="p-2 border-l border-slate-800/80 text-center font-mono text-slate-300">${val ? val.toLocaleString() : '—'}</td>`;
+                    });
+                    brandGrandTotal += yearSum;
+                    brandCellsHTML += `<td class="p-2.5 border-l-2 border-slate-700/80 bg-slate-800/40 text-center font-mono font-bold text-teal-400">${yearSum.toLocaleString()}</td>`;
+                });
+
+                // Hide brands with no registrations under the current filters.
+                if (brandGrandTotal === 0) return;
+
+                superGrandTotal += brandGrandTotal;
+
+                bodyHTML += `
+                    <tr class="bg-slate-900/95 hover:bg-slate-800/70 font-semibold cursor-pointer border-b border-slate-800/90 transition-colors" onclick="toggleBrand('${toggleKey}')">
+                        <td class="p-3.5 sticky left-0 bg-slate-900 z-10 sticky-col">
+                            <div class="flex items-center space-x-2 text-teal-400">
+                                <span class="text-xs bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">${isExpanded ? '▼' : '▶'}</span>
+                                <span class="font-bold text-sm tracking-wide">${brandNode.brand}</span>
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-slate-400 text-xs">${brandNode.fuel}</td>
+                        ${brandCellsHTML}
+                        <td class="p-3.5 border-l-2 border-slate-800 text-right font-mono font-bold text-emerald-400 bg-emerald-950/10">${brandYtd.toLocaleString()}</td>
+                        <td class="p-3.5 border-l border-slate-800 text-right font-mono font-bold text-amber-400 bg-slate-950">${brandGrandTotal.toLocaleString()}</td>
+                    </tr>
+                `;
+
+                if (isExpanded) {
+                    brandNode.models.forEach(model => {
+                        let modCellsHTML  = '';
+                        let modGrandTotal = 0;
+                        let modYtd        = 0;
+
+                        activeYears.forEach(year => {
+                            let modYearSum = 0;
+                            const modMonthly = getMonthly(model, year, selectedVehicleTypes, selectedProvinces);
+                            modMonthly.forEach(val => {
+                                modYearSum += val;
+                                if (year === latestYear && val > 0) modYtd += val;
+                                modCellsHTML += `<td class="p-2 border-l border-slate-800/40 text-center font-mono text-slate-400/80">${val > 0 ? val.toLocaleString() : '–'}</td>`;
+                            });
+                            modGrandTotal += modYearSum;
+                            modCellsHTML += `<td class="p-2 border-l-2 border-slate-800/80 bg-slate-950/30 text-center font-mono text-slate-300">${modYearSum.toLocaleString()}</td>`;
+                        });
+
+                        // Hide models with no registrations under the current filters.
+                        if (modGrandTotal === 0) return;
+
+                        bodyHTML += `
+                            <tr class="bg-slate-950/80 hover:bg-slate-800/40 border-b border-slate-900/60 text-slate-300 transition-colors">
+                                <td class="p-3 pl-9 sticky left-0 bg-slate-950 z-10 sticky-col">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0"></span>
+                                        <span class="font-medium text-slate-200">${model.name}</span>
+                                    </div>
+                                </td>
+                                <td class="p-3 text-slate-500 text-xs">${model.fuel}</td>
+                                ${modCellsHTML}
+                                <td class="p-3 border-l-2 border-slate-900 text-right font-mono text-emerald-500">${modYtd.toLocaleString()}</td>
+                                <td class="p-3 border-l border-slate-900 text-right font-mono font-bold text-amber-500/90 bg-slate-950/50">${modGrandTotal.toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            if (!bodyHTML) {
+                bodyHTML = `<tr><td colspan="50" class="p-10 text-center text-slate-500">No data available</td></tr>`;
+            }
+
+            tbody.innerHTML = bodyHTML;
+
+            // Update footer badge, strip shimmer
+            const badge = document.getElementById('grand-total-badge');
+            badge.classList.remove('shimmer');
+            badge.textContent = superGrandTotal.toLocaleString();
+        }
+
+        // ─── Toggle (logic preserved exactly) ────────────────────────────────────
+
+        function toggleBrand(brandName) {
+            expandedBrands.has(brandName) ? expandedBrands.delete(brandName) : expandedBrands.add(brandName);
+            renderMatrixTable();
+        }
+
+        // ─── Checkbox filters ────────────────────────────────────────────────────
+
+        function buildCheckboxFilter(kind, list, emptyText) {
+            const container = document.getElementById(`${kind}-cb-container`);
+            const allBox = document.getElementById(`filter-${kind}-all`);
+            container.innerHTML = '';
+
+            if (!list || list.length === 0) {
+                allBox.checked = false;
+                allBox.disabled = true;
+                container.innerHTML = `<div class="px-1 py-1 text-slate-500">${emptyText}</div>`;
+                return;
+            }
+
+            allBox.checked = true;
+            allBox.disabled = false;
+            list.forEach(item => {
+                const value = typeof item === 'string' ? item : item.code;
+                const label = typeof item === 'string' ? item : item.label;
+                const row = document.createElement('label');
+                row.className = 'flex items-start gap-2 px-1 py-0.5 cursor-pointer text-slate-200 hover:text-white';
+                row.innerHTML = `
+                    <input type="checkbox" checked
+                        class="${kind}-cb mt-0.5 rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4"
+                        value="${value}">
+                    <span class="leading-snug">${label}</span>
+                `;
+                row.querySelector(`.${kind}-cb`).addEventListener('change', () => {
+                    syncAllCheckbox(kind);
+                    renderMatrixTable();
+                });
+                container.appendChild(row);
+            });
+
+            allBox.onchange = () => {
+                document.querySelectorAll(`.${kind}-cb`).forEach(cb => { cb.checked = allBox.checked; });
+                renderMatrixTable();
+            };
+        }
+
+        function syncAllCheckbox(kind) {
+            const boxes = Array.from(document.querySelectorAll(`.${kind}-cb`));
+            document.getElementById(`filter-${kind}-all`).checked = boxes.length > 0 && boxes.every(cb => cb.checked);
+        }
+
+        function getSelectedValues(kind) {
+            const checked = Array.from(document.querySelectorAll(`.${kind}-cb:checked`)).map(cb => cb.value);
+            return checked.length > 0 ? checked : [];
+        }
+
+        function treeTotal(nodes) {
+            let total = 0;
+            (nodes || []).forEach(node => {
+                Object.values(node.monthly || {}).forEach(vehicleBucket => {
+                    Object.values(vehicleBucket || {}).forEach(provinceOrYearBucket => {
+                        if (Array.isArray(provinceOrYearBucket)) {
+                            total += provinceOrYearBucket.reduce((s, v) => s + (v || 0), 0);
+                            return;
+                        }
+                        Object.values(provinceOrYearBucket || {}).forEach(arr => {
+                            total += (arr || []).reduce((s, v) => s + (v || 0), 0);
+                        });
+                    });
+                });
+            });
+            return total;
+        }
+
+        // ─── Filter listeners ─────────────────────────────────────────────────────
+
+        document.getElementById('filter-powertrain').addEventListener('change', renderMatrixTable);
+
+        // ─── Bootstrap: fetch live data ───────────────────────────────────────────
+
+        fetch('/data/dashboard_data.json')
+            .then(r => {
+                if (!r.ok) throw new Error(r.status);
+                return r.json();
+            })
+            .then(data => {
+                const { meta, brand_model_tree } = data;
+                allYears = meta.years;
+
+                // Populate reference total from the deep-dive tree.
+                const refTotal = treeTotal(brand_model_tree);
+                const refBadge = document.getElementById('grand-total-ref-badge');
+                refBadge.classList.remove('shimmer');
+                refBadge.textContent = `Reference Grand Total: ${refTotal.toLocaleString()}`;
+
+                buildYearCheckboxes(allYears);
+                buildCheckboxFilter('vehicle', meta.vehicle_types_list, 'No vehicle types found');
+                buildCheckboxFilter('province', meta.provinces, 'Provinces not exported');
+                rawVehicleMatrix = brand_model_tree;
+
+                // Expand the top brand by default
+                if (rawVehicleMatrix.length > 0) {
+                    const top = rawVehicleMatrix[0];
+                    expandedBrands.add(`${top.brand}||${top.powertrain}`);
+                }
+
+                renderMatrixTable();
+            })
+            .catch(err => {
+                console.error('Failed to load dashboard_data.json:', err);
+                document.getElementById('table-body').innerHTML = `
+                    <tr><td colspan="50" class="p-10 text-center text-red-400">
+                        Failed to load data. Please run backend/export_dashboard.py first.
+                    </td></tr>`;
+                const badge = document.getElementById('grand-total-badge');
+                badge.classList.remove('shimmer');
+                badge.textContent = '—';
+                const refBadge = document.getElementById('grand-total-ref-badge');
+                refBadge.classList.remove('shimmer');
+                refBadge.textContent = 'No data';
+            });
+    </script>
+</body>
+</html>
