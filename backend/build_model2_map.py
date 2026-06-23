@@ -55,7 +55,7 @@ def main():
     print(f"Raw file   : {raw2_file.name}")
 
     # Extract G→H mapping from refer Data sheet (header at row 6)
-    ref = pd.read_excel(str(refer_file), sheet_name="Data", header=6, usecols=[6, 7])
+    ref = pd.read_excel(str(refer_file), sheet_name="Data", header=6, usecols=[6, 7], engine="calamine")
     ref.columns = ["รุ่นรถ_raw", "รุ่นรถ2"]
     ref = ref.dropna(subset=["รุ่นรถ_raw", "รุ่นรถ2"])
     ref["รุ่นรถ_raw"] = ref["รุ่นรถ_raw"].astype(str).str.strip().str.upper()
@@ -64,7 +64,7 @@ def main():
     print(f"Refer mappings extracted : {len(refer_map):,}")
 
     # Get all unique raw model names from raw data
-    df_raw = pd.read_excel(str(raw2_file), header=5)
+    df_raw = pd.read_excel(str(raw2_file), header=5, engine="calamine")
     all_raw = sorted({
         str(m).strip().upper()
         for m in df_raw["รุ่นรถ"].dropna().unique()

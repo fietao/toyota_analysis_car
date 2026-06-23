@@ -1,0 +1,90 @@
+ Pipeline Overview
+
+  You run it with one command:
+  python .claude/scripts/run_pipeline.py
+  (or --skip-map to skip step 0)
+
+  ---
+  Step 0 — build_model2_map.py → refer/model2_map.csv
+
+  (skippable)
+
+  Builds a lookup table that maps raw car model names (รุ่นรถ) to their cleaned display names (รุ่นรถ2). This is an
+  incremental step — it only needs to run when the model name list changes.
+
+  ---
+  Step 1 — build_cleaned.py → *master Model.xlsx + test_model_cleaned.parquet
+
+  This is the data cleaning stage. It does:
+
+  2. Reads 2 raw DLT files: File 1 (fuel/brand level) and File 2 (brand+model level)
+  3. Adds new row to the  to the master model data 
+    - ยี่ห้อรถ2 — normalized brand name (e.g. "HAVAL" → "GWM")
+    - รุ่นรถ2 — normalized model name
+    - Powertrain — ICE / BEV / HEV / PHEV / OTH (mapped from fuel type + model name)
+  4. Writes the new cleaned Data sheet in master Model Excel file, addind the new information that saw in the data that not qppear before 
+  4.5 add the new car to the sum of car collum in the master powewrtrain sheet 
+  5. Saves a .parquet file (test_model_cleaned.parquet) as an intermediate handoff to the next step)
+  I dont understand this it is already build tho 
+
+
+  ---
+  Step 2 — build_BEV.py (named build_pivots.py internally) → appends sheets to master Model
+
+  ┌───────────────────────┬──────────────────────────────────────────────────────────────────────────┐
+  │         Sheet         │                             What it contains                             │
+  ├───────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ BEV Series Name Table │ adding the new car from the new data cleaned select only one in the that about bev  │
+  ├───────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ BEV by Model          │ Pivot: BEV sales by brand → model, last  years, and current year by month (able to add new data car and not having a bug )              │
+  ├───────────────────────┼────────────────────────── ────────────────────────────────────────────────┤
+  │ BEV by Model (2)      │ Same data, flat layout (model × brand rows)                              │
+  ├───────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ BMW                   │ BMW sales pivot, year totals for prior years  and                         │
+  └───────────────────────┴──────────────────────────────────────────────────────────────────────────┘
+
+refresh the data so it will be able to load new data from the cleaned data sheet 
+  ---
+  Step 3 — build_analyst.py → YYYYMM_รถใหม่_...(test analyst).xlsx
+
+  This is the monthly analyst report stage. It:
+
+  2. Reads 2 raw DLT files: File 1 (fuel/brand level) and File 2 (brand+model level)
+  3. Adds new row to the  to the master model data 
+    - ยี่ห้อรถ2 — normalized brand name (e.g. "HAVAL" → "GWM")
+    - รุ่นรถ2 — normalized model name
+  3. Detects current year/month automatically from the data
+  4. update  the sheet template to a new output file named with the current month same as current month information  (e.g. _...xlsx)
+  e.g reg by power sheet change may to what ever month from the raw data add and change jan - current month the total caluclate by each year 
+  do the same thing with all sheet update to the current information from the data when they compare grwth compare to the previous month and same month buut previous year  and update all of the sheet
+  ┌─────────────────────┬────────────────────────────────────────────────────┐
+  │        Sheet        │                   What it shows                    │
+  ├─────────────────────┼────────────────────────────────────────────────────┤
+  │ Pivot               │ Total registrations by powertrain, by month        │
+  ├─────────────────────┼────────────────────────────────────────────────────┤
+  │ 1.Reg by Powertrain │ Units + market share + YoY/MoM growth              │
+  ├─────────────────────┼────────────────────────────────────────────────────┤
+  │ 2–6                 │ Brand-level breakdowns (ALL, BEV, HEV, PHEV, rank) │
+  ├─────────────────────┼────────────────────────────────────────────────────┤
+  │ 7.BEV by Model      │ BEV units brand → model drill-down                 │
+  ├─────────────────────┼────────────────────────────────────────────────────┤
+  │ 8.Rank by BEV Model │ BEV model ranking with growth                      │
+  └─────────────────────┴────────────────────────────────────────────────────┘
+
+  ---
+  Data Flow Summary
+
+  raw data (File 1 + File 2)
+          ↓
+     build_cleaned.py
+          ↓
+   master Model.xlsx (cleaned Data sheet)
+   test_model_cleaned.parquet ──────────────────┐
+          ↓                                     ↓
+    build_BEV.py                         build_analyst.py
+          ↓                                     ↓
+   master Model.xlsx                   ...(analyst).xlsx
+   (+ BEV sheets added)
+
+  The key design: each step writes a file the next step reads, so they can run independently. The .parquet file is the
+  handoff between Step 1 → Steps 2 and 3.

@@ -24,3 +24,9 @@ package-lock.json
 .DS_Store
 Thumbs.db
 .aider*
+
+# Appended paths
+backend/output/
+frontend/.next/
+frontend/node_modules/
+dashboard/.next/

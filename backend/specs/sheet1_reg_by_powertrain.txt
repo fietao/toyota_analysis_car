@@ -1,0 +1,106 @@
+SHEET: 1.Reg by Powertrain
+SOURCE FILE: mastercal.xlsx
+PURPOSE: Monthly registration totals split by Powertrain type (ICE / BEV / HEV / PHEV)
+FILTER: ประเภทรถ = รย.1,2,3,6,9,10,11 only | All provinces | All brands
+
+==============================================================
+ROW LAYOUT (header block)
+==============================================================
+Row 1:  "Registration by Powertrain"          (col A only)
+Row 2:  (blank)
+Row 3:  "ประเภทรถ : รย.1,2,3,6,9,10,11"      (col A only)
+Row 4:  (blank)
+Row 5:  year span labels
+Row 6:  period sub-labels (curr month name, Jan-currMonth, months after, year total)
+Row 7:  "Units" / "Share" labels per column
+Row 8:  Grand Total data row
+Row 9:  ICE data row
+Row 10: BEV data row
+Row 11: HEV data row
+Row 12: PHEV data row
+Row 13: (blank)
+Row 14-18: Secondary section — Jan-currMonth as % of Full Year (prev year)
+           col H (YTD Units col) = label (Grand Total / ICE / BEV / HEV / PHEV)
+           col I (YTD Share col) = Jan-currMonth / Full Year ratio for prev year
+
+==============================================================
+COLUMN LAYOUT  (example: curr month = May = month 5)
+==============================================================
+Col  A : Powertrain label
+Col  B : prev year Jan  (Units)
+Col  C : prev year Feb  (Units)
+Col  D : prev year Mar  (Units)
+Col  E : prev year Apr  (Units)
+--- curr month block ---
+Col  F : prev year [curr month] Units
+Col  G : prev year [curr month] Share  (= col F / Grand Total col F)
+--- YTD block ---
+Col  H : prev year Jan–[curr month] YTD Units
+Col  I : prev year Jan–[curr month] YTD Share
+--- months after curr month (rest of prev year) ---
+Col  J : prev year [curr month+1]  e.g. Jun
+Col  K : prev year [curr month+2]  e.g. Jul
+Col  L : prev year [curr month+3]  e.g. Aug
+Col  M : prev year [curr month+4]  e.g. Sep
+Col  N : prev year [curr month+5]  e.g. Oct
+Col  O : prev year [curr month+6]  e.g. Nov
+Col  P : prev year [curr month+7]  e.g. Dec
+--- prev year full total ---
+Col  Q : prev year Full Year Units
+Col  R : prev year Full Year Share
+--- curr year months ---
+Col  S : curr year Jan  (Units)
+Col  T : curr year Feb  (Units)
+Col  U : curr year Mar  (Units)
+Col  V : curr year Apr  (Units)
+Col  W : curr year [curr month] Units
+Col  X : curr year [curr month] Share
+Col  Y : MoM growth  = (curr month - prev month) / prev month   [None if no prev month]
+Col  Z : YoY growth  = (curr month curr year - curr month prev year) / curr month prev year
+--- curr year YTD ---
+Col AA : curr year Jan–[curr month] YTD Units
+Col AB : curr year Jan–[curr month] YTD Share
+Col AC : YTD YoY growth = (curr YTD - prev YTD) / prev YTD
+
+NOTE: Columns after AC (forecast, 2568 vs 2569 comparison) are pre-built formulas
+in the template — Python does NOT write those. Stop at col AC.
+
+==============================================================
+DATA ROWS (rows 8–12)
+==============================================================
+Row 8:  Grand Total  — sum of ALL powertrains
+Row 9:  ICE
+Row 10: BEV
+Row 11: HEV
+Row 12: PHEV
+
+==============================================================
+SECONDARY SECTION (rows 14–18) — Jan-to-currMonth as % of Full Year
+==============================================================
+Written in the YTD columns only:
+  col H = powertrain label
+  col I = (Jan–currMonth prev year) / (Full Year prev year)  as a ratio
+Rows 14: Grand Total
+Rows 15: ICE
+Rows 16: BEV
+Rows 17: HEV
+Rows 18: PHEV
+
+==============================================================
+PARQUET COLUMNS USED
+==============================================================
+ปี, เดือน, ประเภทรถ, Powertrain, จำนวนรถ
+Filter: Powertrain IN ('ICE','BEV','HEV','PHEV')
+Filter: ประเภทรถ matches รย.(1|2|3|6|9|10|11)
+
+==============================================================
+CALCULATION RULES
+==============================================================
+- Share    = row value / Grand Total value (same col)  → store as decimal e.g. 0.524
+- MoM      = (curr_month_curr_year - prev_month_curr_year) / prev_month_curr_year
+             None/blank if curr month is January (no prev month)
+- YoY      = (curr_month_curr_year - curr_month_prev_year) / curr_month_prev_year
+             None/blank if prev year value is 0
+- YTD      = sum of Jan through curr month
+- YTD YoY  = (curr_year_YTD - prev_year_YTD) / prev_year_YTD
+- Missing period → write None (blank cell), never 0

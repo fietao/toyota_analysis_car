@@ -1,0 +1,96 @@
+ANALYST SHEETS — MASTER REFERENCE
+mastercal.xlsx | build_analyst.py
+Last updated: 2026-06-20
+
+==============================================================
+OVERVIEW
+==============================================================
+8 analysis sheets to auto-generate from test_model_cleaned.parquet.
+Python reads parquet → computes tables → writes static numbers into
+the existing sheets in the mastercal copy. No new sheets created.
+All header rows and formatting come from the template.
+
+Python writes DATA ROWS ONLY starting at the data_start_row per sheet.
+Clear existing data rows first, then write new ones.
+
+==============================================================
+SHEET LIST
+==============================================================
+Sheet                  Data starts   Filter          Spec file
+-----------------------------------------------------------------------
+1.Reg by Powertrain    row 8         ALL PT          sheet1_reg_by_powertrain.txt
+2.Rank by Brand        row 10        ALL PT          sheet2_6_brand_sheets.txt
+3.ICE by Brand         row 10        ICE only        sheet2_6_brand_sheets.txt
+4.BEV by Brand         row 10        BEV only        sheet2_6_brand_sheets.txt
+5.HEV by Brand         row 10        HEV only        sheet2_6_brand_sheets.txt
+6.PHEV by Brand        row 10        PHEV only       sheet2_6_brand_sheets.txt
+7.BEV by Model         row 9         BEV Major only  sheet7_bev_by_model.txt
+8.Rank by BEV Model    row 10        BEV Major only  sheet8_rank_bev_model.txt
+
+==============================================================
+PARQUET FILE
+==============================================================
+Path: test_model_cleaned.parquet
+Key columns:
+  ปี          — Buddhist Era year (int)  e.g. 2568, 2569
+  เดือน       — Thai month name  e.g. "มกราคม", "พฤษภาคม"
+  ประเภทรถ    — vehicle type string  e.g. "รย.1 รถยนต์นั่ง..."
+  ยี่ห้อรถ2   — normalised brand  e.g. "TOYOTA", "BYD"
+  รุ่นรถ2     — normalised model  e.g. "BYD DOLPHIN"
+  ชนิดเชื้อเพลิง — fuel type
+  Powertrain  — ICE / BEV / HEV / PHEV / BEV Major / OTH / N/A
+  จำนวนรถ    — registration count (int)
+
+==============================================================
+COMMON FILTERS (ALL 8 SHEETS)
+==============================================================
+ประเภทรถ filter — keep only these รย codes:
+  รย.1, รย.2, รย.3, รย.6, รย.9, รย.10, รย.11
+  Python: df["ประเภทรถ"].str.extract(r"รย\.(\d+)")[0].isin({'1','2','3','6','9','10','11'})
+
+Powertrain filter — use only mapped types:
+  Sheets 1–6:    Powertrain IN ('ICE','BEV','HEV','PHEV')  [Grand Total = sum of these 4]
+  Sheet 7 & 8:   Powertrain == 'BEV Major'
+
+==============================================================
+HOW TO DETERMINE CURRENT MONTH / PREV YEAR
+==============================================================
+curr_year   = max ปี in parquet  (e.g. 2569)
+prev_year   = curr_year - 1       (e.g. 2568)
+curr_months = months present in parquet for curr_year, in calendar order
+curr_month  = last element of curr_months  (e.g. "พฤษภาคม" = May)
+
+Thai month order: มกราคม กุมภาพันธ์ มีนาคม เมษายน พฤษภาคม มิถุนายน
+                  กรกฎาคม สิงหาคม กันยายน ตุลาคม พฤศจิกายน ธันวาคม
+
+==============================================================
+WRITING STRATEGY
+==============================================================
+Use openpyxl to open the mastercal copy (already created by build_analyst.py).
+For each sheet:
+  1. ws = wb[sheet_name]
+  2. Clear data rows: delete rows from data_start_row to ws.max_row
+  3. Write new rows starting at data_start_row using ws.cell(row, col).value = val
+  4. Save once after all 8 sheets are written.
+
+DO NOT use xlsxwriter — file is already open via openpyxl.
+DO NOT recreate sheets — write into existing sheets only.
+DO NOT touch header rows above data_start_row.
+
+==============================================================
+CALCULATION REFERENCE (all sheets)
+==============================================================
+share(x)     = x / grand_total_same_col          if grand_total > 0 else None
+diff(a, b)   = a - b                             (share diff, curr minus prev)
+mom(x, prev) = (x - prev) / prev                 if prev > 0 else None
+yoy(x, prev) = (x - prev) / prev                 if prev > 0 else None
+ytd(yr, m)   = sum of Jan through m for year yr
+missing      = None  →  cell stays blank, never write 0 for missing periods
+
+==============================================================
+COLUMN COUNT SUMMARY (for verification)
+==============================================================
+Sheet 1 (Reg by Powertrain):   ~29 data cols  (A through AC)
+Sheet 2–6 (Brand sheets):      ~28 data cols  (A through AB)
+Sheet 7 (BEV by Model):        ~31 data cols  (A through AE)
+Sheet 8 (Rank BEV Model):      ~36 data cols  (A through AJ)

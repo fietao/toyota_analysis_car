@@ -1,0 +1,95 @@
+SHEET: 8.Rank by BEV Model
+SOURCE FILE: mastercal.xlsx
+PURPOSE: Ranking table of individual BEV Major models by registration volume
+FILTER: ประเภทรถ = รย.1,2,3,6,9,10,11 | Powertrain = "BEV Major" only
+
+==============================================================
+ROW LAYOUT (header block)
+==============================================================
+Row 1:  "Ranking of Registration of Major BEV Models"
+Row 2:  (blank)
+Row 3:  "ประเภทรถ : รย.1,2,3,6,9,10,11"
+Row 4:  "Powertrain : BEV (only Major BEV Brand)"
+Row 5:  (blank)
+Row 6:  (blank)
+Row 7:  year span labels  (col A = "Model", col B = "Brand", col C = prev year, col T = curr year, col AH = "Rank")
+Row 8:  month/period sub-labels
+Row 9:  Units/Share/Growth/Rank labels
+Row 10: Grand Total data row
+Row 11+: one row per BEV model, sorted by curr year curr month Units DESCENDING
+
+==============================================================
+COLUMN LAYOUT  (example: curr month = May)
+==============================================================
+Col  A : Model (รุ่นรถ2)
+Col  B : Brand (ยี่ห้อรถ2)
+Col  C : prev year Jan  (Units)
+Col  D : prev year Feb  (Units)
+Col  E : prev year Mar  (Units)
+Col  F : prev year Apr  (Units)
+Col  G : prev year [curr month] Units
+Col  H : prev year [curr month] Share  (vs Grand Total)
+Col  I : prev year Jan–[curr month] YTD Units
+Col  J : prev year Jan–[curr month] YTD Share
+Col  K : prev year [curr month+1]  e.g. Jun
+Col  L : prev year [curr month+2]  e.g. Jul
+Col  M : prev year [curr month+3]  e.g. Aug
+Col  N : prev year [curr month+4]  e.g. Sep
+Col  O : prev year [curr month+5]  e.g. Oct
+Col  P : prev year [curr month+6]  e.g. Nov
+Col  Q : prev year [curr month+7]  e.g. Dec
+Col  R : prev year Full Year Units
+Col  S : prev year Full Year Share
+Col  T : curr year Jan
+Col  U : curr year Feb
+Col  V : curr year Mar
+Col  W : curr year Apr
+Col  X : curr year [curr month] Units
+Col  Y : curr year [curr month] Share
+Col  Z : Share Diff  = curr year share - prev year share
+Col AA : MoM growth  = (curr month - prev month curr year) / prev month curr year
+Col AB : YoY growth  = (curr month curr year - curr month prev year) / curr month prev year
+Col AC : curr year Jan–[curr month] YTD Units
+Col AD : curr year Jan–[curr month] YTD Share
+Col AE : YTD Diff
+Col AF : YTD YoY growth
+--- Rank columns ---
+Col AH : Rank in prev year  (rank by curr month prev year, 1 = highest)
+Col AI : Rank in curr year  (rank by curr month curr year, 1 = highest)
+Col AJ : Rank Diff = prev year rank - curr year rank  (positive = improved)
+
+NOTE: Grand Total row has no rank values. Rank cols only apply to model rows.
+
+==============================================================
+DATA ROWS
+==============================================================
+Row 10: Grand Total
+Row 11+: one row per unique (รุ่นรถ2, ยี่ห้อรถ2) combination
+         sorted by curr year curr month Units DESCENDING
+         Models with 0 in all curr year months still appear if they had prev year volume
+
+==============================================================
+RANK CALCULATION
+==============================================================
+- Rank in prev year  = rank of model by [curr month prev year] units, among all models
+                       (1 = most registrations)
+- Rank in curr year  = rank of model by [curr month curr year] units
+- Rank Diff          = rank_prev - rank_curr  (positive means moved up in ranking)
+- Grand Total row: leave rank cols blank
+
+==============================================================
+PARQUET COLUMNS USED
+==============================================================
+ปี, เดือน, ประเภทรถ, ยี่ห้อรถ2, รุ่นรถ2, Powertrain, จำนวนรถ
+Filter: ประเภทรถ matches รย.(1|2|3|6|9|10|11)
+Filter: Powertrain == "BEV Major"
+
+==============================================================
+CALCULATION RULES
+==============================================================
+- Share    = row value / Grand Total (same col)
+- Diff     = curr year share - prev year share (same period)
+- MoM      = (curr month - prev month curr year) / prev month curr year
+- YoY      = (curr month curr year - curr month prev year) / curr month prev year
+- YTD      = sum Jan through curr month
+- Missing period → None (blank), never 0

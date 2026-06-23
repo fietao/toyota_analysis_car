@@ -1,0 +1,115 @@
+MASTERMODEL SHEETS — REFERENCE
+masterModel.xlsx | build_cleaned.py + build_BEV.py + update_raw_data.py
+Last updated: 2026-06-20
+
+==============================================================
+OVERVIEW — 6 SHEETS TOTAL
+==============================================================
+Sheet                   Python action          Script
+-------------------------------------------------------------
+Data                    Full rewrite (rows 8+) build_cleaned.py
+BEV Series Name Table   Append new rows        build_BEV.py
+master powertrain       Append new rows        update_raw_data.py
+BEV by Model            READ-ONLY pivot        — never touch —
+BEV by Model (2)        READ-ONLY pivot        — never touch —
+BMW                     READ-ONLY pivot        — never touch —
+
+==============================================================
+SHEET: Data  ✍️ build_cleaned.py rewrites this
+==============================================================
+Source: test_model_cleaned.parquet (ALL rows, all years)
+
+ROW LAYOUT:
+  Row 1:  Thai title text  (preserved from template)
+  Row 2:  Thai date range  (preserved)
+  Row 3:  "หน่วย: คัน"    (preserved)
+  Row 4:  Thai process date (preserved)
+  Row 5:  Thai note        (preserved)
+  Row 6:  (blank)
+  Row 7:  Column headers   (written by Python)
+  Row 8+: Data rows        (written by Python, 636k+ rows)
+
+COLUMNS (11 total):
+  Col A: ปี              (int, Buddhist Era year e.g. 2564)
+  Col B: เดือน          (Thai month name e.g. "มกราคม")
+  Col C: ประเภทรถ       (vehicle type e.g. "รย.1 รถยนต์นั่ง...")
+  Col D: จังหวัด        (province name)
+  Col E: ยี่ห้อรถ       (raw brand name)
+  Col F: ยี่ห้อรถ2      (normalised brand e.g. "TOYOTA")
+  Col G: รุ่นรถ         (raw model name)
+  Col H: รุ่นรถ2        (normalised model name)
+  Col I: ชนิดเชื้อเพลิง (fuel type Thai string e.g. "ดีเซล")
+  Col J: Powertrain     (ICE / BEV / HEV / PHEV / BEV Major / OTH / N/A)
+  Col K: จำนวนรถ        (registration count, int)
+
+WRITE METHOD: ZIP manipulation (rewrite_data_rows in build_cleaned.py)
+  — reads metadata rows 1-5 from existing file
+  — rewrites Data sheet XML from row 7 onward
+  — preserves pivot cache XML with refreshOnLoad=1
+  — does NOT use openpyxl write mode (too slow on 50MB+ file)
+
+==============================================================
+SHEET: BEV Series Name Table  ✍️ build_BEV.py appends rows
+==============================================================
+Source: pipeline_state.json → new_bev_models list
+
+ROW LAYOUT:
+  Row 1:  Headers — Brand | รุ่นรถ | รุ่นรถ2 | Powertrain
+  Row 2+: One row per known BEV model
+
+COLUMNS (4 used):
+  Col A: Brand    (ยี่ห้อรถ2 normalised brand e.g. "BYD")
+  Col B: รุ่นรถ  (raw model name e.g. "BYD DOLPHIN")
+  Col C: รุ่นรถ2 (normalised model name e.g. "BYD DOLPHIN")
+  Col D: Powertrain (always "BEV Major" for entries added by pipeline)
+
+WRITE METHOD: ZIP manipulation (append_bev_rows_zip in build_BEV.py)
+  — finds last row with actual cell content (not pre-formatted empty rows)
+  — appends new rows only, never rewrites existing rows
+  — new rows sorted by Brand, รุ่นรถ2, รุ่นรถ before appending
+  — deduplicates within the batch being appended
+
+WHEN ROWS ARE ADDED:
+  — build_cleaned.py detects ชนิดเชื้อเพลิง == "ไฟฟ้า" rows not already in this table
+  — auto-approves as "BEV Major" and writes to pipeline_state.json
+  — build_BEV.py reads pipeline_state.json and appends to this table
+  — if new_bev_models is empty: prints message and exits cleanly (no error)
+
+==============================================================
+SHEET: master powertrain  ✍️ update_raw_data.py appends rows
+==============================================================
+Source: fuel raw DLT file — new fuel type strings
+
+ROW LAYOUT:
+  Rows 1-7:  Pivot table summary (cols A-C) — READ-ONLY, do not touch
+  Row 7:     Col E = "ชนิดเชื้อเพลิง", Col F = "Powertrain"  (mapping header)
+  Row 8+:    Col E = fuel type string, Col F = Powertrain category
+
+COLUMNS PYTHON WRITES (cols E and F only):
+  Col E: ชนิดเชื้อเพลิง  (Thai fuel type string e.g. "CNG", "ดีเซล", "ไฟฟ้า")
+  Col F: Powertrain      (ICE / BEV / HEV / PHEV / N/A)
+
+POWERTRAIN CLASSIFICATION RULES (classify_powertrain in update_raw_data.py):
+  "ไม่ระบุ" / "ไม่ทราบ" / "อื่น ๆ"   → N/A
+  contains "เสียบปลั๊ก"               → PHEV
+  exact "ไฟฟ้า"                       → BEV
+  contains "ไฟฟ้า" (not plug-in)      → HEV
+  everything else (CNG, diesel, gas)  → ICE
+
+WRITE METHOD: openpyxl (load + save)
+  — reads existing col E rows 8+ to find known fuel types
+  — finds last used row in col E
+  — appends only NEW fuel types not already present
+  — saves file after appending
+  — if no new fuel types: prints message, closes without saving
+
+==============================================================
+READ-ONLY SHEETS — NEVER WRITE
+==============================================================
+BEV by Model     — Excel pivot table, auto-refreshes from Data sheet
+BEV by Model (2) — Excel pivot table, monthly model-level breakdown
+BMW              — Excel pivot table, BMW/brand monthly breakdown
+
+These pivot sheets update automatically when Excel opens the file
+because build_cleaned.py sets refreshOnLoad=1 in the pivot cache XML.
+Python must NEVER open these sheets for writing or the workbook corrupts.

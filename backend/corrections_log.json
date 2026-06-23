@@ -1,0 +1,132 @@
+[
+  {
+    "run": "2026-06-19",
+    "corrections": [
+      {
+        "year": "2569",
+        "month": "พฤษภาคม",
+        "old_rows": 5,
+        "new_rows": 6,
+        "old_total": 285,
+        "new_total": 303,
+        "diff": 18,
+        "row_diff": 1
+      }
+    ]
+  },
+  {
+    "run": "2026-06-19",
+    "corrections": [
+      {
+        "year": "2569",
+        "month": "พฤษภาคม",
+        "old_rows": 5,
+        "new_rows": 6,
+        "old_total": 285,
+        "new_total": 303,
+        "diff": 18,
+        "row_diff": 1
+      }
+    ]
+  },
+  {
+    "run": "2026-06-19",
+    "corrections": [
+      {
+        "year": "2568",
+        "month": "พฤศจิกายน",
+        "old_rows": 5,
+        "new_rows": 8917,
+        "old_total": 250,
+        "new_total": 177066,
+        "diff": 176816,
+        "row_diff": 8912
+      },
+      {
+        "year": "2569",
+        "month": "พฤษภาคม",
+        "old_rows": 6,
+        "new_rows": 10201,
+        "old_total": 303,
+        "new_total": 234800,
+        "diff": 234497,
+        "row_diff": 10195
+      }
+    ]
+  },
+  {
+    "run": "2026-06-19",
+    "corrections": [
+      {
+        "year": "2568",
+        "month": "พฤศจิกายน",
+        "old_rows": 5,
+        "new_rows": 8917,
+        "old_total": 250,
+        "new_total": 177066,
+        "diff": 176816,
+        "row_diff": 8912
+      },
+      {
+        "year": "2569",
+        "month": "พฤษภาคม",
+        "old_rows": 6,
+        "new_rows": 10201,
+        "old_total": 303,
+        "new_total": 234800,
+        "diff": 234497,
+        "row_diff": 10195
+      }
+    ]
+  },
+  {
+    "run": "2026-06-19",
+    "corrections": [
+      {
+        "year": "2568",
+        "month": "พฤศจิกายน",
+        "old_rows": 5,
+        "new_rows": 8917,
+        "old_total": 250,
+        "new_total": 177066,
+        "diff": 176816,
+        "row_diff": 8912
+      },
+      {
+        "year": "2569",
+        "month": "พฤษภาคม",
+        "old_rows": 6,
+        "new_rows": 10201,
+        "old_total": 303,
+        "new_total": 234800,
+        "diff": 234497,
+        "row_diff": 10195
+      }
+    ]
+  },
+  {
+    "run": "2026-06-19",
+    "corrections": [
+      {
+        "year": "2568",
+        "month": "พฤศจิกายน",
+        "old_rows": 5,
+        "new_rows": 8917,
+        "old_total": 250,
+        "new_total": 177066,
+        "diff": 176816,
+        "row_diff": 8912
+      },
+      {
+        "year": "2569",
+        "month": "พฤษภาคม",
+        "old_rows": 6,
+        "new_rows": 10201,
+        "old_total": 303,
+        "new_total": 234800,
+        "diff": 234497,
+        "row_diff": 10195
+      }
+    ]
+  }
+]

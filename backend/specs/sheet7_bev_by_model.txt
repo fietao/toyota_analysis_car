@@ -1,0 +1,98 @@
+SHEET: 7.BEV by Model
+SOURCE FILE: mastercal.xlsx
+PURPOSE: BEV Major registration broken down by Brand → Model hierarchy
+FILTER: ประเภทรถ = รย.1,2,3,6,9,10,11 | Powertrain = "BEV Major" only
+
+==============================================================
+ROW LAYOUT (header block)
+==============================================================
+Row 1:  "Registration of Major BEV Brand by Model"
+Row 2:  (blank)
+Row 3:  "ประเภทรถ : รย.1,2,3,6,9,10,11"  | col B = "(Multiple Items)"
+Row 4:  "Powertrain : BEV (only Major BEV Brand)"  | col B = "BEV Major"
+Row 5:  (blank)
+Row 6:  year span labels  (col A = "Brand/Model", col B = prev year, col S = curr year)
+Row 7:  month/period sub-labels
+Row 8:  Units/Share/Growth labels
+Row 9:  Grand Total data row
+Row 10+: Brand rows (bold/parent) then Model rows (child) nested under each brand
+
+==============================================================
+COLUMN LAYOUT  (example: curr month = May)
+==============================================================
+Col  A : Brand or Model label
+         — Brand rows: brand name (ยี่ห้อรถ2)
+         — Model rows: model name (รุ่นรถ2)
+Col  B : prev year Jan  (Units)
+Col  C : prev year Feb  (Units)
+Col  D : prev year Mar  (Units)
+Col  E : prev year Apr  (Units)
+Col  F : prev year [curr month] Units
+Col  G : prev year [curr month] Share  (vs Grand Total)
+Col  H : prev year Jan–[curr month] YTD Units
+Col  I : prev year Jan–[curr month] YTD Share
+Col  J : prev year [curr month+1]  e.g. Jun
+Col  K : prev year [curr month+2]  e.g. Jul
+Col  L : prev year [curr month+3]  e.g. Aug
+Col  M : prev year [curr month+4]  e.g. Sep
+Col  N : prev year [curr month+5]  e.g. Oct
+Col  O : prev year [curr month+6]  e.g. Nov
+Col  P : prev year [curr month+7]  e.g. Dec
+Col  Q : prev year Full Year Units
+Col  R : prev year Full Year Share
+Col  S : curr year Jan
+Col  T : curr year Feb
+Col  U : curr year Mar
+Col  V : curr year Apr
+Col  W : curr year [curr month] Units
+Col  X : curr year [curr month] Share  (vs Grand Total)
+Col  Y : Share Diff  = curr month share (curr year) - curr month share (prev year)
+Col  Z : MoM growth  = (curr month - prev month curr year) / prev month curr year
+Col AA : YoY growth  = (curr month curr year - curr month prev year) / curr month prev year
+Col AB : curr year Jan–[curr month] YTD Units
+Col AC : curr year Jan–[curr month] YTD Share
+Col AD : YTD Diff
+Col AE : YTD YoY growth
+
+NOTE: Stop at col AE. Do not touch columns beyond this.
+
+==============================================================
+DATA ROW STRUCTURE (hierarchical)
+==============================================================
+Row 9:   Grand Total  (all BEV Major brands combined)
+Row 10:  Brand A      (e.g. BYD)      ← brand-level subtotal
+Row 11:  Model A1     (e.g. BYD DOLPHIN)
+Row 12:  Model A2     (e.g. BYD ATTO 3)
+Row 13:  Model A3     (e.g. BYD SEALION 7)
+...      (all models for Brand A)
+Row N:   Brand B      (e.g. MG)
+Row N+1: Model B1     (e.g. MG ZS EV)
+...      etc.
+
+Sort order:
+- Brands sorted by curr year curr month Units DESCENDING
+- Models within each brand sorted by curr year curr month Units DESCENDING
+
+==============================================================
+SHARE REFERENCE
+==============================================================
+- Brand share: brand curr month / Grand Total curr month
+- Model share: model curr month / Brand curr month  (parent brand, not Grand Total)
+
+==============================================================
+PARQUET COLUMNS USED
+==============================================================
+ปี, เดือน, ประเภทรถ, ยี่ห้อรถ2, รุ่นรถ2, Powertrain, จำนวนรถ
+Filter: ประเภทรถ matches รย.(1|2|3|6|9|10|11)
+Filter: Powertrain == "BEV Major"
+
+==============================================================
+CALCULATION RULES
+==============================================================
+- Brand Share  = brand value / Grand Total value (same col)
+- Model Share  = model value / parent brand value (same col)
+- Diff         = curr share - prev year same period share
+- MoM          = (curr month - prev month curr year) / prev month curr year
+- YoY          = (curr month curr year - curr month prev year) / curr month prev year
+- YTD          = Jan through curr month sum
+- Missing period → None (blank), never 0

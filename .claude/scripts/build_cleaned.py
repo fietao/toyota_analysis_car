@@ -14,7 +14,7 @@ Output:
   test_model_cleaned.pkl  (intermediate for pivot builder)
 """
 
-import glob, sys, os
+import glob, sys, os, zipfile, re
 from datetime import date
 from pathlib import Path
 
@@ -98,8 +98,7 @@ def read_sheet_raw(path, sheet_name, **kwargs):
         return pd.DataFrame()
 
 
-def read_brand2_rows(model_file):
-    wb = load_workbook(str(model_file), read_only=True, data_only=True)
+def read_brand2_rows(wb):
     try:
         ws = wb["Data"]
         rows = []
@@ -116,8 +115,9 @@ def read_brand2_rows(model_file):
             ):
                 rows.append((e, f))
         return rows
-    finally:
-        wb.close()
+    except Exception as e:
+        print(f"  Warning: could not read brand2 rows: {e}")
+        return []
 
 
 def add_brand2(df, brand_map):
@@ -180,6 +180,90 @@ def enable_pivot_refresh(wb):
         print(f"  Warning: Could not set refreshOnLoad on pivots: {e}")
 
 
+def _col(n):
+    r = ""
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        r = chr(65 + rem) + r
+    return r
+
+
+def _esc(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+                 .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def rewrite_data_rows(workbook_path, dataframe, data_start_row):
+    """Splice new data rows into Data sheet starting at data_start_row.
+    Rows 1..(data_start_row-1) are preserved byte-for-byte (shared strings, styles, brand helper).
+    """
+    path = Path(workbook_path)
+
+    with zipfile.ZipFile(str(path), "r") as z:
+        wb_xml   = z.read("xl/workbook.xml").decode("utf-8")
+        rels_xml = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+    m = re.search(r'<sheet\b[^>]*\bname="Data"[^>]*\br:id="([^"]+)"', wb_xml)
+    if not m:
+        m = re.search(r'<sheet\b[^>]*\br:id="([^"]+)"[^>]*\bname="Data"', wb_xml)
+    if not m:
+        raise ValueError("'Data' sheet not found in xl/workbook.xml")
+    rid = m.group(1)
+    m2 = re.search(
+        rf'<Relationship\b[^>]*\bId="{re.escape(rid)}"[^>]*\bTarget="([^"]+)"', rels_xml
+    )
+    if not m2:
+        raise ValueError(f"No relationship for Id='{rid}'")
+    target = m2.group(1)
+    sheet_xml_name = f"xl/{target}" if not target.startswith("xl/") else target
+
+    with zipfile.ZipFile(str(path), "r") as z:
+        old_xml = z.read(sheet_xml_name).decode("utf-8")
+
+    cut_m = re.search(rf'<row\b[^>]*\br="{data_start_row}"', old_xml)
+    prefix = old_xml[:cut_m.start()] if cut_m else old_xml[:old_xml.rfind("</sheetData>")]
+    suffix = old_xml[old_xml.rfind("</sheetData>"):]
+
+    rows_xml = []
+    for r_idx, row in enumerate(dataframe.itertuples(index=False), data_start_row):
+        cells = []
+        for c_idx, v in enumerate(row, 1):
+            if pd.notna(v):
+                col = _col(c_idx)
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    cells.append(f'<c r="{col}{r_idx}"><v>{v}</v></c>')
+                else:
+                    cells.append(
+                        f'<c r="{col}{r_idx}" t="inlineStr"><is><t>{_esc(v)}</t></is></c>'
+                    )
+        if cells:
+            rows_xml.append(f'<row r="{r_idx}">{"".join(cells)}</row>')
+
+    new_xml = (prefix + "".join(rows_xml) + suffix).encode("utf-8")
+
+    tmp = path.with_suffix(".tmp.xlsx")
+    with zipfile.ZipFile(str(path), "r") as zin, \
+         zipfile.ZipFile(str(tmp), "w", compression=zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename == sheet_xml_name:
+                zout.writestr(item.filename, new_xml)
+            elif "pivotCacheDefinition" in item.filename and item.filename.endswith(".xml"):
+                raw = zin.read(item.filename).decode("utf-8")
+                patched = re.sub(
+                    r'(<pivotCacheDefinition\b)([^>]*?)(/?>)',
+                    lambda m: (
+                        m.group(1) + m.group(2)
+                        + (' refreshOnLoad="1"' if "refreshOnLoad" not in m.group(2) else "")
+                        + m.group(3)
+                    ),
+                    raw, count=1,
+                )
+                zout.writestr(item.filename, patched.encode("utf-8"))
+            else:
+                zout.writestr(item, zin.read(item.filename))
+    tmp.replace(path)
+    print(f"      Saved: {path.name} ({len(dataframe):,} rows from row {data_start_row})")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -192,6 +276,7 @@ def main():
         model_file = Path(max(model_matches, key=os.path.getmtime))
         print(f"Using master Model from root: {model_file.name}")
     else:
+        #what is this part for 
         model_file = find_file(MODEL_PATTERN, "Model template")
 
     # Look for master Cal in root first, fallback to refer folder
@@ -207,16 +292,37 @@ def main():
     print(f"Model Temp   : {model_file.name}")
     print(f"Calc Temp    : {calc_file.name}")
 
+    # ── Parquet path (used for incremental check and final save) ──────────────
+    pq_path = BASE / "test_model_cleaned.parquet"
+    df_existing = None
+    existing_key_set = set()
+
+    if pq_path.exists():
+        print(f"\n[Incremental] Loading existing: {pq_path.name}")
+        df_existing = pd.read_parquet(str(pq_path))
+        ex_key_col = df_existing["ปี"].astype(str) + "_" + df_existing["เดือน"].astype(str)
+        existing_key_set = set(ex_key_col.unique())
+        print(f"  {len(existing_key_set)} year-month pairs | {len(df_existing):,} rows")
+    else:
+        print("\n[Full build] No existing parquet — rebuilding from scratch.")
+
     # 1. Reference tables
     print("\n[1/4] Reading reference tables...", flush=True)
-    df_pt  = read_sheet_raw(model_file, "master powertrain", keep_default_na=False)
+    wb_ref = load_workbook(str(model_file), read_only=True, data_only=True)
+
+    # Read master powertrain
+    pt_rows = []
+    ws_pt = wb_ref["master powertrain"]
+    for row in ws_pt.iter_rows(values_only=True):
+        pt_rows.append(row)
+    df_pt = pd.DataFrame(pt_rows)
     _pt    = df_pt.iloc[7:, [4, 5]].dropna(subset=[4])
     powertrain_map = {str(k).strip(): clean_powertrain_value(v)
                       for k, v in zip(_pt.iloc[:, 0], _pt.iloc[:, 1]) if not pd.isna(k)}
     print(f"      {len(powertrain_map)} powertrain mappings")
 
     # Read brand → ยี่ห้อรถ2 table from refer1 Data!N:O rows 1-8.
-    brand_rows = read_brand2_rows(model_file)
+    brand_rows = read_brand2_rows(wb_ref)
 
     if brand_rows:
         ref_brand2_map = {e.upper(): f for e, f in brand_rows}
@@ -230,10 +336,17 @@ def main():
         brand2_table = list(BRAND2_TABLE)
         print("      ยี่ห้อรถ2: using hardcoded table (Data!N:O rows 1-8 empty)")
 
-    df_bev_tbl = read_sheet_raw(model_file, "BEV Series Name Table")
+    # Read BEV Series Name Table
+    bev_rows = []
+    ws_bev = wb_ref["BEV Series Name Table"]
+    for row in ws_bev.iter_rows(values_only=True):
+        bev_rows.append(row)
+    df_bev_tbl = pd.DataFrame(bev_rows)
     _bev       = df_bev_tbl.iloc[1:, [1, 2, 3]].dropna(subset=[1])
     model2_map        = {str(k).strip().upper(): str(v).strip() for k, v in zip(_bev.iloc[:, 0], _bev.iloc[:, 1])}
     pt_from_model_map = {str(k).strip().upper(): str(v).strip() for k, v in zip(_bev.iloc[:, 0], _bev.iloc[:, 2])}
+
+    wb_ref.close()
 
     csv_map_path = BASE / "refer" / "model2_map.csv"
     if csv_map_path.exists():
@@ -286,11 +399,95 @@ def main():
     # Final cleaned data uses df_model only — matches refer file row count (636,333).
     df_cleaned = ordered_cols(df_model)
     df_cleaned = sort_cleaned_data(df_cleaned, brand2_order)
-    print(f"      {len(df_cleaned):,} combined rows | cols: {list(df_cleaned.columns)}")
+    print(f"      {len(df_cleaned):,} raw rows processed | cols: {list(df_cleaned.columns)}")
+
+    # ── Incremental merge: new months + corrections ────────────────────────────
+    if df_existing is not None:
+        raw_key = df_cleaned["ปี"].astype(str) + "_" + df_cleaned["เดือน"].astype(str)
+
+        # Only check last year (full Jan-Dec) and current year (Jan-current month)
+        current_be = date.today().year + 543
+        check_years = {str(current_be - 1), str(current_be)}
+        scoped_keys = {k for k in raw_key.unique() if k.split("_", 1)[0] in check_years}
+        print(f"  Scope: BE years {sorted(check_years)} | {len(scoped_keys)} months to check")
+
+        new_keys = scoped_keys - existing_key_set
+        overlap_keys = scoped_keys & existing_key_set
+
+        corrected_keys = set()
+        correction_log = []
+        for key in sorted(overlap_keys):
+            yr, mo = key.split("_", 1)
+            ex_mask  = ex_key_col == key
+            raw_mask = raw_key == key
+            old_rows  = int(ex_mask.sum())
+            new_rows  = int(raw_mask.sum())
+            old_total = int(df_existing.loc[ex_mask,  "จำนวนรถ"].sum())
+            new_total = int(df_cleaned.loc[raw_mask, "จำนวนรถ"].sum())
+            if old_rows != new_rows or old_total != new_total:
+                corrected_keys.add(key)
+                correction_log.append({"year": yr, "month": mo,
+                                       "old_rows": old_rows, "new_rows": new_rows,
+                                       "old_total": old_total, "new_total": new_total,
+                                       "diff": new_total - old_total})
+
+        if correction_log:
+            print(f"\n  *** CORRECTIONS DETECTED ({len(correction_log)} months) ***")
+            for c in correction_log:
+                row_diff = c["new_rows"] - c["old_rows"]
+                row_part = (f"rows {c['old_rows']:,}→{c['new_rows']:,} ({row_diff:+,}),  "
+                            if row_diff != 0 else "")
+                print(f"      {c['year']} {c['month']}: {row_part}"
+                      f"total {c['old_total']:,}→{c['new_total']:,} (diff {c['diff']:+,})")
+            import json, datetime
+            log_path = BASE / "corrections_log.json"
+            existing_log = json.loads(log_path.read_text("utf-8")) if log_path.exists() else []
+            existing_log.append({
+                "run": str(datetime.date.today()),
+                "corrections": [
+                    {**c, "row_diff": c["new_rows"] - c["old_rows"]}
+                    for c in correction_log
+                ]
+            })
+            log_path.write_text(json.dumps(existing_log, ensure_ascii=False, indent=2), "utf-8")
+            print(f"      Logged → {log_path.name}")
+
+        update_keys = new_keys | corrected_keys
+
+        if not update_keys:
+            print("  All data up to date. Using existing cleaned data.")
+            df_cleaned = df_existing
+        else:
+            df_keep = df_existing[~ex_key_col.isin(corrected_keys)]
+            df_add  = df_cleaned[raw_key.isin(update_keys)]
+            df_combined = pd.concat([df_keep, df_add], ignore_index=True)
+            df_cleaned  = sort_cleaned_data(df_combined, brand2_order)
+            if new_keys:
+                print(f"  Added {len(new_keys)} new month(s): {', '.join(sorted(new_keys))}")
+            if corrected_keys:
+                print(f"  Refreshed {len(corrected_keys)} corrected month(s): "
+                      f"{', '.join(sorted(corrected_keys))}")
+            print(f"  Final row count: {len(df_cleaned):,}")
+
+    # ── Report new BEV models not in BEV Series Name Table ───────────────────
+    if "รุ่นรถ" in df_cleaned.columns and "Powertrain" in df_cleaned.columns:
+        bev_rows = df_cleaned[
+            df_cleaned["Powertrain"].astype(str).str.startswith("BEV", na=False) &
+            df_cleaned["รุ่นรถ"].notna() &
+            (df_cleaned["รุ่นรถ"].astype(str).str.strip() != "")
+        ][["ยี่ห้อรถ", "รุ่นรถ"]].drop_duplicates()
+        known_models = set(model2_map.keys())
+        new_bev = bev_rows[
+            ~bev_rows["รุ่นรถ"].astype(str).str.strip().str.upper().isin(known_models)
+        ]
+        if not new_bev.empty:
+            print(f"\n*** NEW BEV MODELS not in BEV Series Name Table ({len(new_bev)}) ***")
+            for _, row in new_bev.sort_values(["ยี่ห้อรถ", "รุ่นรถ"]).iterrows():
+                print(f"  {str(row['ยี่ห้อรถ']):<20}  {row['รุ่นรถ']}")
+            print("  → Add these to BEV Series Name Table before next analyst run")
 
     # Save intermediate for pivot builder (parquet: safe, fast, preserves dtypes)
     # Cast object columns to str to avoid mixed-type ArrowTypeError
-    pq_path = BASE / "test_model_cleaned.parquet"
     for col in df_cleaned.select_dtypes(include="object").columns:
         df_cleaned[col] = df_cleaned[col].astype(str).replace("nan", pd.NA)
     df_cleaned.to_parquet(str(pq_path), index=False)
@@ -311,28 +508,12 @@ def main():
         shutil.copy2(calc_file, calc_out)
         print(f"      Calculation template copied → {calc_out.name}")
 
-    print("      Writing new Data sheet (this may take a few minutes)...")
-    # Use pandas to replace the Data sheet. This preserves the rest of the workbook.
-    with pd.ExcelWriter(out_file, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-        df_cleaned.to_excel(writer, sheet_name="Data", index=False)
-        print("      Data sheet replaced successfully.")
+    print("      Writing new Data sheet...")
 
-    # Write cleaned data (without Powertrain column) into the calculation template
+    rewrite_data_rows(out_file, df_cleaned, data_start_row=8)
+
     df_calc = df_cleaned.drop(columns=["Powertrain"], errors="ignore")
-    with pd.ExcelWriter(calc_out, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-        df_calc.to_excel(writer, sheet_name="Data", index=False)
-        print("      Calculation Data sheet replaced (Powertrain column removed).")
-
-    # Enable pivot refresh on load for both files
-    try:
-        for path in [out_file, calc_out]:
-            wb = load_workbook(str(path))
-            enable_pivot_refresh(wb)
-            wb.save(str(path))
-            wb.close()
-        print("      Enabled auto-refresh on load for all Pivot Tables.")
-    except Exception as e:
-        print(f"  Warning: failed to enable pivot refresh: {e}")
+    rewrite_data_rows(calc_out, df_calc, data_start_row=7)
 
     print(f"\nOutput : {out_file}")
     print(f"         {calc_out.name}")
