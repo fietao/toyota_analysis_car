@@ -24,7 +24,6 @@ VEHICLE_TYPE_DICT = {
     "รย.11": "รย.11 (รถยนต์บริการให้เช่า)"
 }
 
-INCLUDE_RY = {"1", "2", "3", "6", "9", "10", "11"}
 
 # User's strict mapping for fuel
 FUEL_MAP = {
@@ -168,9 +167,6 @@ def load_data(parquet: Path) -> pd.DataFrame:
     df.loc[df["จังหวัด"] == "", "จังหวัด"] = "ไม่ระบุจังหวัด"
     return df
 
-def _ry_filter(df: pd.DataFrame) -> pd.DataFrame:
-    v_num = df["v_code"].str.extract(r"รย\.(\d+)")[0]
-    return df[v_num.isin(INCLUDE_RY)]
 
 def export_data():
     missing = [p for p in [MODEL_PARQUET, FUEL_PARQUET] if not p.exists()]
@@ -188,13 +184,11 @@ def export_data():
     df_fuel_all["ชนิดเชื้อเพลิง"] = df_fuel_all["ชนิดเชื้อเพลิง"].fillna("")
     print(f"  {len(df_fuel_all):,} fuel rows loaded")
 
-    # Apply รย filter to both parquets
-    df = _ry_filter(df_model_all)
-    df_fuel = _ry_filter(df_fuel_all)
-    print(f"  {len(df):,} model rows after รย filter")
-    print(f"  {len(df_fuel):,} fuel rows after รย filter")
-
-    # 1. Powertrain master from fuel parquet + รย filter
+    # Use all rows, no รย filter
+    df = df_model_all
+    df_fuel = df_fuel_all
+    
+    # 1. Powertrain master from fuel parquet
     pm_grp = df_fuel.groupby(["ชนิดเชื้อเพลิง", "PT", "ปี"])["จำนวนรถ"].sum().reset_index()
     pm_grp = pm_grp[pm_grp["จำนวนรถ"] > 0]
     pm_data = []
@@ -204,7 +198,7 @@ def export_data():
             "y": int(row["ปี"]), "u": int(row["จำนวนรถ"])
         })
 
-    # 2. Brand/model tree — fuel for brand monthly, model for model rows, both รย-filtered
+    # 2. Brand/model tree — fuel for brand monthly, model for model rows
     print("  Building brand_model_tree...")
     brand_model_tree = build_brand_model_tree(df_fuel, df)
     tree_total = sum(
@@ -214,7 +208,7 @@ def export_data():
         for year_buckets in province_buckets.values()
         for arr in year_buckets.values()
     )
-    print(f"  brand_model_tree total units (fuel, รย-filtered): {tree_total:,}")
+    print(f"  brand_model_tree total units (fuel): {tree_total:,}")
 
     # 3. Fuel & Powertrain monthly (from fuel parquet)
     fuel_grp = df_fuel.groupby(["ปี", "เดือน", "PT", "ชนิดเชื้อเพลิง", "v"])["จำนวนรถ"].sum().reset_index()
@@ -236,9 +230,8 @@ def export_data():
             "b": row["ยี่ห้อรถ2"], "v": short_code(row["v"]), "u": int(row["จำนวนรถ"])
         })
 
-    # 5. Model monthly from model parquet (BEV/HEV/PHEV/BMW — approximate fuel, exact model)
-    model_df = df[(df["PT"] == "BEV") | (df["ยี่ห้อรถ2"] == "BMW") | (df["PT"] == "PHEV") | (df["PT"] == "HEV")]
-    model_grp = model_df.groupby(["ปี", "เดือน", "PT", "ยี่ห้อรถ2", "รุ่นรถ2", "v"])["จำนวนรถ"].sum().reset_index()
+    # 5. Model monthly from model parquet (export all models)
+    model_grp = df.groupby(["ปี", "เดือน", "PT", "ยี่ห้อรถ2", "รุ่นรถ2", "v"])["จำนวนรถ"].sum().reset_index()
     model_grp = model_grp[model_grp["จำนวนรถ"] > 0]
     model_data = []
     for _, row in model_grp.iterrows():
@@ -363,7 +356,7 @@ def export_data():
         "powertrain_master": pm_data,
         "fuel_monthly": fuel_data,
         "brand_monthly": brand_data,
-        "model_monthly": model_data,
+        "model_monthly_all": model_data,
         "brand_model_tree": brand_model_tree,
         "brand_focus": brand_focus,
     }
@@ -371,7 +364,7 @@ def export_data():
     print(f"  powertrain_master rows: {len(pm_data):,}")
     print(f"  fuel_monthly rows: {len(fuel_data):,}")
     print(f"  brand_monthly rows: {len(brand_data):,}")
-    print(f"  model_monthly rows: {len(model_data):,}")
+    print(f"  model_monthly_all rows: {len(model_data):,}")
     print(f"  brand_model_tree brands: {len(brand_model_tree):,}")
 
     out_file = FRONTEND_DATA_DIR / "dashboard_data.json"
@@ -383,6 +376,106 @@ def export_data():
     print(f"Exported to {out_file.name} ({mb:.1f} MB)")
 
     print(f"Filtered model summary total: {df['จำนวนรถ'].sum():,}")
+    validate_export(data)
+
+    # --- Export Full Cleaned Data ---
+    import shutil
+    import datetime
+
+    cleaned_model_dest = FRONTEND_DATA_DIR / "cleaned_model_data.parquet"
+    cleaned_fuel_dest = FRONTEND_DATA_DIR / "cleaned_fuel_data.parquet"
+    
+    print("Copying full cleaned parquets to frontend...")
+    shutil.copy2(MODEL_PARQUET, cleaned_model_dest)
+    shutil.copy2(FUEL_PARQUET, cleaned_fuel_dest)
+    
+    # Validation for the copies
+    print("Validating copied parquets...")
+    df_model_copy = load_data(cleaned_model_dest)
+    df_fuel_copy = load_data(cleaned_fuel_dest)
+    
+    if len(df_model_copy) != len(df_model_all):
+        raise ValueError(f"VALIDATION FAILED: Copied model parquet row count mismatch ({len(df_model_copy)} vs {len(df_model_all)})")
+    if len(df_fuel_copy) != len(df_fuel_all):
+        raise ValueError(f"VALIDATION FAILED: Copied fuel parquet row count mismatch ({len(df_fuel_copy)} vs {len(df_fuel_all)})")
+        
+    model_copy_sum = df_model_copy["จำนวนรถ"].sum()
+    fuel_copy_sum = df_fuel_copy["จำนวนรถ"].sum()
+    model_all_sum = df_model_all["จำนวนรถ"].sum()
+    fuel_all_sum = df_fuel_all["จำนวนรถ"].sum()
+    
+    if model_copy_sum != model_all_sum:
+        raise ValueError(f"VALIDATION FAILED: Copied model total mismatch ({model_copy_sum} vs {model_all_sum})")
+    if fuel_copy_sum != fuel_all_sum:
+        raise ValueError(f"VALIDATION FAILED: Copied fuel total mismatch ({fuel_copy_sum} vs {fuel_all_sum})")
+         
+    raw_model_cols = list(pd.read_parquet(cleaned_model_dest).columns)
+    raw_fuel_cols = list(pd.read_parquet(cleaned_fuel_dest).columns)
+    
+    manifest = {
+        "generated_at": datetime.datetime.now().isoformat(),
+        "model_row_count": len(df_model_copy),
+        "fuel_row_count": len(df_fuel_copy),
+        "model_total_units": int(model_copy_sum),
+        "fuel_total_units": int(fuel_copy_sum),
+        "years_present": sorted([int(y) for y in df_model_copy["ปี"].unique() if pd.notnull(y)]),
+        "vehicle_type_codes": sorted([str(v) for v in df_model_copy["v_code"].unique() if pd.notnull(v)]),
+        "model_columns": raw_model_cols,
+        "fuel_columns": raw_fuel_cols
+    }
+    
+    manifest_dest = FRONTEND_DATA_DIR / "cleaned_data_manifest.json"
+    with open(manifest_dest, "w", encoding="utf-8") as mf:
+        json.dump(manifest, mf, indent=2, ensure_ascii=False)
+        
+    print(f"Exported raw parquet copies and manifest to {FRONTEND_DATA_DIR.name}")
+
+def validate_export(data: dict):
+    print("\n--- VALIDATING DASHBOARD EXPORT ---")
+    fuel_total = sum(d.get("u", 0) for d in data.get("fuel_monthly", []))
+
+    brand_total = 0
+    model_total = 0
+    tree_by_v = set()
+    
+    for b in data.get("brand_model_tree", []):
+        b_sum = 0
+        for v, v_data in b.get("monthly", {}).items():
+            tree_by_v.add(v)
+            for p, p_data in v_data.items():
+                for y, y_data in p_data.items():
+                    if isinstance(y_data, list):
+                        b_sum += sum(x for x in y_data if x)
+        brand_total += b_sum
+
+        m_sum = 0
+        for m in b.get("models", []):
+            for v, v_data in m.get("monthly", {}).items():
+                tree_by_v.add(v)
+                for p, p_data in v_data.items():
+                    for y, y_data in p_data.items():
+                        if isinstance(y_data, list):
+                            m_sum += sum(x for x in y_data if x)
+        model_total += m_sum
+
+    print(f"  fuel_monthly total: {fuel_total:,}")
+    print(f"  brand_model_tree brand total: {brand_total:,}")
+    print(f"  brand_model_tree model total: {model_total:,}")
+    
+    meta_v_list = data.get("meta", {}).get("vehicle_types_list", [])
+    meta_v_codes = {v["code"] for v in meta_v_list}
+    
+    print(f"  Vehicle types exported in tree: {len(tree_by_v)} codes")
+    print(f"  {sorted(list(tree_by_v))}")
+    
+    if not (fuel_total == brand_total == model_total):
+        raise ValueError(f"VALIDATION FAILED: Totals do not match! fuel={fuel_total}, brand={brand_total}, model={model_total}")
+        
+    missing_in_meta = tree_by_v - meta_v_codes
+    if missing_in_meta:
+        raise ValueError(f"VALIDATION FAILED: Vehicle types in tree missing from meta.vehicle_types_list: {missing_in_meta}")
+        
+    print("VALIDATION PASSED: All totals reconcile and vehicle types are properly mapped.\n")
 
 if __name__ == "__main__":
     export_data()

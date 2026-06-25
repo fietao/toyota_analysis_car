@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
-  PieChart as PieChartIcon, Trophy, Battery, Car, Filter, Layers, Upload, ChevronDown, Check, Search, ChevronRight
+  PieChart as PieChartIcon, Trophy, Battery, Car, Filter, Layers, Upload, ChevronDown, Check, Search, ChevronRight, MapPin
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
-  Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ScatterChart, Scatter, ZAxis,
 } from "recharts";
 import UploadModal from "@/components/UploadModal";
 
@@ -75,7 +75,12 @@ type BrandNode = {
 };
 
 type DashboardData = {
-  meta: { years: number[]; months: string[]; provinces: string[] };
+  meta: { 
+    years: number[]; 
+    months: string[]; 
+    provinces: string[]; 
+    vehicle_types_list?: { code: string; label: string }[];
+  };
   powertrain_master: PowertrainMasterRow[];
   fuel_monthly: FuelRow[];
   brand_model_tree: BrandNode[];
@@ -96,7 +101,9 @@ function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number | "All
   let grandTotal = 0;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-  selectedVehicleTypes.forEach(vc => {
+  const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(node.monthly || {});
+
+  vcs.forEach(vc => {
     const vcBucket = node.monthly?.[vc];
     if (!vcBucket) return;
     
@@ -160,13 +167,15 @@ function FilterPillPopover({
   value, 
   onChange, 
   label,
-  placeholder
+  placeholder,
+  singleSelect = false
 }: { 
-  options: string[]; 
+  options: (string | { id: string, label: string })[]; 
   value: string[]; 
   onChange: (v: string[]) => void;
   label: string;
   placeholder?: string;
+  singleSelect?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -180,14 +189,24 @@ function FilterPillPopover({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+  const normalizedOptions = options.map(o => typeof o === 'string' ? { id: o, label: o } : o);
+  const filtered = normalizedOptions.filter(o => o.label.toLowerCase().includes(search.toLowerCase()) || o.id.toLowerCase().includes(search.toLowerCase()));
 
-  const toggleOpt = (opt: string) => {
-    if (value.includes(opt)) onChange(value.filter(v => v !== opt));
-    else onChange([...value, opt]);
+  const toggleOpt = (optId: string) => {
+    if (singleSelect) {
+      if (value.includes(optId)) {
+        onChange([]);
+      } else {
+        onChange([optId]);
+        setIsOpen(false);
+      }
+    } else {
+      if (value.includes(optId)) onChange(value.filter(v => v !== optId));
+      else onChange([...value, optId]);
+    }
   };
 
-  const btnText = value.length === 0 ? "All" : `${value.length} Selected`;
+  const btnText = value.length === 0 ? "All" : (singleSelect ? (normalizedOptions.find(o => o.id === value[0])?.label || value[0]) : `${value.length} / ${options.length}`);
 
   return (
     <div ref={ref} className="relative inline-block">
@@ -205,7 +224,7 @@ function FilterPillPopover({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-[260px] rounded-sm border border-slate-700 bg-slate-800 shadow-2xl">
+        <div className="absolute z-50 mt-2 w-[300px] rounded-sm border border-slate-700 bg-slate-800 shadow-2xl">
           <div className="p-2 border-b border-slate-700">
             <div className="flex items-center rounded-sm bg-slate-900 px-2 py-1 text-xs border border-slate-700">
               <Search className="h-3 w-3 text-slate-500 mr-2" />
@@ -213,24 +232,31 @@ function FilterPillPopover({
                 type="text"
                 autoFocus
                 className="w-full bg-transparent text-slate-200 outline-none placeholder:text-slate-500"
-                placeholder="Search..."
+                placeholder={placeholder || "Search..."}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
           </div>
           <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
-            <label className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${value.length === 0 ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
-              <span>All {label}</span>
-              <input type="checkbox" className="hidden" checked={value.length === 0} onChange={() => onChange([])} />
-              {value.length === 0 && <Check className="h-3 w-3" />}
-            </label>
+            {!singleSelect && (
+              <label className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${value.length === 0 ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
+                <span>All {label}</span>
+                <input type="checkbox" className="hidden" checked={value.length === 0} onChange={() => onChange([])} />
+                {value.length === 0 && <Check className="h-3 w-3" />}
+              </label>
+            )}
+            {singleSelect && value.length > 0 && (
+              <label className="flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-700" onClick={() => { onChange([]); setIsOpen(false); }}>
+                <span>Clear Selection</span>
+              </label>
+            )}
             {filtered.map(opt => {
-              const isChecked = value.includes(opt);
+              const isChecked = value.includes(opt.id);
               return (
-                <label key={opt} className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${isChecked ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
-                  <span className="truncate pr-2">{opt}</span>
-                  <input type="checkbox" className="hidden" checked={isChecked} onChange={() => toggleOpt(opt)} />
+                <label key={opt.id} className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${isChecked ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
+                  <span className="truncate pr-2">{opt.label}</span>
+                  <input type="checkbox" className="hidden" checked={isChecked} onChange={() => toggleOpt(opt.id)} />
                   {isChecked && <Check className="h-3 w-3 flex-shrink-0" />}
                 </label>
               );
@@ -340,7 +366,8 @@ function DataTable({ columns, rows, onToggleRow, highlightFirst = false }: {
             <tr key={i} className={`group ${highlightFirst && i === sortedRows.length - 1 ? "bg-slate-800 font-semibold text-brand-light" : (row.isSubRow ? "bg-slate-900/40 hover:bg-slate-800" : "hover:bg-slate-800 text-slate-300")}`}>
               {columns.map((c) => {
                 const isNameCol = c.key === "name" || c.key === "brand";
-                const content = c.align === "left" ? String(row[c.key] ?? "") : fmt(row[c.key]);
+                const val = row[c.key];
+                const content = c.align === "left" || typeof val === "string" ? String(val ?? "") : fmt(val);
                 
                 return (
                   <td key={c.key} className={`whitespace-nowrap px-2 py-1.5 tabular-nums ${c.align === "left" ? "text-left" : "text-right"}`}>
@@ -401,8 +428,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("rankings");
   const [selectedYear, setSelectedYear] = useState<number | "All">("All");
-  const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>(Object.keys(VEHICLE_TYPE_DICT));
-  const [showVehicleFilter, setShowVehicleFilter] = useState(false);
+  const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Filter Pills (Arrays)
@@ -417,6 +443,10 @@ export default function Dashboard() {
   // Dynamic Chart Grouping state
   const [chartGroupBy, setChartGroupBy] = useState<"Brands" | "Models" | "Provinces">("Brands");
   const [trendGroupBy, setTrendGroupBy] = useState<"Powertrain" | "Vehicle Type">("Powertrain");
+
+  // Trend Province Performance state
+  const [trendProvBrand, setTrendProvBrand] = useState<string>("");
+  const [trendProvModel, setTrendProvModel] = useState<string>("");
 
   useEffect(() => {
     fetch("/data/dashboard_data.json")
@@ -451,6 +481,7 @@ export default function Dashboard() {
      return Array.from(mSet).sort();
   }, [data, rankingBrand]);
 
+
   // Clear stale selected models if they are no longer in the cascading `allDataModels` list
   useEffect(() => {
     if (rankingModel.length > 0) {
@@ -470,7 +501,9 @@ export default function Dashboard() {
   // -- Powertrain Overview Engine (fuel_monthly) --
   const fuelFiltered = useMemo(() => {
     if (!data?.fuel_monthly) return [];
-    const d = data.fuel_monthly.filter(x => selectedVehicleTypes.includes(x.v));
+    const d = selectedVehicleTypes.length > 0 
+      ? data.fuel_monthly.filter(x => selectedVehicleTypes.includes(x.v))
+      : data.fuel_monthly;
     return selectedYear === "All" ? d : d.filter(x => x.y === selectedYear);
   }, [data, selectedYear, selectedVehicleTypes]);
 
@@ -628,7 +661,8 @@ export default function Dashboard() {
               cMap.set(label, (cMap.get(label) || 0) + grandTotal);
            });
         } else if (chartGroupBy === "Provinces") {
-           selectedVehicleTypes.forEach(vc => {
+           const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(brandNode.monthly || {});
+           vcs.forEach(vc => {
               const vcBucket = brandNode.monthly?.[vc];
               if (!vcBucket) return;
               Object.keys(vcBucket).forEach(prov => {
@@ -672,6 +706,126 @@ export default function Dashboard() {
      { key: "YTD", label: "Grand Total" } 
   ];
 
+  // -- Province Analysis Engine --
+  const provinceAnalysisData = useMemo(() => {
+    if (!data?.brand_model_tree) return [];
+    const provMap = new Map<string, { prov: string; totalProvVol: number; selectedVol: number; rankMap: Map<string, number> }>();
+    
+    const targetKey = trendProvBrand && trendProvModel ? `${trendProvBrand}|${trendProvModel}` : trendProvBrand;
+
+    data.brand_model_tree.forEach(brandNode => {
+      const cleanBrand = normalizeBrandName(brandNode.brand);
+
+      const processNode = (node: { monthly: TreeMonthly }, isSelected: boolean, key: string) => {
+        const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(node.monthly || {});
+        vcs.forEach(vc => {
+          const vcBucket = node.monthly?.[vc];
+          if (!vcBucket) return;
+          Object.keys(vcBucket).forEach(prov => {
+            const pBucket = vcBucket[prov];
+            if (!pBucket) return;
+            let sum = 0;
+            Object.keys(pBucket).forEach(yStr => {
+              if (selectedYear !== "All" && yStr !== String(selectedYear)) return;
+              const arr = pBucket[yStr];
+              if (Array.isArray(arr)) {
+                for (let i = 0; i < 12; i++) sum += arr[i] || 0;
+              }
+            });
+            if (sum > 0) {
+               if (!provMap.has(prov)) provMap.set(prov, { prov, totalProvVol: 0, selectedVol: 0, rankMap: new Map() });
+               const pData = provMap.get(prov)!;
+               pData.totalProvVol += sum;
+               if (isSelected) pData.selectedVol += sum;
+               pData.rankMap.set(key, (pData.rankMap.get(key) || 0) + sum);
+            }
+          });
+        });
+      };
+
+      if (trendProvBrand && trendProvModel) {
+         brandNode.models?.forEach(model => {
+            const key = `${cleanBrand}|${model.name}`;
+            const isModelSelected = key === targetKey;
+            processNode(model, isModelSelected, key);
+         });
+      } else {
+         const isBrandSelected = cleanBrand === targetKey;
+         processNode(brandNode, isBrandSelected, cleanBrand);
+      }
+    });
+
+    const res = Array.from(provMap.values()).map(p => {
+      const share = p.totalProvVol > 0 ? p.selectedVol / p.totalProvVol : 0;
+      let topCompetitor = "None";
+      let topCompVol = 0;
+      let myRank: number | string = "—";
+      
+      const ranks = Array.from(p.rankMap.entries()).sort((a, b) => b[1] - a[1]);
+      
+      if (!targetKey) {
+         myRank = "—";
+      } else {
+         let rankCounter = 1;
+         let foundMe = false;
+         for (const [key, vol] of ranks) {
+            if (key === targetKey) {
+                myRank = rankCounter;
+                foundMe = true;
+            } else {
+                if (vol > topCompVol) {
+                   topCompetitor = key.includes("|") ? key.split("|")[1] : key;
+                   topCompVol = vol;
+                }
+            }
+            rankCounter++;
+         }
+         if (!foundMe) myRank = "—";
+      }
+
+      return { ...p, share, topCompetitor, myRank };
+    });
+
+    const sortedByVol = [...res].sort((a,b) => b.totalProvVol - a.totalProvVol);
+    const p25 = sortedByVol[Math.floor(sortedByVol.length * 0.75)]?.totalProvVol || 0;
+    const p50 = sortedByVol[Math.floor(sortedByVol.length * 0.5)]?.totalProvVol || 0;
+
+    return res.map(p => {
+      let status = "Average";
+      if (p.share >= 0.15) status = "Stronghold";
+      else if (p.share >= 0.05) status = "Growth Market";
+      else if (p.totalProvVol < p25) status = "Low Demand";
+      else if (p.share === 0 && p.totalProvVol >= p50) status = "Possible Gap";
+      else if (p.share < 0.03 && p.totalProvVol >= p50) status = "Weak Spot";
+
+      let shareStr = "—";
+      if (p.totalProvVol > 0) {
+         if (p.selectedVol > 0 && p.share < 0.0005) shareStr = "<0.1%";
+         else shareStr = (p.share * 100).toFixed(1) + "%";
+      }
+
+      const { rankMap, ...rest } = p;
+      return {
+        ...rest,
+        status,
+        shareStr
+      };
+    });
+  }, [data, trendProvBrand, trendProvModel, selectedVehicleTypes, selectedYear]);
+
+  const topProvinces = useMemo(() => {
+    if (!trendProvBrand) return [...provinceAnalysisData].sort((a,b)=>b.totalProvVol-a.totalProvVol);
+    return provinceAnalysisData
+       .filter(p => p.selectedVol > 0 && !["Weak Spot", "Possible Gap", "Low Demand"].includes(p.status))
+       .sort((a, b) => (b.selectedVol - a.selectedVol) || (b.share - a.share));
+  }, [provinceAnalysisData, trendProvBrand]);
+
+  const weakProvinces = useMemo(() => {
+    return provinceAnalysisData
+       .filter(p => ["Weak Spot", "Possible Gap", "Low Demand"].includes(p.status))
+       .sort((a, b) => (b.totalProvVol - a.totalProvVol) || (a.share - b.share) || (a.selectedVol - b.selectedVol));
+  }, [provinceAnalysisData]);
+
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950">
       <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-light border-t-transparent"></div>
@@ -680,7 +834,7 @@ export default function Dashboard() {
 
   const tabs = [
     { id: "rankings", label: "Rankings & Leaderboards", icon: Trophy },
-    { id: "powertrain", label: "Trend Overview", icon: PieChartIcon },
+    { id: "powertrain", label: "Powertrain & Fuel Type", icon: PieChartIcon },
     { id: "deep-dive", label: "Brand & Model Deep-Dive", icon: Layers, href: "/models.html" },
     { id: "analyst", label: "Analyst Table", icon: Layers, href: "/analyst.html" },
   ];
@@ -754,13 +908,13 @@ export default function Dashboard() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Selected Year</p>
               <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-100">{selectedYear}</p>
             </div>
-            {selectedVehicleTypes.length < Object.keys(VEHICLE_TYPE_DICT).length && (
+            {selectedVehicleTypes.length > 0 && selectedVehicleTypes.length < (data?.meta?.vehicle_types_list?.length || 0) && (
               <>
                 <div className="h-8 w-px bg-slate-800" />
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Vehicle Types Active</p>
                   <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-100">
-                    {selectedVehicleTypes.length} <span className="text-sm text-slate-500 font-sans font-normal">of {Object.keys(VEHICLE_TYPE_DICT).length}</span>
+                    {selectedVehicleTypes.length} <span className="text-sm text-slate-500 font-sans font-normal">of {data?.meta?.vehicle_types_list?.length || 0}</span>
                   </p>
                 </div>
               </>
@@ -770,37 +924,14 @@ export default function Dashboard() {
 
         <div className="p-4 md:p-6">
           {/* Vehicle Type Global Filter */}
-          <div className="mb-4 md:mb-6 rounded-sm border border-slate-800 bg-slate-900 overflow-hidden">
-            <button
-              onClick={() => setShowVehicleFilter(!showVehicleFilter)}
-              className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800"
-            >
-              <span className="flex items-center gap-2">
-                <Filter className="h-3 w-3 text-slate-400" />
-                <span>Global Vehicle Types Filter</span>
-              </span>
-              <span className="rounded-sm bg-slate-800 px-1.5 py-0.5 text-[10px] text-brand-light font-mono">
-                {selectedVehicleTypes.length}/{Object.keys(VEHICLE_TYPE_DICT).length}
-              </span>
-            </button>
-            {showVehicleFilter && (
-              <div className="border-t border-slate-800 bg-slate-950 p-2 flex flex-wrap gap-1.5">
-                {Object.entries(VEHICLE_TYPE_DICT).map(([code, label]) => (
-                  <label key={code} title={label} className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-slate-800 bg-slate-900 px-2 py-1 hover:border-slate-700 transition-colors">
-                    <input
-                      type="checkbox"
-                      className="cursor-pointer accent-brand-primary"
-                      checked={selectedVehicleTypes.includes(code)}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedVehicleTypes([...selectedVehicleTypes, code]);
-                        else setSelectedVehicleTypes(selectedVehicleTypes.filter(t => t !== code));
-                      }}
-                    />
-                    <span className="text-[10px] font-mono text-slate-300">{code}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+          <div className="mb-4 md:mb-6 flex flex-wrap items-center gap-2">
+            <FilterPillPopover 
+              label="Global Vehicle Types" 
+              placeholder="Search vehicle types..." 
+              options={data?.meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) || []} 
+              value={selectedVehicleTypes} 
+              onChange={setSelectedVehicleTypes} 
+            />
           </div>
 
           <div className="space-y-4 md:space-y-6">
@@ -866,7 +997,7 @@ export default function Dashboard() {
             </>)}
 
 
-            {/* ── Trend Overview Tab (Legacy Powertrain) ───────────────── */}
+            {/* ── Powertrain & Fuel Type Tab ───────────────── */}
             {activeTab === "powertrain" && (<>
               <div className="flex items-center gap-1 mb-4 self-start rounded-full border border-slate-700 bg-slate-800 p-0.5 inline-flex">
                  {(["Powertrain", "Vehicle Type"] as const).map(opt => (
@@ -916,6 +1047,90 @@ export default function Dashboard() {
               <Card title={`Units by ${trendGroupBy} — ${selectedYear}`}>
                 <DataTable columns={[{ key: "name", label: trendGroupBy, align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={trendTable} highlightFirst />
               </Card>
+
+              {/* ── Province Performance Panel ───────────────── */}
+              <div className="mt-8 border-t border-slate-800/50 pt-8">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Province Performance</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Identify strongholds and gaps across regions</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FilterPillPopover 
+                       label="Brand"
+                       placeholder="Search brand..."
+                       options={allDataBrands}
+                       value={trendProvBrand ? [trendProvBrand] : []}
+                       onChange={(val) => {
+                          setTrendProvBrand(val[0] || "");
+                          setTrendProvModel("");
+                       }}
+                       singleSelect
+                    />
+
+                    {trendProvBrand && (
+                       <FilterPillPopover 
+                          label="Model"
+                          placeholder="Search model..."
+                          options={data?.brand_model_tree.find(b => normalizeBrandName(b.brand) === trendProvBrand)?.models?.map(m => m.name) || []}
+                          value={trendProvModel ? [trendProvModel] : []}
+                          onChange={(val) => setTrendProvModel(val[0] || "")}
+                          singleSelect
+                       />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                 <Card title="Top Provinces">
+                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                       {trendProvBrand && topProvinces.length === 0 ? (
+                          <div className="flex h-32 items-center justify-center text-sm text-slate-500 text-center px-4">
+                            No strong provinces found for this brand/model under the current filters.
+                          </div>
+                       ) : (
+                          <DataTable 
+                             columns={trendProvBrand ? [
+                               { key: "prov", label: "Province", align: "left" },
+                               { key: "selectedVol", label: "Volume" },
+                               { key: "shareStr", label: "Mkt Share" },
+                               { key: "myRank", label: "Rank" },
+                               { key: "status", label: "Status", align: "left" }
+                             ] : [
+                               { key: "prov", label: "Province", align: "left" },
+                               { key: "totalProvVol", label: "Market Volume" }
+                             ]}
+                             rows={topProvinces}
+                          />
+                       )}
+                    </div>
+                 </Card>
+                 <Card title="Weak Spots & Gaps">
+                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                       {!trendProvBrand ? (
+                          <div className="flex h-32 items-center justify-center text-sm text-slate-500 text-center px-4">
+                            Select a brand to identify weak spots and possible gaps.
+                          </div>
+                       ) : weakProvinces.length === 0 ? (
+                          <div className="flex h-32 items-center justify-center text-sm text-slate-500 text-center px-4">
+                            No major weak spots identified.
+                          </div>
+                       ) : (
+                          <DataTable 
+                             columns={[
+                               { key: "prov", label: "Province", align: "left" },
+                               { key: "totalProvVol", label: "Mkt Size" },
+                               { key: "shareStr", label: "Share" },
+                               { key: "topCompetitor", label: "Top Comp." },
+                               { key: "status", label: "Status" }
+                             ]}
+                             rows={weakProvinces}
+                          />
+                       )}
+                    </div>
+                 </Card>
+                </div>
+              </div>
             </>)}
 
           </div>

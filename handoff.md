@@ -1,52 +1,27 @@
-# Handoff — Car Analysis Pipeline & Frontend
+# AI Handoff Document: Thai DLT Car Registration Dashboard
 
-_Written 2026-06-23, grounded in the actual working tree (not memory)._
+## Project Overview
+This is a Next.js Business Intelligence (BI) dashboard that visualizes Thailand Department of Land Transport (DLT) car registration data. The data is statically generated and fetched via `/data/dashboard_data.json`.
 
-## TL;DR for the next agent
+## Current State & Architecture
+We have recently overhauled `frontend/src/app/page.tsx` to transition from a basic reporting view into a premium, interactive BI tool.
 
-The repo has been **substantially restructured** and **none of it is committed yet**.
-`git log -- backend frontend` returns nothing — the entire backend/ + frontend/ rework
-lives only in the working tree. **Read this before you touch anything; then decide what to
-commit.**
+### Key Features in `page.tsx`:
+1. **Bloomberg Terminal Aesthetic:** Dark mode UI utilizing `slate-950` backgrounds, `slate-800` cards, and a primary brand color (teal/amber).
+2. **Filter Pills (Multi-Select Popovers):** All filters (Powertrain, Brand, Model, Province) have been upgraded from native `<select>` dropdowns to a custom `FilterPillPopover` component that opens a multi-select checkbox menu with a search bar.
+3. **Cascading Filters:** The Model filter dynamically updates its options based on the currently selected Brands.
+4. **Drill-Down Pivot Table:** The Leaderboard defaults to grouping by Brand. Clicking a Brand row expands it to reveal the specific Models making up those registration numbers.
+5. **Dynamic "Group By" Bar Chart:** The top Top 10 chart has a segmented control allowing the user to instantly toggle between grouping by Brands, Models, or Provinces.
 
-## Repo state (verified)
+## Pending Implementation (Currently being handled by Gemini)
+The user is currently using Gemini to implement two final BI features:
+1. **Brand Alias Cleansing:** Normalizing messy data inputs (e.g., `"Deepal+Chang"`, `"Change+Depal"`) into a single, unified `"Deepal + Changan"` brand key via a `BRAND_ALIASES` dictionary at the top of the file.
+2. **Trend Chart Grouping (Customer Segments):** Adding a "Group By" toggle to the Trend AreaChart so the user can switch between plotting *Powertrains* (ICE/BEV) and *Vehicle Types* (Passenger Cars/Motorcycles) over time to identify target customer segment trends.
 
-- **Scripts moved** `.claude/scripts/` → `backend/`. The old paths show as deleted in
-  `git status`; the new `backend/*.py` files are untracked.
-- **Frontend replaced.** Old `dashboard/` (Next.js) is being deleted; new app is `frontend/`
-  (Next.js + impeccable styling). Pages: `frontend/public/analyst.html`,
-  `frontend/public/models.html`; app shell in `frontend/src/app/` with `UploadModal.tsx`
-  and `api/upload/route.ts`.
-- Large uncommitted surface overall — many docs (README, ROADMAP, AGENTS, CLAUDE), skills,
-  and root scratch files are also modified/added.
+## Rules of Engagement for AI Agents
+1. **NO DIRECT CODE EDITS WITHOUT EXPLICIT PERMISSION.** The user reacted extremely negatively to direct file edits in the past. 
+2. **Act as an Orchestrator/Architect.** When the user asks for a feature, create an **Implementation Plan** or a **Copy-Paste Prompt** that they can review and paste into Gemini themselves. Only write code directly if the user explicitly says "go ahead" or "Proceed".
+3. **Maintain the Aesthetic.** If you are asked to design UI, ensure it looks premium, data-dense, and utilizes the established dark mode color palette. Do not use generic tailwind colors.
 
-## What landed — Bug fix: hardcoded mappings → CSV
-
-- `backend/config/brand_map.csv` (20 rows, `brand,brand2`) now holds the brand-grouping
-  mappings: GAC→AION, the GWM family (GWM/GWM TANK/HAVAL/ORA), Deepal+ChangAn,
-  the Mercedes-Benz family, ZX Auto, etc.
-- **Wired, not stray:** `backend/build_cleaned.py:905` loads it; `add_brand2`
-  (`build_cleaned.py:106`) applies `upper.map(brand_map)` with a fallback to the original
-  brand. A companion `backend/config/powertrain_map.csv` sits beside it.
-
-## What landed — analyst.html table scrolling
-
-In `frontend/public/analyst.html`:
-- Scroll container: `overflow-x-auto overflow-y-auto max-h-[75vh]` (line ~88).
-- Sticky header row: `sticky top-0 z-30` (line ~90).
-- Sticky first column ("Brand" / "Brand / Model" / "Identity"): `sticky left-0` with a
-  right-edge shadow `shadow-[4px_0_10px_rgba(0,0,0,0.2)]` (lines ~197, 238, 244).
-- Custom thin scrollbar via `.custom-scrollbar` (lines 13–16).
-
-## Not verified in this session (next agent should confirm)
-
-- Pipeline was **not run** — I did not execute `backend/run_pipeline.py` or confirm outputs.
-- `models.html` scroll behavior was not inspected (only `analyst.html`).
-- Whether the dashboard/ deletion is intended to be committed as-is.
-
-## Suggested next steps
-
-1. **Decide the commit story.** The working tree mixes a backend move, a frontend rewrite,
-   and doc churn. Stage these as separate, coherent commits rather than one blob.
-2. Run `backend/run_pipeline.py` end-to-end and confirm `frontend/public/data/` is populated.
-3. Spot-check the brand grouping in the generated output matches `brand_map.csv`.
+## Next Steps
+Once the pending Gemini implementations (Brand Aliasing and Trend Grouping) are verified as working, the next phase will likely involve deploying the application to production so it can be accessed on any computer.
