@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Geist', system-ui, 'Noto Sans Thai', sans-serif; }
         .font-mono { font-family: 'Geist Mono', ui-monospace, monospace; }
@@ -40,8 +41,14 @@
         }
 
         /* Fix missing horizontal borders caused by border-separate */
-        th { border-bottom: 1px solid #334155; }
-        td { border-bottom: 1px solid rgba(30, 41, 59, 0.8); }
+        th { 
+            border-bottom: 1px solid #334155; 
+            background-clip: padding-box;
+        }
+        td { 
+            border-bottom: 1px solid rgba(30, 41, 59, 0.8); 
+            background-clip: padding-box;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 p-6 min-h-screen">
@@ -58,11 +65,24 @@
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
             <div class="flex justify-between items-center">
                 <h1 class="text-lg font-semibold text-teal-400 tracking-tight">Analyst Calculation Table</h1>
-                <span id="period-badge" class="shimmer text-xs bg-slate-800 text-slate-400 px-3 py-1.5 rounded border border-slate-700">Loading period...</span>
+                <div class="flex items-center gap-4">
+                    <span id="period-badge" class="shimmer text-xs bg-slate-800 text-slate-400 px-3 py-1.5 rounded border border-slate-700">Loading period...</span>
+                    <button id="btn-export-excel" class="bg-teal-600 hover:bg-teal-500 text-white text-xs px-4 py-2.5 rounded-lg font-medium transition-colors">Export Excel</button>
+                </div>
             </div>
             
             <!-- Filters -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-1">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm pt-1">
+                <div>
+                    <label for="filter-search" class="block text-slate-400 mb-1.5 font-medium text-xs">Search</label>
+                    <input type="text" id="filter-search" placeholder="Search..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 text-xs">
+                </div>
+                <div>
+                    <label for="filter-brand" class="block text-slate-400 mb-1.5 font-medium text-xs">Brand</label>
+                    <select id="filter-brand" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 text-xs">
+                        <option value="">All Brands</option>
+                    </select>
+                </div>
                 <div>
                     <label for="filter-viewby" class="block text-slate-400 mb-1.5 font-medium text-xs">View By</label>
                     <select id="filter-viewby" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 text-xs">
@@ -86,8 +106,8 @@
         <!-- Table Container -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
             <div class="overflow-x-auto overflow-y-auto max-h-[75vh] custom-scrollbar">
-                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                    <thead id="table-head" class="sticky top-0 z-30 shadow-md bg-slate-800"></thead>
+                <table class="w-full text-left border-separate border-spacing-0 text-xs whitespace-nowrap">
+                    <thead id="table-head" class="shadow-md bg-slate-800"></thead>
                     <tbody id="table-body" class="divide-y divide-slate-800/80">
                         <tr><td colspan="12" class="p-10 text-center text-slate-500">
                             <div class="flex justify-center items-center gap-2">
@@ -108,6 +128,8 @@
         let currentViewBy = "brand";
         let currentPowertrain = "ALL";
         let sortState = { field: "curr_ytd_units", direction: "desc" };
+        let currentSearch = "";
+        let currentBrand = "";
         const MISSING = "\u2014";
 
         async function init() {
@@ -125,6 +147,30 @@
 
                 globalData = json.data;
 
+                const allBrands = new Set();
+                if (globalData.brand) {
+                    Object.values(globalData.brand).forEach(ptRows => {
+                        ptRows.forEach(r => {
+                            if (!r.is_grand_total && r.brand) allBrands.add(r.brand);
+                        });
+                    });
+                }
+                const brandSelect = document.getElementById("filter-brand");
+                Array.from(allBrands).sort().forEach(b => {
+                    const opt = document.createElement("option");
+                    opt.value = b;
+                    opt.textContent = b;
+                    brandSelect.appendChild(opt);
+                });
+
+                document.getElementById("filter-search").addEventListener("input", (e) => {
+                    currentSearch = e.target.value.toLowerCase();
+                    renderTable();
+                });
+                document.getElementById("filter-brand").addEventListener("change", (e) => {
+                    currentBrand = e.target.value;
+                    renderTable();
+                });
                 document.getElementById("filter-viewby").addEventListener("change", (e) => {
                     currentViewBy = e.target.value;
                     renderTable();
@@ -134,6 +180,8 @@
                     currentPowertrain = e.target.value;
                     renderTable();
                 });
+
+                document.getElementById("btn-export-excel").addEventListener("click", handleExportExcel);
 
                 renderTable();
 
@@ -194,7 +242,7 @@
             const isModelView = currentViewBy === "model";
             const { currYear, prevYear, month } = getPeriodLabels();
             const columns = [
-                { field: "brand", label: "Brand", type: "text", classes: "sticky left-0 z-20 bg-slate-900 text-left pl-4 border-r border-slate-800/80 shadow-[4px_0_10px_rgba(0,0,0,0.2)]", headerClasses: "text-left pl-4" },
+                { field: "brand", label: "Brand", type: "text", classes: "sticky left-0 z-[20] bg-slate-900 text-left pl-4 border-r border-slate-800/80 shadow-[4px_0_10px_rgba(0,0,0,0.2)]", headerClasses: "text-left pl-4" },
             ];
 
             return columns.concat([
@@ -228,6 +276,32 @@
             </button>`;
         }
 
+        /*
+         * STICKY TABLE ARCHITECTURE — read before editing this function
+         *
+         * This table has THREE sticky axes:
+         *   1. Header rows stick to the top (vertical scroll)
+         *   2. First column sticks to the left (horizontal scroll)
+         *   3. Corner cell (top-left) sticks in both axes
+         *
+         * The scroll container (overflow-x-auto overflow-y-auto) is a
+         * SINGLE div. Sticky works here because all offsets are relative
+         * to that one container.
+         *
+         * Z-INDEX HIERARCHY (never violate this):
+         *   z-[50] — corner header cell (sticky top + left)
+         *   z-[40] — all other header cells (sticky top only)
+         *   z-[20] — first-column tbody cells (sticky left only)
+         *   default — everything else (no z-index)
+         *
+         * TOP OFFSETS for sticky header rows are set DYNAMICALLY after
+         * render via measureAndApplyStickyOffsets(). Do NOT hardcode
+         * pixel values like top-[42px] — row height varies with content.
+         *
+         * ALL column groups must have the same number of header rows.
+         * If a group has fewer logical rows, use rowspan to fill the
+         * height. Mismatched row counts break vertical alignment.
+         */
         function renderHeader() {
             const thead = document.getElementById("table-head");
             const isModelView = currentViewBy === "model";
@@ -235,43 +309,59 @@
 
             thead.innerHTML = `
                 <tr class="bg-slate-800 text-slate-300 border-b border-slate-700 text-center">
-                    <th class="sticky left-0 z-30 bg-slate-800 border-r border-slate-700 shadow-[4px_0_10px_rgba(0,0,0,0.2)]">Identity</th>
-                    <th colspan="6" class="border-r border-slate-700">${prevYear}</th>
-                    <th colspan="9" class="border-r border-slate-700">${currYear}</th>
-                    <th colspan="3">Rank</th>
+                    <th rowspan="3" class="sticky left-0 z-[50] bg-slate-800 text-left pl-4 border-r border-slate-700 shadow-[4px_0_10px_rgba(0,0,0,0.2)]">${isModelView ? "Brand / Model" : "Brand"}</th>
+                    <th colspan="6" class="sticky z-[40] bg-slate-800 border-r border-slate-700">${prevYear}</th>
+                    <th colspan="9" class="sticky z-[40] bg-slate-800 border-r border-slate-700">${currYear}</th>
+                    <th colspan="3" rowspan="2" class="sticky z-[40] bg-slate-800">Rank</th>
                 </tr>
                 <tr class="bg-slate-800 text-slate-400 border-b border-slate-700 text-center text-[10px] uppercase tracking-wider">
-                    <th rowspan="2" class="sticky left-0 z-30 bg-slate-800 text-left pl-4 border-r border-slate-700 shadow-[4px_0_10px_rgba(0,0,0,0.2)]">${isModelView ? "Brand / Model" : "Brand"}</th>
-                    <th colspan="2" class="border-r border-slate-800">${month}</th>
-                    <th colspan="2" class="border-r border-slate-800">Jan-${month}</th>
-                    <th colspan="2" class="border-r border-slate-700">${prevYear} Total</th>
-                    <th colspan="5" class="border-r border-slate-800">${month}</th>
-                    <th colspan="4" class="border-r border-slate-700">Jan-${month} ${currYear}</th>
-                    <th rowspan="2">${sortButton("prev_rank", prevYear, "center")}</th>
-                    <th rowspan="2">${sortButton("curr_rank", currYear, "center")}</th>
-                    <th rowspan="2">${sortButton("rank_diff", "Diff", "center")}</th>
+                    <th colspan="2" class="sticky z-[40] bg-slate-800 border-r border-slate-800">${month}</th>
+                    <th colspan="2" class="sticky z-[40] bg-slate-800 border-r border-slate-800">Jan-${month}</th>
+                    <th colspan="2" class="sticky z-[40] bg-slate-800 border-r border-slate-700">${prevYear} Total</th>
+                    <th colspan="5" class="sticky z-[40] bg-slate-800 border-r border-slate-800">${month}</th>
+                    <th colspan="4" class="sticky z-[40] bg-slate-800 border-r border-slate-700">Jan-${month} ${currYear}</th>
                 </tr>
                 <tr class="bg-slate-800 text-slate-400 border-b border-slate-700 text-center text-[10px] uppercase tracking-wider">
-                    <th>${sortButton("prev_month_units", "Units")}</th>
-                    <th class="border-r border-slate-800">${sortButton("prev_month_share", "Share")}</th>
-                    <th>${sortButton("prev_ytd_units", "Units")}</th>
-                    <th class="border-r border-slate-800">${sortButton("prev_ytd_share", "Share")}</th>
-                    <th>${sortButton("prev_full_units", "Units")}</th>
-                    <th class="border-r border-slate-700">${sortButton("prev_full_share", "Share")}</th>
-                    <th class="text-slate-300 font-semibold">${sortButton("curr_month_units", "Units")}</th>
-                    <th class="text-slate-300 font-semibold">${sortButton("curr_month_share", "Share")}</th>
-                    <th>${sortButton("curr_month_diff", "Diff")}</th>
-                    <th>${sortButton("curr_growth_vs_prev_month", "Gr vs prev mo")}</th>
-                    <th class="border-r border-slate-800">${sortButton("curr_growth_vs_same_month_prev_year", `Gr vs ${month} ${prevYear}`)}</th>
-                    <th class="text-slate-300 font-semibold">${sortButton("curr_ytd_units", "Units")}</th>
-                    <th class="text-slate-300 font-semibold">${sortButton("curr_ytd_share", "Share")}</th>
-                    <th>${sortButton("curr_ytd_diff", "Diff")}</th>
-                    <th class="border-r border-slate-700">${sortButton("curr_ytd_growth", "Growth")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("prev_month_units", "Units")}</th>
+                    <th class="sticky z-[40] bg-slate-800 border-r border-slate-800">${sortButton("prev_month_share", "Share")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("prev_ytd_units", "Units")}</th>
+                    <th class="sticky z-[40] bg-slate-800 border-r border-slate-800">${sortButton("prev_ytd_share", "Share")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("prev_full_units", "Units")}</th>
+                    <th class="sticky z-[40] bg-slate-800 border-r border-slate-700">${sortButton("prev_full_share", "Share")}</th>
+                    <th class="sticky z-[40] bg-slate-800 text-slate-300 font-semibold">${sortButton("curr_month_units", "Units")}</th>
+                    <th class="sticky z-[40] bg-slate-800 text-slate-300 font-semibold">${sortButton("curr_month_share", "Share")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("curr_month_diff", "Diff")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("curr_growth_vs_prev_month", "Gr vs prev mo")}</th>
+                    <th class="sticky z-[40] bg-slate-800 border-r border-slate-800">${sortButton("curr_growth_vs_same_month_prev_year", `Gr vs ${month} ${prevYear}`)}</th>
+                    <th class="sticky z-[40] bg-slate-800 text-slate-300 font-semibold">${sortButton("curr_ytd_units", "Units")}</th>
+                    <th class="sticky z-[40] bg-slate-800 text-slate-300 font-semibold">${sortButton("curr_ytd_share", "Share")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("curr_ytd_diff", "Diff")}</th>
+                    <th class="sticky z-[40] bg-slate-800 border-r border-slate-700">${sortButton("curr_ytd_growth", "Growth")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("prev_rank", prevYear, "center")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("curr_rank", currYear, "center")}</th>
+                    <th class="sticky z-[40] bg-slate-800">${sortButton("rank_diff", "Diff", "center")}</th>
                 </tr>
             `;
 
             thead.querySelectorAll("[data-sort-field]").forEach((button) => {
                 button.addEventListener("click", () => setSort(button.dataset.sortField));
+            });
+
+            measureAndApplyStickyOffsets();
+        }
+
+        // Measure each header row's height and pin its cells at the correct
+        // cumulative top offset. Replaces hardcoded top-[..px] classes so the
+        // sticky header survives content reflow (font load, wrapped labels).
+        function measureAndApplyStickyOffsets() {
+            const thead = document.getElementById("table-head");
+            let cumulative = 0;
+            thead.querySelectorAll("tr").forEach((row) => {
+                const top = cumulative;
+                row.querySelectorAll("th").forEach((th) => {
+                    th.style.top = `${top}px`;
+                });
+                cumulative += row.getBoundingClientRect().height;
             });
         }
 
@@ -344,8 +434,21 @@
                 return;
             }
 
+            let filteredRows = rows.slice();
+            if (currentBrand || currentSearch) {
+                filteredRows = filteredRows.filter(r => {
+                    if (r.is_grand_total) return true;
+                    if (currentBrand && r.brand !== currentBrand) return false;
+                    if (currentSearch) {
+                        const name = currentViewBy === "model" ? `${r.brand} ${r.model || ''}` : r.brand;
+                        if (!name.toLowerCase().includes(currentSearch)) return false;
+                    }
+                    return true;
+                });
+            }
+
             let html = "";
-            for (const r of sortRows(rows.slice())) {
+            for (const r of sortRows(filteredRows)) {
                 const isGrandTotal = r.is_grand_total;
                 const trClass = isGrandTotal 
                     ? "bg-slate-900/80 font-bold text-teal-400" 
@@ -353,6 +456,176 @@
                 html += `<tr class="${trClass}">${columns.map((column) => cellHtml(r, column, isGrandTotal)).join("")}</tr>`;
             }
             tbody.innerHTML = html;
+        }
+
+        function getExcelHeaders() {
+            const { currYear, prevYear, month } = getPeriodLabels();
+            return {
+                brand: currentViewBy === "model" ? "Brand / Model" : "Brand",
+                prev_month_units: `${prevYear} ${month} Units`,
+                prev_month_share: `${prevYear} ${month} Share`,
+                prev_ytd_units: `${prevYear} Jan-${month} Units`,
+                prev_ytd_share: `${prevYear} Jan-${month} Share`,
+                prev_full_units: `${prevYear} Total Units`,
+                prev_full_share: `${prevYear} Total Share`,
+                curr_month_units: `${currYear} ${month} Units`,
+                curr_month_share: `${currYear} ${month} Share`,
+                curr_month_diff: `${currYear} ${month} Diff (pp)`,
+                curr_growth_vs_prev_month: `${currYear} Growth vs Prev Month`,
+                curr_growth_vs_same_month_prev_year: `${currYear} Growth vs Same Month ${prevYear}`,
+                curr_ytd_units: `${currYear} Jan-${month} Units`,
+                curr_ytd_share: `${currYear} Jan-${month} Share`,
+                curr_ytd_diff: `${currYear} Jan-${month} Diff (pp)`,
+                curr_ytd_growth: `${currYear} Jan-${month} Growth`,
+                prev_rank: `${prevYear} Rank`,
+                curr_rank: `${currYear} Rank`,
+                rank_diff: `Rank Diff`
+            };
+        }
+
+        function formatExcelValue(value, type) {
+            if (value === null || value === undefined || value === MISSING || value === "") return "";
+            if (type === "pct") return (value * 100).toFixed(1) + "%";
+            if (type === "growth") return (value > 0 ? "+" : "") + (value * 100).toFixed(1) + "%";
+            if (type === "pp") return (value > 0 ? "+" : "") + (value * 100).toFixed(1) + " pp";
+            if (type === "rank-diff") {
+                if (value === "NEW") return "NEW";
+                if (String(value).startsWith("+") || String(value).startsWith("-")) return value;
+            }
+            if (type === "num") return Number(value);
+            return value;
+        }
+
+        function getAnalystSheetData(rows) {
+            const columns = getColumns();
+            const headers = getExcelHeaders();
+            
+            return rows.map(r => {
+                const out = {};
+                for (const col of columns) {
+                    let val = r[col.field];
+                    let header = headers[col.field];
+                    if (col.field === "brand" && currentViewBy === "model" && !r.is_grand_total) {
+                        out[header] = `${r.brand} - ${r.model || "Unknown"}`;
+                    } else {
+                        out[header] = formatExcelValue(val, col.type);
+                    }
+                }
+                return out;
+            });
+        }
+
+        async function getModelsFullSheetData() {
+            const res = await fetch("/data/dashboard_data.json");
+            const data = await res.json();
+            const meta = data.meta;
+            const tree = data.brand_model_tree;
+            
+            const years = meta.years;
+            const latestYear = String(years[years.length - 1]);
+            
+            const sheetData = [];
+            
+            function getMonthly(node, year) {
+                const out = Array(12).fill(0);
+                const buckets = node.monthly || {};
+                Object.values(buckets).forEach(vBucket => {
+                    if (Array.isArray(vBucket[year])) {
+                        for(let i=0; i<12; i++) out[i] += vBucket[year][i] || 0;
+                        return;
+                    }
+                    Object.values(vBucket).forEach(pBucket => {
+                        const arr = pBucket[year];
+                        if (arr) for(let i=0; i<12; i++) out[i] += arr[i] || 0;
+                    });
+                });
+                return out;
+            }
+            
+            tree.forEach(bNode => {
+                let bGrandTotal = 0;
+                let bYtd = 0;
+                const bRow = { "Brand / Model": bNode.brand, "Fuel Type": bNode.fuel };
+                years.forEach(y => {
+                    const arr = getMonthly(bNode, y);
+                    let ySum = 0;
+                    arr.forEach((v, i) => {
+                        ySum += v;
+                        if (y === latestYear && v > 0) bYtd += v;
+                        bRow[`${y} ${MONTHS_EN[i]}`] = v || "";
+                    });
+                    bGrandTotal += ySum;
+                    bRow[`${y} Total`] = ySum || "";
+                });
+                bRow["YTD"] = bYtd || "";
+                bRow["Grand Total"] = bGrandTotal || "";
+                
+                if (bGrandTotal > 0) sheetData.push(bRow);
+                
+                bNode.models.forEach(mNode => {
+                    let mGrandTotal = 0;
+                    let mYtd = 0;
+                    const mRow = { "Brand / Model": `  ${mNode.name}`, "Fuel Type": mNode.fuel };
+                    years.forEach(y => {
+                        const arr = getMonthly(mNode, y);
+                        let ySum = 0;
+                        arr.forEach((v, i) => {
+                            ySum += v;
+                            if (y === latestYear && v > 0) mYtd += v;
+                            mRow[`${y} ${MONTHS_EN[i]}`] = v || "";
+                        });
+                        mGrandTotal += ySum;
+                        mRow[`${y} Total`] = ySum || "";
+                    });
+                    mRow["YTD"] = mYtd || "";
+                    mRow["Grand Total"] = mGrandTotal || "";
+                    
+                    if (mGrandTotal > 0) sheetData.push(mRow);
+                });
+            });
+            
+            return sheetData;
+        }
+
+        async function handleExportExcel() {
+            const btn = document.getElementById('btn-export-excel');
+            btn.textContent = "Exporting...";
+            btn.disabled = true;
+            try {
+                const rows = globalData[currentViewBy]?.[currentPowertrain] || [];
+                
+                const sheet1Data = getAnalystSheetData(sortRows(rows.slice()));
+                
+                let filteredRows = rows.slice();
+                if (currentBrand || currentSearch) {
+                    filteredRows = filteredRows.filter(r => {
+                        if (r.is_grand_total) return true;
+                        if (currentBrand && r.brand !== currentBrand) return false;
+                        if (currentSearch) {
+                            const name = currentViewBy === "model" ? `${r.brand} ${r.model || ''}` : r.brand;
+                            if (!name.toLowerCase().includes(currentSearch)) return false;
+                        }
+                        return true;
+                    });
+                }
+                const sheet2Data = getAnalystSheetData(sortRows(filteredRows));
+                
+                const sheet3Data = await getModelsFullSheetData();
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet1Data), "Full Data");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet2Data), "Analyst View");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet3Data), "Models (full)");
+
+                const ym = `${globalMeta.current_year}-${String(globalMeta.current_month_num).padStart(2, '0')}`;
+                XLSX.writeFile(wb, `EternityOne_Thailand_EV_${ym}.xlsx`);
+            } catch(e) {
+                console.error(e);
+                alert("Export failed");
+            } finally {
+                btn.textContent = "Export Excel";
+                btn.disabled = false;
+            }
         }
 
         document.addEventListener("DOMContentLoaded", init);

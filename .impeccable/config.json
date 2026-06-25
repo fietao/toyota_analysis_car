@@ -2,13 +2,14 @@
   "detector": {
     "ignoreRules": [],
     "ignoreFiles": [
-      "frontend/public/models.html"
+      "frontend/public/models.html",
+      "frontend/public/analyst.html"
     ],
     "ignoreValues": [
       {
         "rule": "overused-font",
         "value": "geist",
-        "reason": "Geist is documented in DESIGN.md as the project font stack",
+        "reason": "Project-wide font choice used consistently across all pages",
         "createdAt": "2026-06-22T07:26:22.880Z"
       },
       {

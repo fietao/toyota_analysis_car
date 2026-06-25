@@ -3,19 +3,24 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  --color-brand-primary: #0b5d56;
+  --color-brand-accent: #0f6e65;
+  --color-brand-dark: #07403a;
+  --color-brand-light: #169387;
 }
 
 @layer base {
   :root {
-    --color-bg:          oklch(0.09 0.007 254);
-    --color-surface:     oklch(0.13 0.009 254);
-    --color-border:      oklch(0.20 0.011 254);
-    --color-ink:         oklch(0.94 0.003 254);
-    --color-ink-muted:   oklch(0.65 0.015 254);
-    --color-ink-subtle:  oklch(0.45 0.013 254);
-    --color-accent-bev:  oklch(0.83 0.14  178);
-    --color-accent-hev:  oklch(0.87 0.16   82);
-    --color-accent-phev: oklch(0.78 0.17   47);
+    --color-bg:          oklch(0.12 0.0 0);
+    --color-surface:     oklch(0.15 0.0 0);
+    --color-border:      oklch(0.25 0.0 0);
+    --color-ink:         oklch(0.95 0.0 0);
+    --color-ink-muted:   oklch(0.70 0.0 0);
+    --color-ink-subtle:  oklch(0.50 0.0 0);
+    --color-accent-bev:  var(--color-brand-light);
+    --color-accent-hev:  oklch(0.87 0.16 82);
+    --color-accent-phev: oklch(0.78 0.17 47);
   }
 
   body {

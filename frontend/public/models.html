@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Geist', system-ui, 'Noto Sans Thai', sans-serif; }
         .font-mono { font-family: 'Geist Mono', ui-monospace, monospace; }
@@ -55,17 +56,36 @@
                     </h1>
                     <p class="text-xs text-slate-500 mt-0.5">Thailand DLT New Registrations</p>
                 </div>
-                <span id="grand-total-ref-badge" class="shimmer text-xs bg-slate-800 text-slate-400 px-3 py-1.5 rounded border border-slate-700 min-w-[240px] tabular-nums">
-                    &nbsp;
-                </span>
+                <div class="flex items-center gap-4">
+                    <span id="grand-total-ref-badge" class="shimmer text-xs bg-slate-800 text-slate-400 px-3 py-1.5 rounded border border-slate-700 min-w-[240px] tabular-nums">
+                        &nbsp;
+                    </span>
+                    <button id="btn-export-excel" class="bg-teal-600 hover:bg-teal-500 text-white text-xs px-4 py-2.5 rounded-lg font-medium transition-colors">Export Excel</button>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm pt-1">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm pt-1">
+
+                <!-- Brand -->
+                <div id="brand-filter-panel">
+                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Brand</label>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                        <input type="text" id="search-brand" placeholder="Search brand..." class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white mb-2 focus:outline-none focus:border-teal-500 text-[10px]">
+                        <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
+                            <input id="filter-brand-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
+                            <span>All</span>
+                        </label>
+                        <div id="brand-cb-container" class="custom-scrollbar mt-1.5 max-h-28 overflow-y-auto space-y-1 pr-1">
+                            <!-- Populated after data loads -->
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Province -->
                 <div id="province-filter-panel">
                     <label class="block text-slate-400 mb-1.5 font-medium text-xs">Province</label>
                     <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                        <input type="text" id="search-province" placeholder="Search province..." class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white mb-2 focus:outline-none focus:border-teal-500 text-[10px]">
                         <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
                             <input id="filter-province-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
                             <span>All</span>
@@ -157,6 +177,7 @@
         let allYears         = [];
         let latestYear       = null;
         let expandedBrands   = new Set();
+        let globalMeta       = {};
 
         // ─── Build year checkboxes from meta.years ────────────────────────────────
 
@@ -211,6 +232,7 @@
         function renderMatrixTable() {
             const activeYears = Array.from(document.querySelectorAll('.year-cb:checked')).map(cb => cb.value).sort();
             const ptFilter    = document.getElementById('filter-powertrain').value;
+            const selectedBrands = getSelectedValues('brand');
             const selectedVehicleTypes = getSelectedValues('vehicle');
             const selectedProvinces = getSelectedValues('province');
 
@@ -239,6 +261,7 @@
 
             rawVehicleMatrix.forEach(brandNode => {
                 if (ptFilter !== "ALL" && brandNode.powertrain !== ptFilter) return;
+                if (selectedBrands.length > 0 && !selectedBrands.includes(brandNode.brand)) return;
 
                 const toggleKey  = `${brandNode.brand}||${brandNode.powertrain}`;
                 const isExpanded = expandedBrands.has(toggleKey);
@@ -407,6 +430,32 @@
         // ─── Filter listeners ─────────────────────────────────────────────────────
 
         document.getElementById('filter-powertrain').addEventListener('change', renderMatrixTable);
+        document.getElementById('btn-export-excel').addEventListener('click', handleExportExcel);
+
+        // Inline search logic for brand and province
+        document.getElementById('search-brand').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.brand-cb').forEach(cb => {
+                const label = cb.closest('label');
+                if (label.textContent.toLowerCase().includes(term)) {
+                    label.style.display = 'flex';
+                } else {
+                    label.style.display = 'none';
+                }
+            });
+        });
+
+        document.getElementById('search-province').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.province-cb').forEach(cb => {
+                const label = cb.closest('label');
+                if (label.textContent.toLowerCase().includes(term)) {
+                    label.style.display = 'flex';
+                } else {
+                    label.style.display = 'none';
+                }
+            });
+        });
 
         // ─── Bootstrap: fetch live data ───────────────────────────────────────────
 
@@ -417,6 +466,7 @@
             })
             .then(data => {
                 const { meta, brand_model_tree } = data;
+                globalMeta = meta;
                 allYears = meta.years;
 
                 // Populate reference total from the deep-dive tree.
@@ -429,6 +479,12 @@
                 buildCheckboxFilter('vehicle', meta.vehicle_types_list, 'No vehicle types found');
                 buildCheckboxFilter('province', meta.provinces, 'Provinces not exported');
                 rawVehicleMatrix = brand_model_tree;
+
+                const allBrands = new Set();
+                rawVehicleMatrix.forEach(node => {
+                    if (node.brand) allBrands.add(node.brand);
+                });
+                buildCheckboxFilter('brand', Array.from(allBrands).sort(), 'No brands');
 
                 // Expand the top brand by default
                 if (rawVehicleMatrix.length > 0) {
@@ -451,6 +507,172 @@
                 refBadge.classList.remove('shimmer');
                 refBadge.textContent = 'No data';
             });
+
+        function getModelsSheetData(filteredOnly) {
+            const activeYears = filteredOnly ? Array.from(document.querySelectorAll('.year-cb:checked')).map(cb => cb.value).sort() : allYears;
+            const ptFilter = filteredOnly ? document.getElementById('filter-powertrain').value : "ALL";
+            const selectedBrands = filteredOnly ? getSelectedValues('brand') : [];
+            const selectedVehicleTypes = filteredOnly ? getSelectedValues('vehicle') : globalMeta.vehicle_types_list.map(v => v.code);
+            const selectedProvinces = filteredOnly ? getSelectedValues('province') : globalMeta.provinces;
+
+            const sheetData = [];
+            
+            rawVehicleMatrix.forEach(brandNode => {
+                if (filteredOnly && ptFilter !== "ALL" && brandNode.powertrain !== ptFilter) return;
+                if (filteredOnly && selectedBrands.length > 0 && !selectedBrands.includes(brandNode.brand)) return;
+
+                const toggleKey = `${brandNode.brand}||${brandNode.powertrain}`;
+                const isExpanded = filteredOnly ? expandedBrands.has(toggleKey) : true;
+                
+                let brandGrandTotal = 0;
+                let brandYtd = 0;
+                const bRow = { "Brand / Model": brandNode.brand, "Fuel Type": brandNode.fuel };
+
+                activeYears.forEach(year => {
+                    let yearSum = 0;
+                    const monthlyArray = getMonthly(brandNode, year, selectedVehicleTypes, selectedProvinces);
+                    monthlyArray.forEach((val, mIdx) => {
+                        yearSum += val;
+                        if (year === latestYear && val > 0) brandYtd += val;
+                        bRow[`${year} ${MONTHS_EN[mIdx]}`] = val || "";
+                    });
+                    brandGrandTotal += yearSum;
+                    bRow[`${year} Total`] = yearSum || "";
+                });
+                bRow["YTD"] = brandYtd || "";
+                bRow["Grand Total"] = brandGrandTotal || "";
+
+                if (brandGrandTotal === 0 && filteredOnly) return;
+                if (brandGrandTotal > 0 || !filteredOnly) sheetData.push(bRow);
+
+                if (isExpanded) {
+                    brandNode.models.forEach(model => {
+                        let modGrandTotal = 0;
+                        let modYtd = 0;
+                        const mRow = { "Brand / Model": `  ${model.name}`, "Fuel Type": model.fuel };
+
+                        activeYears.forEach(year => {
+                            let modYearSum = 0;
+                            const modMonthly = getMonthly(model, year, selectedVehicleTypes, selectedProvinces);
+                            modMonthly.forEach((val, mIdx) => {
+                                modYearSum += val;
+                                if (year === latestYear && val > 0) modYtd += val;
+                                mRow[`${year} ${MONTHS_EN[mIdx]}`] = val || "";
+                            });
+                            modGrandTotal += modYearSum;
+                            mRow[`${year} Total`] = modYearSum || "";
+                        });
+                        mRow["YTD"] = modYtd || "";
+                        mRow["Grand Total"] = modGrandTotal || "";
+
+                        if (modGrandTotal === 0 && filteredOnly) return;
+                        if (modGrandTotal > 0 || !filteredOnly) sheetData.push(mRow);
+                    });
+                }
+            });
+
+            return sheetData;
+        }
+
+        async function getAnalystFullSheetData() {
+            const res = await fetch("/data/analyst_data.json");
+            const json = await res.json();
+            const rows = json.data["brand"]["ALL"] || [];
+            
+            globalMeta.current_year = json.meta.current_year;
+            globalMeta.current_month_num = json.meta.current_month_num;
+
+            const currYear = json.meta.current_year;
+            const prevYear = currYear - 1;
+            const month = MONTHS_EN[json.meta.current_month_num - 1];
+            
+            const headers = {
+                brand: "Brand",
+                prev_month_units: `${prevYear} ${month} Units`,
+                prev_month_share: `${prevYear} ${month} Share`,
+                prev_ytd_units: `${prevYear} Jan-${month} Units`,
+                prev_ytd_share: `${prevYear} Jan-${month} Share`,
+                prev_full_units: `${prevYear} Total Units`,
+                prev_full_share: `${prevYear} Total Share`,
+                curr_month_units: `${currYear} ${month} Units`,
+                curr_month_share: `${currYear} ${month} Share`,
+                curr_month_diff: `${currYear} ${month} Diff (pp)`,
+                curr_growth_vs_prev_month: `${currYear} Growth vs Prev Month`,
+                curr_growth_vs_same_month_prev_year: `${currYear} Growth vs Same Month ${prevYear}`,
+                curr_ytd_units: `${currYear} Jan-${month} Units`,
+                curr_ytd_share: `${currYear} Jan-${month} Share`,
+                curr_ytd_diff: `${currYear} Jan-${month} Diff (pp)`,
+                curr_ytd_growth: `${currYear} Jan-${month} Growth`,
+                prev_rank: `${prevYear} Rank`,
+                curr_rank: `${currYear} Rank`,
+                rank_diff: `Rank Diff`
+            };
+
+            function fmt(val, type) {
+                if (val === null || val === undefined || val === "\u2014" || val === "") return "";
+                if (type === "pct") return (val * 100).toFixed(1) + "%";
+                if (type === "growth") return (val > 0 ? "+" : "") + (val * 100).toFixed(1) + "%";
+                if (type === "pp") return (val > 0 ? "+" : "") + (val * 100).toFixed(1) + " pp";
+                if (type === "rank-diff") {
+                    if (val === "NEW") return "NEW";
+                    if (String(val).startsWith("+") || String(val).startsWith("-")) return val;
+                }
+                if (type === "num") return Number(val);
+                return val;
+            }
+
+            const grandTotalRows = rows.filter(r => r.is_grand_total);
+            const detailRows = rows.filter(r => !r.is_grand_total);
+            detailRows.sort((a, b) => (b.curr_ytd_units || 0) - (a.curr_ytd_units || 0));
+            const sortedRows = grandTotalRows.concat(detailRows);
+
+            return sortedRows.map(r => ({
+                [headers.brand]: r.brand,
+                [headers.prev_month_units]: fmt(r.prev_month_units, "num"),
+                [headers.prev_month_share]: fmt(r.prev_month_share, "pct"),
+                [headers.prev_ytd_units]: fmt(r.prev_ytd_units, "num"),
+                [headers.prev_ytd_share]: fmt(r.prev_ytd_share, "pct"),
+                [headers.prev_full_units]: fmt(r.prev_full_units, "num"),
+                [headers.prev_full_share]: fmt(r.prev_full_share, "pct"),
+                [headers.curr_month_units]: fmt(r.curr_month_units, "num"),
+                [headers.curr_month_share]: fmt(r.curr_month_share, "pct"),
+                [headers.curr_month_diff]: fmt(r.curr_month_diff, "pp"),
+                [headers.curr_growth_vs_prev_month]: fmt(r.curr_growth_vs_prev_month, "growth"),
+                [headers.curr_growth_vs_same_month_prev_year]: fmt(r.curr_growth_vs_same_month_prev_year, "growth"),
+                [headers.curr_ytd_units]: fmt(r.curr_ytd_units, "num"),
+                [headers.curr_ytd_share]: fmt(r.curr_ytd_share, "pct"),
+                [headers.curr_ytd_diff]: fmt(r.curr_ytd_diff, "pp"),
+                [headers.curr_ytd_growth]: fmt(r.curr_ytd_growth, "growth"),
+                [headers.prev_rank]: fmt(r.prev_rank, "num"),
+                [headers.curr_rank]: fmt(r.curr_rank, "num"),
+                [headers.rank_diff]: fmt(r.rank_diff, "rank-diff")
+            }));
+        }
+
+        async function handleExportExcel() {
+            const btn = document.getElementById('btn-export-excel');
+            btn.textContent = "Exporting...";
+            btn.disabled = true;
+            try {
+                const sheet2Data = await getAnalystFullSheetData(); // call first to ensure globalMeta is populated with year/month
+                const sheet1Data = getModelsSheetData(false);
+                const sheet3Data = getModelsSheetData(true);
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet1Data), "Full Data");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet2Data), "Analyst (full)");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet3Data), "Models View");
+
+                const ym = `${globalMeta.current_year}-${String(globalMeta.current_month_num).padStart(2, '0')}`;
+                XLSX.writeFile(wb, `EternityOne_Thailand_EV_${ym}.xlsx`);
+            } catch(e) {
+                console.error(e);
+                alert("Export failed");
+            } finally {
+                btn.textContent = "Export Excel";
+                btn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

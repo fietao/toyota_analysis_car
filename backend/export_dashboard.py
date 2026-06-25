@@ -261,6 +261,101 @@ def export_data():
         for _, row in vehicle_labels.iterrows()
     ]
 
+    # --- BRAND FOCUS ---
+    TARGET_BRAND = "Deepal+ChangAn"
+    BEV_PT = "BEV"
+
+    month_order = list(MONTH_MAP.values())
+    
+    all_periods = set((row["y"], row["m"]) for row in brand_data)
+    sorted_periods = sorted(list(all_periods), key=lambda x: (x[0], month_order.index(x[1])))
+    latest_y, latest_m = sorted_periods[-1] if sorted_periods else (None, None)
+
+    if latest_y is not None:
+        latest_m_idx = month_order.index(latest_m)
+        if latest_m_idx == 0:
+            prev_m_idx = 11
+            prev_y = latest_y - 1
+        else:
+            prev_m_idx = latest_m_idx - 1
+            prev_y = latest_y
+        prev_m = month_order[prev_m_idx]
+
+        monthly_units_dict = {}
+        monthly_bev_dict = {}
+        total_bev_monthly_dict = {}
+        latest_month_bev = {}
+
+        for row in brand_data:
+            k = (row["y"], row["m"])
+            u = row["u"]
+            b = row["b"]
+            pt = row["pt"]
+            
+            if b == TARGET_BRAND:
+                monthly_units_dict[k] = monthly_units_dict.get(k, 0) + u
+                if pt == BEV_PT:
+                    monthly_bev_dict[k] = monthly_bev_dict.get(k, 0) + u
+                    
+            if pt == BEV_PT:
+                total_bev_monthly_dict[k] = total_bev_monthly_dict.get(k, 0) + u
+                if k == (latest_y, latest_m):
+                    latest_month_bev[b] = latest_month_bev.get(b, 0) + u
+
+        monthly_units = []
+        monthly_bev = []
+        bev_share_monthly = []
+
+        for y, m in sorted_periods:
+            k = (y, m)
+            mu = monthly_units_dict.get(k, 0)
+            mbev = monthly_bev_dict.get(k, 0)
+            tbev = total_bev_monthly_dict.get(k, 0)
+            
+            monthly_units.append({"y": y, "m": m, "u": mu})
+            monthly_bev.append({"y": y, "m": m, "u": mbev})
+            
+            share = mbev / tbev if tbev > 0 else 0.0
+            bev_share_monthly.append({"y": y, "m": m, "share": round(share, 4)})
+
+        ytd = sum(u for (y, m), u in monthly_units_dict.items() if y == latest_y)
+        ytd_bev = sum(u for (y, m), u in monthly_bev_dict.items() if y == latest_y)
+
+        latest_units = monthly_units_dict.get((latest_y, latest_m), 0)
+        prev_units = monthly_units_dict.get((prev_y, prev_m), 0)
+        mom_change = latest_units - prev_units
+
+        bev_competitor_ranking = [{"brand": b, "u": u} for b, u in latest_month_bev.items() if u > 0]
+        bev_competitor_ranking.sort(key=lambda x: -x["u"])
+        
+        bev_rank_latest = next((i + 1 for i, item in enumerate(bev_competitor_ranking) if item["brand"] == TARGET_BRAND), None)
+
+        top_models_dict = {}
+        for row in model_data:
+            if row["b"] == TARGET_BRAND and row["y"] == latest_y and row["m"] == latest_m:
+                k = (row["mod"], row["pt"])
+                top_models_dict[k] = top_models_dict.get(k, 0) + row["u"]
+                
+        top_models = [{"mod": mod, "pt": pt, "u": u} for (mod, pt), u in top_models_dict.items()]
+        top_models.sort(key=lambda x: -x["u"])
+
+        brand_focus = {
+            "monthly_units": monthly_units,
+            "monthly_bev": monthly_bev,
+            "ytd": ytd,
+            "ytd_bev": ytd_bev,
+            "mom_change": mom_change,
+            "bev_share_monthly": bev_share_monthly,
+            "bev_rank_latest": bev_rank_latest,
+            "bev_competitor_ranking": bev_competitor_ranking,
+            "top_models": top_models,
+            "latest": {"y": latest_y, "m": latest_m}
+        }
+    else:
+        brand_focus = {}
+        
+    print("brand_focus keys: " + str(list(brand_focus.keys())))
+
     data = {
         "meta": {"years": years, "months": list(MONTH_MAP.values()),
                  "vehicle_types": all_v, "vehicle_types_list": vehicle_types_list,
@@ -270,6 +365,7 @@ def export_data():
         "brand_monthly": brand_data,
         "model_monthly": model_data,
         "brand_model_tree": brand_model_tree,
+        "brand_focus": brand_focus,
     }
 
     print(f"  powertrain_master rows: {len(pm_data):,}")

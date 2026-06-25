@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   PieChart as PieChartIcon, Trophy, Battery, Car, Filter, Layers, Upload
 } from "lucide-react";
@@ -9,21 +8,22 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
   Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import UploadModal from "@/components/UploadModal";
+import UploadModal from "@/components/UploadModal";
 
 /* ── Palette & constants ─────────────────────────────────────────────── */
 
+const BRAND_COLOR = "#169387"; // brand-light
 const PT_COLORS: Record<string, string> = {
-  ICE: "#64748b", BEV: "#2dd4bf", HEV: "#fbbf24", PHEV: "#fb923c"
+  ICE: "#64748b", BEV: BRAND_COLOR, HEV: "#fbbf24", PHEV: "#fb923c"
 };
-const RANK_COLORS = ["#2dd4bf", "#22d3ee", "#38bdf8", "#818cf8", "#a78bfa",
-  "#c084fc", "#e879f9", "#f472b6", "#fb7185", "#fbbf24"];
+const RANK_COLORS = ["#0f6e65", "#169387", "#21b0a2", "#42d4c6", "#6ceae0",
+  "#96fcf5", "#e879f9", "#f472b6", "#fb7185", "#fbbf24"];
 
 const TT = {
   contentStyle: {
-    backgroundColor: "rgba(15, 23, 42, 0.9)", border: "1px solid #334155",
-    borderRadius: "8px", color: "#f1f5f9", fontSize: "12px",
-    backdropFilter: "blur(8px)",
+    backgroundColor: "#0f172a", border: "1px solid #1e293b",
+    borderRadius: "2px", color: "#f1f5f9", fontSize: "11px",
+    padding: "8px"
   },
   itemStyle: { color: "#94a3b8" },
   cursor: { fill: "rgba(255,255,255,0.05)" }
@@ -60,6 +60,7 @@ type Rec = Record<string, string | number | null>;
 
 const fmt = (n: unknown) => {
   const v = Number(n);
+  if (v === 0) return "—";
   return isNaN(v) ? "—" : v.toLocaleString();
 };
 
@@ -67,8 +68,8 @@ const fmt = (n: unknown) => {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5 md:p-6 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-slate-700/80">
-      <h2 className="mb-5 text-xs font-bold uppercase tracking-widest text-slate-400">
+    <div className="rounded-sm border border-slate-800 bg-slate-900 p-4">
+      <h2 className="mb-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {title}
       </h2>
       {children}
@@ -85,19 +86,19 @@ function DataTable({ columns, rows, highlightFirst = false }: {
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-slate-700/50">
+          <tr className="border-b border-slate-700">
             {columns.map((c) => (
-              <th key={c.key} className={`whitespace-nowrap px-3 py-2.5 font-medium text-slate-400 ${c.align === "left" ? "text-left" : "text-right"}`}>
+              <th key={c.key} className={`whitespace-nowrap px-2 py-1.5 font-medium text-slate-400 ${c.align === "left" ? "text-left" : "text-right"}`}>
                 {c.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/30">
+        <tbody className="divide-y divide-slate-800/50">
           {rows.map((row, i) => (
-            <tr key={i} className={`group transition-colors ${highlightFirst && i === rows.length - 1 ? "bg-slate-800/40 font-semibold text-teal-400" : "hover:bg-slate-800/30 text-slate-300"}`}>
+            <tr key={i} className={`group ${highlightFirst && i === rows.length - 1 ? "bg-slate-800 font-semibold text-brand-light" : "hover:bg-slate-800 text-slate-300"}`}>
               {columns.map((c) => (
-                <td key={c.key} className={`whitespace-nowrap px-3 py-2 tabular-nums ${c.align === "left" ? "text-left" : "text-right"}`}>
+                <td key={c.key} className={`whitespace-nowrap px-2 py-1 tabular-nums ${c.align === "left" ? "text-left" : "text-right"}`}>
                   {c.align === "left" ? String(row[c.key] ?? "") : fmt(row[c.key])}
                 </td>
               ))}
@@ -112,14 +113,14 @@ function DataTable({ columns, rows, highlightFirst = false }: {
 function TopBarChart({ data, nameKey, title }: { data: Rec[], nameKey: string, title: string }) {
   return (
     <Card title={title}>
-      <div className="h-72 md:h-80">
+      <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="2 4" stroke="#1e293b" horizontal={false} />
             <XAxis type="number" stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(v: number) => (v / 1000).toFixed(0) + "k"} />
             <YAxis dataKey={nameKey} type="category" width={110} stroke="#334155" tick={{ fill: "#94a3b8", fontSize: 10 }} />
             <Tooltip {...TT} formatter={(v: unknown) => Number(v).toLocaleString()} />
-            <Bar dataKey="YTD" radius={[0, 4, 4, 0]} barSize={16}>
+            <Bar dataKey="YTD" radius={[0, 2, 2, 0]} barSize={12} isAnimationActive={false}>
               {data.map((_, i) => <Cell key={i} fill={RANK_COLORS[i % RANK_COLORS.length]} />)}
             </Bar>
           </BarChart>
@@ -198,7 +199,13 @@ export default function Dashboard() {
       });
       res.push(point);
     });
-    return res;
+
+    // Remove future months that have exactly 0 total sales so the chart doesn't crash to zero
+    let lastValidIdx = res.length - 1;
+    while (lastValidIdx >= 0 && res[lastValidIdx].Total === 0) {
+      lastValidIdx--;
+    }
+    return res.slice(0, lastValidIdx + 1);
   }, [fuelFiltered, timeKeys, selectedYear]);
 
   const ptTable = useMemo(() => {
@@ -212,7 +219,7 @@ export default function Dashboard() {
       });
       res.push(row);
     });
-    return res;
+    return res.filter(r => Number(r.YTD) > 0);
   }, [ptTrend, timeKeys]);
 
   const ptDonut = useMemo(() => ptTable.filter(r => r.name !== "Grand Total"), [ptTable]);
@@ -234,7 +241,9 @@ export default function Dashboard() {
       row[String(d.y)] = Number(row[String(d.y)]) + d.u;
       row.YTD = Number(row.YTD) + d.u;
     });
-    return Array.from(fMap.values()).sort((a, b) => Number(b.YTD) - Number(a.YTD));
+    return Array.from(fMap.values())
+      .filter(r => Number(r.YTD) > 0)
+      .sort((a, b) => Number(b.YTD) - Number(a.YTD));
   }, [data, years]);
 
   // -- Brand Calcs --
@@ -254,6 +263,7 @@ export default function Dashboard() {
       row.YTD = Number(row.YTD) + d.u;
     });
     return Array.from(bMap.values())
+      .filter(r => Number(r.YTD) > 0)
       .sort((a, b) => Number(b.YTD) - Number(a.YTD))
       .map((r, i): Rec => ({ ...r, rank: i + 1 }));
   };
@@ -287,7 +297,9 @@ export default function Dashboard() {
       row[tKey] = Number(row[tKey]) + d.u;
       row.YTD = Number(row.YTD) + d.u;
     });
-    return Array.from(mMap.values()).sort((a, b) => Number(b.YTD) - Number(a.YTD));
+    return Array.from(mMap.values())
+      .filter(r => Number(r.YTD) > 0)
+      .sort((a, b) => Number(b.YTD) - Number(a.YTD));
   };
 
   const bevModels = useMemo(() => buildModelList("BEV"), [modelFiltered, timeKeys, selectedYear]);
@@ -295,33 +307,36 @@ export default function Dashboard() {
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500 border-t-transparent"></div>
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-light border-t-transparent"></div>
     </div>
   );
 
-    const tabs = [
-      { id: "powertrain", label: "Powertrain & Fuel", icon: PieChartIcon },
-      { id: "brands", label: "All Brands", icon: Trophy },
-      { id: "deep-dive", label: "Brand & Model Deep-Dive", icon: Layers, href: "/models.html" },
-      { id: "analyst", label: "Analyst Table", icon: Layers, href: "/analyst.html" },
-      { id: "bev-models", label: "BEV Models", icon: Battery },
-      { id: "bmw", label: "BMW Models", icon: Car },
-    ];
+  const tabs = [
+    { id: "powertrain", label: "Powertrain & Fuel", icon: PieChartIcon },
+    { id: "brands", label: "All Brands", icon: Trophy },
+    { id: "deep-dive", label: "Brand & Model Deep-Dive", icon: Layers, href: "/models.html" },
+    { id: "analyst", label: "Analyst Table", icon: Layers, href: "/analyst.html" },
+    { id: "bev-models", label: "BEV Models", icon: Battery },
+    { id: "bmw", label: "BMW Models", icon: Car },
+  ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-200 md:flex-row">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-200 md:flex-row font-sans">
       
       {/* ── Sidebar Navigation ────────────────────────────────────── */}
-      <aside className="sticky top-0 z-20 flex w-full flex-col border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md md:h-screen md:w-64 md:border-b-0 md:border-r">
-        <div className="flex flex-col gap-2 p-5 md:p-6">
-          <h1 className="text-lg font-bold tracking-tight text-teal-400">EV Analytics</h1>
+      <aside className="sticky top-0 z-20 flex w-full flex-col border-b border-slate-800 bg-slate-950 md:h-screen md:w-56 md:border-b-0 md:border-r">
+        <div className="flex flex-col gap-2 p-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Eternity@One Logo" className="h-6 w-6 object-contain" />
+            <h1 className="text-sm font-bold tracking-tight text-brand-light uppercase">EV Analytics</h1>
+          </div>
           
           {/* Year Selector */}
-          <div className="mt-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-2 transition-colors hover:border-slate-700">
-              <Filter className="h-4 w-4 text-slate-400" />
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 rounded-sm border border-slate-800 bg-slate-900 p-1.5 focus-within:border-brand-primary">
+              <Filter className="h-3 w-3 text-slate-400 ml-1" />
               <select 
-                className="w-full bg-transparent text-sm font-semibold text-slate-200 outline-none"
+                className="w-full bg-transparent text-xs font-semibold text-slate-200 outline-none"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value === "All" ? "All" : Number(e.target.value))}
               >
@@ -335,35 +350,34 @@ export default function Dashboard() {
             {/* Upload Button */}
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500/10 px-4 py-2.5 text-sm font-medium text-teal-400 transition-colors hover:bg-teal-500/20"
+              className="flex w-full items-center justify-center gap-2 rounded-sm bg-brand-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-accent"
             >
-              <Upload className="h-4 w-4" />
+              <Upload className="h-3 w-3" />
               Upload Data
             </button>
           </div>
         </div>
 
-        <nav className="flex flex-row overflow-x-auto p-2 scrollbar-hide md:flex-col md:gap-1 md:p-4">
+        <nav className="flex flex-row overflow-x-auto p-2 scrollbar-hide md:flex-col md:gap-0.5 md:p-2">
           {tabs.map((t) => {
             const isActive = activeTab === t.id;
             const Icon = t.icon;
             if ("href" in t) {
               return (
                 <a key={t.id} href={t.href}
-                  className="group relative flex min-w-max items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-all duration-200 hover:bg-slate-800/50 hover:text-slate-200">
-                  <Icon className="relative z-10 h-4 w-4 text-slate-500 group-hover:text-slate-300" />
-                  <span className="relative z-10">{t.label}</span>
+                  className="flex min-w-max items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-900 hover:text-slate-200">
+                  <Icon className="h-3.5 w-3.5 text-slate-500" />
+                  <span>{t.label}</span>
                 </a>
               );
             }
             return (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`group relative flex min-w-max items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  isActive ? "text-teal-400" : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                className={`flex min-w-max items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs font-medium transition-colors ${
+                  isActive ? "bg-slate-800 text-brand-light" : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
                 }`}>
-                {isActive && <motion.div layoutId="activeTabIndicator" className="absolute inset-0 rounded-lg bg-teal-500/10 border border-teal-500/20" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
-                <Icon className={`relative z-10 h-4 w-4 ${isActive ? "text-teal-400" : "text-slate-500 group-hover:text-slate-300"}`} />
-                <span className="relative z-10">{t.label}</span>
+                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-brand-light" : "text-slate-500"}`} />
+                <span>{t.label}</span>
               </button>
             );
           })}
@@ -372,152 +386,141 @@ export default function Dashboard() {
 
       {/* ── Main Content Area ─────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-10 hidden border-b border-slate-800/50 bg-slate-950/80 px-8 py-5 backdrop-blur-xl md:block">
+        <header className="sticky top-0 z-10 hidden border-b border-slate-800 bg-slate-950 px-6 py-4 md:block">
           <div className="flex items-center gap-8 text-sm">
             <div>
-              <p className="text-xs font-medium text-slate-500">Total Registrations ({selectedYear})</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-tight text-slate-100">{ytdTotal.toLocaleString()}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Reg ({selectedYear})</p>
+              <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-100">{ytdTotal.toLocaleString()}</p>
             </div>
-            <div className="h-10 w-px bg-slate-800" />
+            <div className="h-8 w-px bg-slate-800" />
             <div>
-              <p className="text-xs font-medium text-slate-500">BEV Market Share ({selectedYear})</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-tight text-teal-400">{bevShare}%</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">BEV Share ({selectedYear})</p>
+              <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-brand-light">{bevShare}%</p>
             </div>
-            <div className="h-10 w-px bg-slate-800" />
+            <div className="h-8 w-px bg-slate-800" />
             <div>
-              <p className="text-xs font-medium text-slate-500">Top Brand ({selectedYear})</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-tight text-slate-100">{String(topBrand)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Top Brand ({selectedYear})</p>
+              <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-100">{String(topBrand)}</p>
             </div>
             {selectedVehicleTypes.length < Object.keys(VEHICLE_TYPE_DICT).length && (
               <>
-                <div className="h-10 w-px bg-slate-800" />
-                <p className="text-[11px] text-amber-500/80 italic">
-                  {selectedVehicleTypes.length} of {Object.keys(VEHICLE_TYPE_DICT).length} vehicle types
+                <div className="h-8 w-px bg-slate-800" />
+                <p className="text-[10px] font-mono text-amber-500">
+                  [{selectedVehicleTypes.length}/{Object.keys(VEHICLE_TYPE_DICT).length} VEHICLE TYPES]
                 </p>
               </>
             )}
           </div>
         </header>
 
-        <div className="p-5 md:p-8">
-          {/* Vehicle Type Filter — filters this tab's data only; does not affect Powertrain Master */}
-          <div className="mb-5 md:mb-6 rounded-lg border border-slate-800 bg-slate-900/50 overflow-hidden">
+        <div className="p-4 md:p-6">
+          {/* Vehicle Type Filter */}
+          <div className="mb-4 md:mb-6 rounded-sm border border-slate-800 bg-slate-900 overflow-hidden">
             <button
               onClick={() => setShowVehicleFilter(!showVehicleFilter)}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800/50"
+              className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800"
             >
               <span className="flex items-center gap-2">
-                <Filter className="h-3.5 w-3.5 text-slate-400" />
-                <span>Vehicle Types (this tab)</span>
+                <Filter className="h-3 w-3 text-slate-400" />
+                <span>Vehicle Types Filter</span>
               </span>
-              <span className="rounded-full bg-teal-500/20 px-2 py-0.5 text-[10px] text-teal-400">
-                {selectedVehicleTypes.length} / {Object.keys(VEHICLE_TYPE_DICT).length}
+              <span className="rounded-sm bg-slate-800 px-1.5 py-0.5 text-[10px] text-brand-light font-mono">
+                {selectedVehicleTypes.length}/{Object.keys(VEHICLE_TYPE_DICT).length}
               </span>
             </button>
-            <AnimatePresence>
-              {showVehicleFilter && (
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: "auto" }}
-                  exit={{ height: 0 }}
-                  className="overflow-hidden border-t border-slate-800/50 bg-slate-950/50"
-                >
-                  <div className="flex flex-wrap gap-2 p-3">
-                    {Object.entries(VEHICLE_TYPE_DICT).map(([code, label]) => (
-                      <label key={code} title={label} className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 hover:border-slate-600 hover:bg-slate-800 transition-colors">
-                        <input
-                          type="checkbox"
-                          className="cursor-pointer accent-teal-500"
-                          checked={selectedVehicleTypes.includes(code)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedVehicleTypes([...selectedVehicleTypes, code]);
-                            } else {
-                              setSelectedVehicleTypes(selectedVehicleTypes.filter(t => t !== code));
-                            }
-                          }}
-                        />
-                        <span className="text-[11px] text-slate-300">{code}</span>
-                      </label>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {showVehicleFilter && (
+              <div className="border-t border-slate-800 bg-slate-950 p-2 flex flex-wrap gap-1.5">
+                {Object.entries(VEHICLE_TYPE_DICT).map(([code, label]) => (
+                  <label key={code} title={label} className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-slate-800 bg-slate-900 px-2 py-1 hover:border-slate-700 transition-colors">
+                    <input
+                      type="checkbox"
+                      className="cursor-pointer accent-brand-primary"
+                      checked={selectedVehicleTypes.includes(code)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVehicleTypes([...selectedVehicleTypes, code]);
+                        } else {
+                          setSelectedVehicleTypes(selectedVehicleTypes.filter(t => t !== code));
+                        }
+                      }}
+                    />
+                    <span className="text-[10px] font-mono text-slate-300">{code}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
-          <AnimatePresence mode="wait">
-            <motion.div key={activeTab + selectedYear} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="space-y-6 md:space-y-8">
 
-              {/* ── Powertrain Tab ─────────────────────────────────── */}
-              {activeTab === "powertrain" && (<>
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <Card title="Powertrain Distribution">
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={ptDonut} cx="50%" cy="50%" innerRadius="55%" outerRadius="75%" paddingAngle={3} dataKey="YTD" stroke="none" nameKey="name">
-                            {ptDonut.map((e) => <Cell key={String(e.name)} fill={PT_COLORS[String(e.name)] ?? "#64748b"} />)}
-                          </Pie>
-                          <Tooltip {...TT} formatter={(v: unknown) => Number(v).toLocaleString()} />
-                          <Legend verticalAlign="bottom" height={28} iconType="circle" wrapperStyle={{ fontSize: "11px", color: "#94a3b8" }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </Card>
-                  <Card title={`Trend — ${selectedYear}`}>
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={ptTrend} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
-                          <defs>
-                            {["ICE", "BEV", "HEV", "PHEV"].map((pt) => (
-                              <linearGradient key={`grad-${pt}`} id={`grad-${pt}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={PT_COLORS[pt]} stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor={PT_COLORS[pt]} stopOpacity={0}/>
-                              </linearGradient>
-                            ))}
-                          </defs>
-                          <CartesianGrid strokeDasharray="2 4" stroke="#1e293b" vertical={false} />
-                          <XAxis dataKey="name" stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} />
-                          <YAxis stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(v) => (v/1000).toFixed(0)+"k"} />
-                          <Tooltip {...TT} formatter={(v: unknown) => Number(v).toLocaleString()} />
-                          <Legend verticalAlign="top" height={28} iconType="circle" wrapperStyle={{ fontSize: "11px", color: "#94a3b8" }} />
+          <div className="space-y-4 md:space-y-6">
+            {/* ── Powertrain Tab ─────────────────────────────────── */}
+            {activeTab === "powertrain" && (<>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+                <Card title="Powertrain Distribution">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={ptDonut} cx="50%" cy="50%" innerRadius="60%" outerRadius="80%" paddingAngle={1} dataKey="YTD" stroke="none" nameKey="name" isAnimationActive={false}>
+                          {ptDonut.map((e) => <Cell key={String(e.name)} fill={PT_COLORS[String(e.name)] ?? "#64748b"} />)}
+                        </Pie>
+                        <Tooltip {...TT} formatter={(v: unknown) => Number(v).toLocaleString()} />
+                        <Legend verticalAlign="bottom" height={20} iconType="square" wrapperStyle={{ fontSize: "10px", color: "#94a3b8" }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+                <Card title={`Trend — ${selectedYear}`}>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={ptTrend} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                        <defs>
                           {["ICE", "BEV", "HEV", "PHEV"].map((pt) => (
-                            <Area key={pt} type="monotone" dataKey={pt} stroke={PT_COLORS[pt]} strokeWidth={2} fillOpacity={1} fill={`url(#grad-${pt})`} />
+                            <linearGradient key={`grad-${pt}`} id={`grad-${pt}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={PT_COLORS[pt]} stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor={PT_COLORS[pt]} stopOpacity={0}/>
+                            </linearGradient>
                           ))}
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </Card>
-                </div>
-
-                <Card title={`Powertrain Units — ${selectedYear}`}>
-                  <DataTable columns={[{ key: "name", label: "Powertrain", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={ptTable} highlightFirst />
+                        </defs>
+                        <CartesianGrid strokeDasharray="1 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="name" stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} />
+                        <YAxis stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(v) => (v/1000).toFixed(0)+"k"} tickLine={false} axisLine={false} />
+                        <Tooltip {...TT} formatter={(v: unknown) => Number(v).toLocaleString()} />
+                        <Legend verticalAlign="top" height={20} iconType="square" wrapperStyle={{ fontSize: "10px", color: "#94a3b8" }} />
+                        {["ICE", "BEV", "HEV", "PHEV"].map((pt) => (
+                          <Area key={pt} type="monotone" dataKey={pt} stroke={PT_COLORS[pt]} strokeWidth={1.5} fillOpacity={1} fill={`url(#grad-${pt})`} isAnimationActive={false} />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </Card>
+              </div>
 
-                <Card title="Fuel-Type Powertrain Master — All Years, All Vehicle Types (Unfiltered)">
-                  <DataTable columns={[{ key: "name", label: "Fuel Type", align: "left" }, { key: "powertrain", label: "Powertrain Mapped", align: "left" }, ...years.map(y => ({ key: String(y), label: String(y) })), { key: "YTD", label: "Grand Total" }]} rows={fuelMasterTable} />
-                </Card>
-              </>)}
+              <Card title={`Powertrain Units — ${selectedYear}`}>
+                <DataTable columns={[{ key: "name", label: "Powertrain", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={ptTable} highlightFirst />
+              </Card>
 
-              {/* ── Brands Tabs ─────────────────────────────────── */}
-              {activeTab === "brands" && (<>
-                <TopBarChart title={`Top 10 Brands — ${selectedYear}`} data={allBrands.slice(0, 10)} nameKey="name" />
-                <Card title={`All Brand Rankings — ${selectedYear}`}><DataTable columns={brandCols} rows={allBrands} /></Card>
-              </>)}
+              <Card title="Fuel-Type Powertrain Master — All Years, All Vehicle Types (Unfiltered)">
+                <DataTable columns={[{ key: "name", label: "Fuel Type", align: "left" }, { key: "powertrain", label: "Powertrain Mapped", align: "left" }, ...years.map(y => ({ key: String(y), label: String(y) })), { key: "YTD", label: "Grand Total" }]} rows={fuelMasterTable} />
+              </Card>
+            </>)}
 
-              {/* ── Models Tabs ─────────────────────────────────── */}
-              {activeTab === "bev-models" && (<>
-                <TopBarChart title={`Top 15 BEV Models — ${selectedYear}`} data={bevModels.slice(0, 15)} nameKey="label" />
-                <Card title={`BEV by Model — ${selectedYear}`}><DataTable columns={[{ key: "brand", label: "Brand", align: "left" }, { key: "model", label: "Model", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={bevModels} /></Card>
-              </>)}
+            {/* ── Brands Tabs ─────────────────────────────────── */}
+            {activeTab === "brands" && (<>
+              <TopBarChart title={`Top 10 Brands — ${selectedYear}`} data={allBrands.slice(0, 10)} nameKey="name" />
+              <Card title={`All Brand Rankings — ${selectedYear}`}><DataTable columns={brandCols} rows={allBrands} /></Card>
+            </>)}
 
-              {activeTab === "bmw" && (<>
-                <TopBarChart title={`Top BMW Models — ${selectedYear}`} data={bmwModels.slice(0, 10)} nameKey="model" />
-                <Card title={`BMW Registrations by Model — ${selectedYear}`}><DataTable columns={[{ key: "model", label: "Model Variant", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={bmwModels} /></Card>
-              </>)}
+            {/* ── Models Tabs ─────────────────────────────────── */}
+            {activeTab === "bev-models" && (<>
+              <TopBarChart title={`Top 15 BEV Models — ${selectedYear}`} data={bevModels.slice(0, 15)} nameKey="label" />
+              <Card title={`BEV by Model — ${selectedYear}`}><DataTable columns={[{ key: "brand", label: "Brand", align: "left" }, { key: "model", label: "Model", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={bevModels} /></Card>
+            </>)}
 
-            </motion.div>
-          </AnimatePresence>
+            {activeTab === "bmw" && (<>
+              <TopBarChart title={`Top BMW Models — ${selectedYear}`} data={bmwModels.slice(0, 10)} nameKey="model" />
+              <Card title={`BMW Registrations by Model — ${selectedYear}`}><DataTable columns={[{ key: "model", label: "Model Variant", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={bmwModels} /></Card>
+            </>)}
+
+          </div>
         </div>
       </main>
 

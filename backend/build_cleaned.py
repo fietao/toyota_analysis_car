@@ -1082,6 +1082,39 @@ def main():
         json.dumps(state, ensure_ascii=False, indent=2), "utf-8"
     )
 
+    known_models_path = BASE / "config" / "known_models.txt"
+    known_models_path.parent.mkdir(exist_ok=True, parents=True)
+    
+    if "รุ่นรถ" in df_cleaned.columns and "ยี่ห้อรถ2" in df_cleaned.columns:
+        curr_models_df = df_cleaned[["รุ่นรถ", "ยี่ห้อรถ2"]].dropna().copy()
+        curr_models_df["รุ่นรถ_clean"] = curr_models_df["รุ่นรถ"].astype(str).str.strip()
+        curr_models_df["ยี่ห้อรถ2_clean"] = curr_models_df["ยี่ห้อรถ2"].astype(str).str.strip()
+        curr_models_df = curr_models_df[curr_models_df["รุ่นรถ_clean"] != ""]
+        curr_models_df = curr_models_df.drop_duplicates(subset=["รุ่นรถ_clean"])
+
+        if not known_models_path.exists():
+            unique_models = sorted(curr_models_df["รุ่นรถ_clean"].unique())
+            with open(known_models_path, "w", encoding="utf-8") as f:
+                for m in unique_models:
+                    f.write(f"{m}\n")
+            print(f"known_models.txt created with {len(unique_models)} models")
+        else:
+            with open(known_models_path, "r", encoding="utf-8") as f:
+                known = {line.strip() for line in f if line.strip()}
+            
+            new_models = []
+            for _, row in curr_models_df.iterrows():
+                m = row["รุ่นรถ_clean"]
+                if m not in known:
+                    b = row["ยี่ห้อรถ2_clean"]
+                    print(f"NEW MODEL DETECTED: {m} (brand: {b})")
+                    new_models.append(m)
+            
+            if new_models:
+                with open(known_models_path, "a", encoding="utf-8") as f:
+                    for m in new_models:
+                        f.write(f"{m}\n")
+
     print(f"\n  Rows : {len(df_cleaned):,}")
     print(f"  → {out_file.name}")
     print("  → pipeline_state.json updated")
