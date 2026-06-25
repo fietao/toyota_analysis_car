@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
-  PieChart as PieChartIcon, Trophy, Battery, Car, Filter, Layers, Upload, ChevronDown, Check, Search
+  PieChart as PieChartIcon, Trophy, Battery, Car, Filter, Layers, Upload, ChevronDown, Check, Search, ChevronRight
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
@@ -39,12 +39,25 @@ const VEHICLE_TYPE_DICT: Record<string, string> = {
   "รย.11": "รย.11 (รถยนต์บริการให้เช่า / รถเช่า)"
 };
 
+function normalizeBrandName(rawBrand: string): string {
+  const clean = rawBrand.replace(/\s+/g, '').toLowerCase();
+  if (
+    clean === 'deepal+chang' ||
+    clean === 'deepal+changan' ||
+    clean === 'changan+deepal' ||
+    clean === 'change+depal' ||
+    clean === 'changan' ||
+    clean === 'deepal'
+  ) {
+    return 'Deepal + Changan';
+  }
+  return rawBrand;
+}
+
 /* ── Types ────────────────────────────────────────────────────────── */
 
 type PowertrainMasterRow = { f: string; pt: string; y: number; u: number };
-
 type FuelRow = { y: number; m: string; pt: string; f: string; v: string; u: number };
-
 type TreeMonthly = Record<string, Record<string, Record<string, number[]>>>;
 
 type ModelNode = {
@@ -68,7 +81,7 @@ type DashboardData = {
   brand_model_tree: BrandNode[];
 };
 
-type Rec = Record<string, string | number | null>;
+type Rec = Record<string, string | number | boolean | null>;
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -78,7 +91,7 @@ const fmt = (n: unknown) => {
   return isNaN(v) ? "—" : v.toLocaleString();
 };
 
-function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number | "All", selectedVehicleTypes: string[], selectedProvince: string) {
+function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number | "All", selectedVehicleTypes: string[], selectedProvinces: string[]) {
   const timeVals: Record<string, number> = {};
   let grandTotal = 0;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -87,7 +100,7 @@ function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number | "All
     const vcBucket = node.monthly?.[vc];
     if (!vcBucket) return;
     
-    const provs = selectedProvince ? [selectedProvince] : Object.keys(vcBucket);
+    const provs = selectedProvinces.length > 0 ? selectedProvinces : Object.keys(vcBucket);
     provs.forEach(prov => {
       const pBucket = vcBucket[prov];
       if (!pBucket) return;
@@ -142,18 +155,18 @@ function MetricCard({ title, value, subtitle }: { title: string; value: string |
   );
 }
 
-function SearchableSelect({ 
+function FilterPillPopover({ 
   options, 
   value, 
   onChange, 
-  placeholder,
-  label
+  label,
+  placeholder
 }: { 
   options: string[]; 
-  value: string; 
-  onChange: (v: string) => void;
-  placeholder: string;
+  value: string[]; 
+  onChange: (v: string[]) => void;
   label: string;
+  placeholder?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -169,20 +182,30 @@ function SearchableSelect({
 
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
 
+  const toggleOpt = (opt: string) => {
+    if (value.includes(opt)) onChange(value.filter(v => v !== opt));
+    else onChange([...value, opt]);
+  };
+
+  const btnText = value.length === 0 ? "All" : `${value.length} Selected`;
+
   return (
-    <div ref={ref} className="relative min-w-[160px] flex-1">
-      <label className="block text-slate-400 mb-1.5 font-medium text-[10px] uppercase tracking-wider">{label}</label>
+    <div ref={ref} className="relative inline-block">
       <button 
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 hover:border-slate-500 focus:border-brand-primary"
+        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+          value.length > 0 
+            ? "border-brand-primary bg-brand-primary/10 text-brand-light" 
+            : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
+        }`}
       >
-        <span className="truncate">{value || placeholder}</span>
-        <ChevronDown className="h-3 w-3 text-slate-500" />
+        <span>{label}: {btnText}</span>
+        <ChevronDown className="h-3 w-3 opacity-70" />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full min-w-[200px] rounded-sm border border-slate-700 bg-slate-800 shadow-2xl">
+        <div className="absolute z-50 mt-2 w-[260px] rounded-sm border border-slate-700 bg-slate-800 shadow-2xl">
           <div className="p-2 border-b border-slate-700">
             <div className="flex items-center rounded-sm bg-slate-900 px-2 py-1 text-xs border border-slate-700">
               <Search className="h-3 w-3 text-slate-500 mr-2" />
@@ -197,25 +220,21 @@ function SearchableSelect({
             </div>
           </div>
           <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
-            <button 
-              type="button"
-              onClick={() => { onChange(""); setIsOpen(false); setSearch(""); }}
-              className={`w-full flex items-center justify-between rounded-sm px-2 py-1.5 text-xs text-left ${!value ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}
-            >
-              <span>{placeholder}</span>
-              {!value && <Check className="h-3 w-3" />}
-            </button>
-            {filtered.map(opt => (
-              <button 
-                type="button"
-                key={opt}
-                onClick={() => { onChange(opt); setIsOpen(false); setSearch(""); }}
-                className={`w-full flex items-center justify-between rounded-sm px-2 py-1.5 text-xs text-left ${value === opt ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}
-              >
-                <span className="truncate">{opt}</span>
-                {value === opt && <Check className="h-3 w-3 flex-shrink-0" />}
-              </button>
-            ))}
+            <label className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${value.length === 0 ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
+              <span>All {label}</span>
+              <input type="checkbox" className="hidden" checked={value.length === 0} onChange={() => onChange([])} />
+              {value.length === 0 && <Check className="h-3 w-3" />}
+            </label>
+            {filtered.map(opt => {
+              const isChecked = value.includes(opt);
+              return (
+                <label key={opt} className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${isChecked ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
+                  <span className="truncate pr-2">{opt}</span>
+                  <input type="checkbox" className="hidden" checked={isChecked} onChange={() => toggleOpt(opt)} />
+                  {isChecked && <Check className="h-3 w-3 flex-shrink-0" />}
+                </label>
+              );
+            })}
             {filtered.length === 0 && (
               <div className="px-2 py-3 text-center text-xs text-slate-500">No results found</div>
             )}
@@ -226,35 +245,61 @@ function SearchableSelect({
   );
 }
 
-function DataTable({ columns, rows, highlightFirst = false }: {
+function DataTable({ columns, rows, onToggleRow, highlightFirst = false }: {
   columns: { key: string; label: string; align?: string }[];
   rows: Rec[];
+  onToggleRow?: (id: string) => void;
   highlightFirst?: boolean;
 }) {
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
   const sortedRows = useMemo(() => {
+    // If we are using hierarchical rows, sorting can break the parent-child relationship
+    // For a Pivot Table, we only sort the parent rows, and then sort the children within.
+    // To make this simple, if we are grouping, we should ideally sort before passing to DataTable.
+    // We will do a generic sort that keeps sub-rows attached to their parents if we implement it, 
+    // but the instruction implies clicking the header sorts the rows.
+    // If rows are already a mix of parents and subRows, sorting them flatly will detach models from brands.
+    // Therefore, we must implement grouped sorting.
     let sortableItems = [...rows];
     if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
+      // Split into parents and children mapping
+      const parents = sortableItems.filter(r => !r.isSubRow);
+      const childrenMap = new Map<string, Rec[]>();
+      sortableItems.filter(r => r.isSubRow).forEach(r => {
+         const pId = String(r.parentId);
+         if (!childrenMap.has(pId)) childrenMap.set(pId, []);
+         childrenMap.get(pId)!.push(r);
+      });
+
+      const sortFn = (a: Rec, b: Rec) => {
         const aVal = a[sortConfig.key];
         const bVal = b[sortConfig.key];
-        
         if (aVal === bVal) return 0;
         if (aVal == null) return sortConfig.direction === 'asc' ? -1 : 1;
         if (bVal == null) return sortConfig.direction === 'asc' ? 1 : -1;
-
         if (typeof aVal === 'number' && typeof bVal === 'number') {
           return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
         }
-        
         const aStr = String(aVal).toLowerCase();
         const bStr = String(bVal).toLowerCase();
-        
         if (aStr < bStr) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aStr > bStr) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
+      };
+
+      parents.sort(sortFn);
+      
+      const flattened: Rec[] = [];
+      parents.forEach(p => {
+         flattened.push(p);
+         if (childrenMap.has(String(p.id))) {
+            const children = childrenMap.get(String(p.id))!;
+            children.sort(sortFn);
+            flattened.push(...children);
+         }
       });
+      return flattened;
     }
     return sortableItems;
   }, [rows, sortConfig]);
@@ -292,12 +337,34 @@ function DataTable({ columns, rows, highlightFirst = false }: {
         </thead>
         <tbody className="divide-y divide-slate-800/50">
           {sortedRows.map((row, i) => (
-            <tr key={i} className={`group ${highlightFirst && i === sortedRows.length - 1 ? "bg-slate-800 font-semibold text-brand-light" : "hover:bg-slate-800 text-slate-300"}`}>
-              {columns.map((c) => (
-                <td key={c.key} className={`whitespace-nowrap px-2 py-1.5 tabular-nums ${c.align === "left" ? "text-left" : "text-right"}`}>
-                  {c.align === "left" ? String(row[c.key] ?? "") : fmt(row[c.key])}
-                </td>
-              ))}
+            <tr key={i} className={`group ${highlightFirst && i === sortedRows.length - 1 ? "bg-slate-800 font-semibold text-brand-light" : (row.isSubRow ? "bg-slate-900/40 hover:bg-slate-800" : "hover:bg-slate-800 text-slate-300")}`}>
+              {columns.map((c) => {
+                const isNameCol = c.key === "name" || c.key === "brand";
+                const content = c.align === "left" ? String(row[c.key] ?? "") : fmt(row[c.key]);
+                
+                return (
+                  <td key={c.key} className={`whitespace-nowrap px-2 py-1.5 tabular-nums ${c.align === "left" ? "text-left" : "text-right"}`}>
+                    {isNameCol ? (
+                      <div className="flex items-center gap-2" style={{ paddingLeft: row.isSubRow ? '1.5rem' : '0' }}>
+                        {row.hasChildren && onToggleRow ? (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onToggleRow(String(row.id)); }}
+                            className="flex h-4 w-4 items-center justify-center rounded-sm bg-slate-800 text-slate-400 hover:bg-brand-primary hover:text-white transition-colors"
+                          >
+                            {row.isExpanded ? "▼" : "▶"}
+                          </button>
+                        ) : (
+                          !row.isSubRow && <div className="w-4" />
+                        )}
+                        {row.isSubRow && <div className="h-[1px] w-3 bg-slate-700" />}
+                        <span className={row.isSubRow ? "text-slate-400" : "font-medium"}>{content}</span>
+                      </div>
+                    ) : (
+                      <span className={row.isSubRow ? "text-slate-400" : ""}>{content}</span>
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -308,7 +375,7 @@ function DataTable({ columns, rows, highlightFirst = false }: {
 
 function TopBarChart({ data, nameKey, title }: { data: Rec[], nameKey: string, title: string }) {
   return (
-    <Card title={title}>
+    <Card title={title} className="flex-1">
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, left: 8, bottom: 0 }}>
@@ -338,12 +405,18 @@ export default function Dashboard() {
   const [showVehicleFilter, setShowVehicleFilter] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  // Rankings filters
-  const [rankingLevel, setRankingLevel] = useState<"Brand" | "Model">("Brand");
-  const [rankingPt, setRankingPt] = useState<string>("");
-  const [rankingBrand, setRankingBrand] = useState<string>("");
-  const [rankingModel, setRankingModel] = useState<string>("");
-  const [rankingProvince, setRankingProvince] = useState<string>("");
+  // Filter Pills (Arrays)
+  const [rankingPt, setRankingPt] = useState<string[]>([]);
+  const [rankingBrand, setRankingBrand] = useState<string[]>([]);
+  const [rankingModel, setRankingModel] = useState<string[]>([]);
+  const [rankingProvince, setRankingProvince] = useState<string[]>([]);
+
+  // Expandable Table state
+  const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
+
+  // Dynamic Chart Grouping state
+  const [chartGroupBy, setChartGroupBy] = useState<"Brands" | "Models" | "Provinces">("Brands");
+  const [trendGroupBy, setTrendGroupBy] = useState<"Powertrain" | "Vehicle Type">("Powertrain");
 
   useEffect(() => {
     fetch("/data/dashboard_data.json")
@@ -363,16 +436,31 @@ export default function Dashboard() {
   const allDataProvinces = data?.meta?.provinces ?? [];
   const allDataBrands = useMemo(() => {
      if (!data?.brand_model_tree) return [];
-     return Array.from(new Set(data.brand_model_tree.map(b => b.brand))).sort();
+     return Array.from(new Set(data.brand_model_tree.map(b => normalizeBrandName(b.brand)))).sort();
   }, [data]);
   const allDataModels = useMemo(() => {
      if (!data?.brand_model_tree) return [];
      const mSet = new Set<string>();
-     data.brand_model_tree.forEach(b => b.models?.forEach(m => mSet.add(m.name)));
+     data.brand_model_tree.forEach(b => {
+        // If specific brands are selected, skip any brands that aren't in the selection
+        const cleanBrand = normalizeBrandName(b.brand);
+        if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
+        
+        b.models?.forEach(m => mSet.add(m.name));
+     });
      return Array.from(mSet).sort();
-  }, [data]);
+  }, [data, rankingBrand]);
 
-  // Columns logic (Months vs Years)
+  // Clear stale selected models if they are no longer in the cascading `allDataModels` list
+  useEffect(() => {
+    if (rankingModel.length > 0) {
+      const validModels = rankingModel.filter(m => allDataModels.includes(m));
+      if (validModels.length !== rankingModel.length) {
+        setRankingModel(validModels);
+      }
+    }
+  }, [allDataModels, rankingModel]);
+
   const timeCols = selectedYear === "All" 
     ? years.map(y => ({ key: String(y), label: String(y) }))
     : months.map(m => ({ key: m, label: m }));
@@ -386,108 +474,203 @@ export default function Dashboard() {
     return selectedYear === "All" ? d : d.filter(x => x.y === selectedYear);
   }, [data, selectedYear, selectedVehicleTypes]);
 
-  const ptTrend = useMemo(() => {
+  const trendKeys = useMemo(() => {
+     if (trendGroupBy === "Powertrain") return ["ICE", "BEV", "HEV", "PHEV"];
+     return Array.from(new Set(fuelFiltered.map(x => VEHICLE_TYPE_DICT[x.v] || x.v)));
+  }, [trendGroupBy, fuelFiltered]);
+
+  const trendData = useMemo(() => {
     const res: Rec[] = [];
     timeKeys.forEach(t => {
       const point: Rec = { name: t, Total: 0 };
-      ["ICE", "BEV", "HEV", "PHEV"].forEach(pt => {
-        const sum = fuelFiltered
-          .filter(d => d.pt === pt && String(selectedYear === "All" ? d.y : d.m) === t)
-          .reduce((acc, curr) => acc + curr.u, 0);
-        point[pt] = sum;
-        point.Total = Number(point.Total) + sum;
-      });
+      
+      if (trendGroupBy === "Powertrain") {
+        ["ICE", "BEV", "HEV", "PHEV"].forEach(pt => {
+          const sum = fuelFiltered
+            .filter(d => d.pt === pt && String(selectedYear === "All" ? d.y : d.m) === t)
+            .reduce((acc, curr) => acc + curr.u, 0);
+          point[pt] = sum;
+          point.Total = Number(point.Total) + sum;
+        });
+      } else {
+        trendKeys.forEach(vKey => {
+          const sum = fuelFiltered
+            .filter(d => (VEHICLE_TYPE_DICT[d.v] || d.v) === vKey && String(selectedYear === "All" ? d.y : d.m) === t)
+            .reduce((acc, curr) => acc + curr.u, 0);
+          point[vKey] = sum;
+          point.Total = Number(point.Total) + sum;
+        });
+      }
+
       res.push(point);
     });
     let lastValidIdx = res.length - 1;
     while (lastValidIdx >= 0 && res[lastValidIdx].Total === 0) lastValidIdx--;
     return res.slice(0, lastValidIdx + 1);
-  }, [fuelFiltered, timeKeys, selectedYear]);
+  }, [fuelFiltered, timeKeys, selectedYear, trendGroupBy, trendKeys]);
 
-  const ptTable = useMemo(() => {
+  const trendTable = useMemo(() => {
     const res: Rec[] = [];
-    ["ICE", "BEV", "HEV", "PHEV", "Total"].forEach(pt => {
-      const row: Rec = { name: pt === "Total" ? "Grand Total" : pt, YTD: 0 };
+    [...trendKeys, "Total"].forEach(key => {
+      const row: Rec = { name: key === "Total" ? "Grand Total" : key, YTD: 0 };
       timeKeys.forEach(t => {
-        const val = ptTrend.find(x => x.name === t)?.[pt] ?? 0;
+        const val = trendData.find(x => x.name === t)?.[key] ?? 0;
         row[t] = val;
         row.YTD = Number(row.YTD) + Number(val);
       });
       res.push(row);
     });
     return res.filter(r => Number(r.YTD) > 0);
-  }, [ptTrend, timeKeys]);
+  }, [trendData, timeKeys, trendKeys]);
 
 
-  // -- Rankings Engine (brand_model_tree) --
+  // -- Drill-Down Rankings Engine (DataTable) --
   const rankingsData = useMemo(() => {
     if (!data?.brand_model_tree) return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] };
 
     const map = new Map<string, Rec>();
+    const modelsMap = new Map<string, Rec[]>(); // parentId -> array of model rows
+
     let totalUnits = 0;
     let bevUnits = 0;
     const ptMixMap: Record<string, number> = { ICE: 0, BEV: 0, HEV: 0, PHEV: 0 };
 
     data.brand_model_tree.forEach(brandNode => {
-      if (rankingPt && brandNode.powertrain !== rankingPt) return;
-      if (rankingBrand && brandNode.brand !== rankingBrand) return;
+      if (rankingPt.length > 0 && !rankingPt.includes(brandNode.powertrain)) return;
+      const cleanBrand = normalizeBrandName(brandNode.brand);
+      if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
 
-      if (rankingLevel === "Brand") {
-         const key = brandNode.brand;
-         if (!map.has(key)) {
-            const row: Rec = { name: brandNode.brand, YTD: 0 };
-            timeKeys.forEach(t => row[t] = 0);
-            map.set(key, row);
-         }
-         const row = map.get(key)!;
-         const { timeVals, grandTotal } = getNodeSums(brandNode, selectedYear, selectedVehicleTypes, rankingProvince);
-         
-         timeKeys.forEach(t => { row[t] = Number(row[t]) + (timeVals[t] || 0); });
-         row.YTD = Number(row.YTD) + grandTotal;
+      const key = cleanBrand;
+      if (!map.has(key)) {
+         const row: Rec = { 
+            id: key, name: cleanBrand, YTD: 0, 
+            hasChildren: (brandNode.models?.length ?? 0) > 0, 
+            isExpanded: expandedBrands.has(key) 
+         };
+         timeKeys.forEach(t => row[t] = 0);
+         map.set(key, row);
+         modelsMap.set(key, []);
+      }
+      const row = map.get(key)!;
+      // Update hasChildren in case we see models later
+      if ((brandNode.models?.length ?? 0) > 0) row.hasChildren = true;
+      row.isExpanded = expandedBrands.has(key);
 
-         totalUnits += grandTotal;
-         if (brandNode.powertrain === "BEV") bevUnits += grandTotal;
-         if (brandNode.powertrain in ptMixMap) ptMixMap[brandNode.powertrain] += grandTotal;
+      const { timeVals, grandTotal } = getNodeSums(brandNode, selectedYear, selectedVehicleTypes, rankingProvince);
+      
+      timeKeys.forEach(t => { row[t] = Number(row[t]) + (timeVals[t] || 0); });
+      row.YTD = Number(row.YTD) + grandTotal;
 
-      } else {
+      totalUnits += grandTotal;
+      if (brandNode.powertrain === "BEV") bevUnits += grandTotal;
+      if (brandNode.powertrain in ptMixMap) ptMixMap[brandNode.powertrain] += grandTotal;
+
+      // Calculate models if expanded
+      if (expandedBrands.has(key)) {
          brandNode.models?.forEach(model => {
-            if (rankingModel && model.name !== rankingModel) return;
-            const key = `${brandNode.brand}|${model.name}`;
-            if (!map.has(key)) {
-               const row: Rec = { brand: brandNode.brand, model: model.name, label: `${brandNode.brand} ${model.name}`, YTD: 0 };
-               timeKeys.forEach(t => row[t] = 0);
-               map.set(key, row);
+            if (rankingModel.length > 0 && !rankingModel.includes(model.name)) return;
+            const mKey = `${key}|${model.name}`;
+            const mList = modelsMap.get(key)!;
+            let mRow = mList.find(r => r.id === mKey);
+            if (!mRow) {
+               mRow = { id: mKey, parentId: key, name: model.name, YTD: 0, isSubRow: true };
+               timeKeys.forEach(t => mRow![t] = 0);
+               mList.push(mRow);
             }
-            const row = map.get(key)!;
-            const { timeVals, grandTotal } = getNodeSums(model, selectedYear, selectedVehicleTypes, rankingProvince);
-            
-            timeKeys.forEach(t => { row[t] = Number(row[t]) + (timeVals[t] || 0); });
-            row.YTD = Number(row.YTD) + grandTotal;
-
-            totalUnits += grandTotal;
-            if (brandNode.powertrain === "BEV") bevUnits += grandTotal;
-            if (brandNode.powertrain in ptMixMap) ptMixMap[brandNode.powertrain] += grandTotal;
+            const mSums = getNodeSums(model, selectedYear, selectedVehicleTypes, rankingProvince);
+            timeKeys.forEach(t => { mRow![t] = Number(mRow![t]) + (mSums.timeVals[t] || 0); });
+            mRow!.YTD = Number(mRow!.YTD) + mSums.grandTotal;
          });
       }
     });
 
-    const rows = Array.from(map.values())
+    // Assemble final flat array correctly preserving hierarchy for the table
+    const finalRows: Rec[] = [];
+    const sortedBrands = Array.from(map.values())
        .filter(r => Number(r.YTD) > 0)
        .sort((a, b) => Number(b.YTD) - Number(a.YTD))
-       .map((r, i): Rec => ({ ...r, rank: i + 1 }));
+       .map((r, i) => ({ ...r, rank: i + 1 } as Rec));
+
+    sortedBrands.forEach(b => {
+       finalRows.push(b);
+       if (expandedBrands.has(String(b.id))) {
+          const mList = modelsMap.get(String(b.id)) || [];
+          const sortedModels = mList
+             .filter(r => Number(r.YTD) > 0)
+             .sort((a, b) => Number(b.YTD) - Number(a.YTD));
+          finalRows.push(...sortedModels);
+       }
+    });
 
     const ptMix = Object.entries(ptMixMap).map(([name, val]) => ({ name, YTD: val })).filter(d => d.YTD > 0);
 
-    return { rows, totalUnits, bevUnits, ptMix };
-  }, [data, rankingLevel, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes, timeKeys]);
+    return { rows: finalRows, totalUnits, bevUnits, ptMix };
+  }, [data, rankingPt, rankingBrand, rankingModel, rankingProvince, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys]);
+
+  // -- Dynamic Group By Engine (Charts) --
+  const dynamicChartData = useMemo(() => {
+     if (!data?.brand_model_tree) return [];
+     const cMap = new Map<string, number>();
+
+     data.brand_model_tree.forEach(brandNode => {
+        if (rankingPt.length > 0 && !rankingPt.includes(brandNode.powertrain)) return;
+        const cleanBrand = normalizeBrandName(brandNode.brand);
+        if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
+
+        if (chartGroupBy === "Brands") {
+           const { grandTotal } = getNodeSums(brandNode, selectedYear, selectedVehicleTypes, rankingProvince);
+           cMap.set(cleanBrand, (cMap.get(cleanBrand) || 0) + grandTotal);
+        } else if (chartGroupBy === "Models") {
+           brandNode.models?.forEach(model => {
+              if (rankingModel.length > 0 && !rankingModel.includes(model.name)) return;
+              const { grandTotal } = getNodeSums(model, selectedYear, selectedVehicleTypes, rankingProvince);
+              const label = `${cleanBrand} ${model.name}`;
+              cMap.set(label, (cMap.get(label) || 0) + grandTotal);
+           });
+        } else if (chartGroupBy === "Provinces") {
+           selectedVehicleTypes.forEach(vc => {
+              const vcBucket = brandNode.monthly?.[vc];
+              if (!vcBucket) return;
+              Object.keys(vcBucket).forEach(prov => {
+                 if (rankingProvince.length > 0 && !rankingProvince.includes(prov)) return;
+                 const pBucket = vcBucket[prov];
+                 let pTotal = 0;
+                 Object.keys(pBucket).forEach(yStr => {
+                    if (selectedYear !== "All" && yStr !== String(selectedYear)) return;
+                    const arr = pBucket[yStr];
+                    if (Array.isArray(arr)) for (let i=0; i<12; i++) pTotal += arr[i] || 0;
+                 });
+                 cMap.set(prov, (cMap.get(prov) || 0) + pTotal);
+              });
+           });
+        }
+     });
+
+     return Array.from(cMap.entries())
+       .map(([name, YTD]) => ({ name, YTD }))
+       .sort((a, b) => b.YTD - a.YTD)
+       .slice(0, 10);
+  }, [data, chartGroupBy, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes]);
+
+
+  const toggleBrandExpand = (brandId: string) => {
+     setExpandedBrands(prev => {
+        const next = new Set(prev);
+        if (next.has(brandId)) next.delete(brandId);
+        else next.add(brandId);
+        return next;
+     });
+  };
 
   const { rows: rankedRows, totalUnits: rankTotal, bevUnits: rankBev, ptMix: rankPtMix } = rankingsData;
   const bevPenetration = rankTotal > 0 ? ((rankBev / rankTotal) * 100).toFixed(1) + "%" : "0%";
-  const topItem = rankedRows[0] ? (rankingLevel === "Brand" ? rankedRows[0]["name"] : rankedRows[0]["label"]) : "—";
+  const topBrand = rankedRows[0] ? rankedRows[0]["name"] : "—";
 
-  const rankingsCols = rankingLevel === "Brand" 
-    ? [ { key: "rank", label: "#" }, { key: "name", label: "Brand", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" } ]
-    : [ { key: "rank", label: "#" }, { key: "brand", label: "Brand", align: "left" }, { key: "model", label: "Model", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" } ];
+  const rankingsCols = [ 
+     { key: "name", label: "Brand / Model", align: "left" }, 
+     ...timeCols, 
+     { key: "YTD", label: "Grand Total" } 
+  ];
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -629,45 +812,37 @@ export default function Dashboard() {
                 <MetricCard title="Total Units" value={rankTotal.toLocaleString()} />
                 <MetricCard title="BEV Units" value={rankBev.toLocaleString()} />
                 <MetricCard title="BEV Penetration" value={bevPenetration} />
-                <MetricCard title={`Top ${rankingLevel}`} value={String(topItem)} />
+                <MetricCard title={`Top Brand`} value={String(topBrand)} />
               </div>
 
-              <div className="flex flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-sm p-3">
-                <div className="flex-1 min-w-[120px]">
-                  <label className="block text-slate-400 mb-1.5 font-medium text-[10px] uppercase tracking-wider">Level</label>
-                  <select 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-sm px-3 py-2 text-xs text-slate-200 outline-none focus:border-brand-primary"
-                    value={rankingLevel} onChange={e => setRankingLevel(e.target.value as "Brand" | "Model")}
-                  >
-                    <option value="Brand">Brands</option>
-                    <option value="Model">Models</option>
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[120px]">
-                  <label className="block text-slate-400 mb-1.5 font-medium text-[10px] uppercase tracking-wider">Powertrain</label>
-                  <select 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-sm px-3 py-2 text-xs text-slate-200 outline-none focus:border-brand-primary"
-                    value={rankingPt} onChange={e => setRankingPt(e.target.value)}
-                  >
-                    <option value="">All Powertrains</option>
-                    <option value="BEV">BEV (100% Electric)</option>
-                    <option value="HEV">HEV</option>
-                    <option value="PHEV">PHEV</option>
-                    <option value="ICE">ICE</option>
-                  </select>
-                </div>
-                <SearchableSelect label="Brand" placeholder="All Brands" options={allDataBrands} value={rankingBrand} onChange={setRankingBrand} />
-                {rankingLevel === "Model" && (
-                  <SearchableSelect label="Model" placeholder="All Models" options={allDataModels} value={rankingModel} onChange={setRankingModel} />
-                )}
-                <SearchableSelect label="Province" placeholder="All Provinces" options={allDataProvinces} value={rankingProvince} onChange={setRankingProvince} />
+              {/* Filter Pills */}
+              <div className="flex flex-wrap gap-2 items-center bg-slate-900 border border-slate-800 rounded-sm p-3">
+                <FilterPillPopover label="Powertrain" placeholder="Powertrains" options={["ICE", "BEV", "HEV", "PHEV"]} value={rankingPt} onChange={setRankingPt} />
+                <FilterPillPopover label="Brand" placeholder="Brands" options={allDataBrands} value={rankingBrand} onChange={setRankingBrand} />
+                <FilterPillPopover label="Model" placeholder="Models" options={allDataModels} value={rankingModel} onChange={setRankingModel} />
+                <FilterPillPopover label="Province" placeholder="Provinces" options={allDataProvinces} value={rankingProvince} onChange={setRankingProvince} />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-                <div className="lg:col-span-2">
-                  <TopBarChart title={`Top ${rankingLevel === "Brand" ? 10 : 15} ${rankingPt || "ALL"} ${rankingLevel}s`} data={rankedRows.slice(0, rankingLevel === "Brand" ? 10 : 15)} nameKey={rankingLevel === "Brand" ? "name" : "label"} />
+                <div className="lg:col-span-2 flex flex-col gap-2">
+                  {/* Segmented Control for Dynamic Chart Grouping */}
+                  <div className="flex items-center gap-1 self-start rounded-full border border-slate-700 bg-slate-800 p-0.5">
+                     {(["Brands", "Models", "Provinces"] as const).map(opt => (
+                        <button
+                           key={opt}
+                           onClick={() => setChartGroupBy(opt)}
+                           className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full transition-colors ${
+                              chartGroupBy === opt ? "bg-brand-primary text-white" : "text-slate-400 hover:text-slate-200"
+                           }`}
+                        >
+                           {opt}
+                        </button>
+                     ))}
+                  </div>
+                  <TopBarChart title={`Top 10 by ${chartGroupBy}`} data={dynamicChartData} nameKey="name" />
                 </div>
                 <div>
+                  <div className="h-8 mb-2"></div> {/* Spacer to align with chart */}
                   <Card title="Powertrain Mix">
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
@@ -684,8 +859,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Card title={`Leaderboard Table`}>
-                <DataTable columns={rankingsCols} rows={rankedRows} />
+              <Card title={`Pivot Leaderboard (Click Brand to Drill-Down)`}>
+                <DataTable columns={rankingsCols} rows={rankedRows} onToggleRow={toggleBrandExpand} />
               </Card>
 
             </>)}
@@ -693,33 +868,53 @@ export default function Dashboard() {
 
             {/* ── Trend Overview Tab (Legacy Powertrain) ───────────────── */}
             {activeTab === "powertrain" && (<>
+              <div className="flex items-center gap-1 mb-4 self-start rounded-full border border-slate-700 bg-slate-800 p-0.5 inline-flex">
+                 {(["Powertrain", "Vehicle Type"] as const).map(opt => (
+                    <button
+                       key={opt}
+                       onClick={() => setTrendGroupBy(opt)}
+                       className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full transition-colors ${
+                          trendGroupBy === opt ? "bg-brand-primary text-white" : "text-slate-400 hover:text-slate-200"
+                       }`}
+                    >
+                       Trend Grouping: {opt}
+                    </button>
+                 ))}
+              </div>
+
               <Card title={`Trend — ${selectedYear}`}>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={ptTrend} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                    <AreaChart data={trendData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
                       <defs>
-                        {["ICE", "BEV", "HEV", "PHEV"].map((pt) => (
-                          <linearGradient key={`grad-${pt}`} id={`grad-${pt}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={PT_COLORS[pt]} stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor={PT_COLORS[pt]} stopOpacity={0}/>
-                          </linearGradient>
-                        ))}
+                        {trendKeys.map((key, i) => {
+                          const color = trendGroupBy === "Powertrain" ? PT_COLORS[key] : RANK_COLORS[i % RANK_COLORS.length];
+                          return (
+                            <linearGradient key={`grad-${key}`} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={color} stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                            </linearGradient>
+                          );
+                        })}
                       </defs>
                       <CartesianGrid strokeDasharray="1 3" stroke="#1e293b" vertical={false} />
                       <XAxis dataKey="name" stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} />
                       <YAxis stroke="#334155" tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(v) => (v/1000).toFixed(0)+"k"} tickLine={false} axisLine={false} />
                       <Tooltip {...TT} formatter={(v: unknown) => Number(v).toLocaleString()} />
                       <Legend verticalAlign="top" height={20} iconType="square" wrapperStyle={{ fontSize: "10px", color: "#94a3b8" }} />
-                      {["ICE", "BEV", "HEV", "PHEV"].map((pt) => (
-                        <Area key={pt} type="monotone" dataKey={pt} stroke={PT_COLORS[pt]} strokeWidth={1.5} fillOpacity={1} fill={`url(#grad-${pt})`} isAnimationActive={false} />
-                      ))}
+                      {trendKeys.map((key, i) => {
+                        const color = trendGroupBy === "Powertrain" ? PT_COLORS[key] : RANK_COLORS[i % RANK_COLORS.length];
+                        return (
+                          <Area key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={1.5} fillOpacity={1} fill={`url(#grad-${key})`} isAnimationActive={false} />
+                        );
+                      })}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </Card>
 
-              <Card title={`Powertrain Units — ${selectedYear}`}>
-                <DataTable columns={[{ key: "name", label: "Powertrain", align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={ptTable} highlightFirst />
+              <Card title={`Units by ${trendGroupBy} — ${selectedYear}`}>
+                <DataTable columns={[{ key: "name", label: trendGroupBy, align: "left" }, ...timeCols, { key: "YTD", label: "Grand Total" }]} rows={trendTable} highlightFirst />
               </Card>
             </>)}
 
