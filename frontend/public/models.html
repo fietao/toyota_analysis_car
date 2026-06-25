@@ -64,59 +64,91 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm pt-1">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm pt-1">
 
                 <!-- Brand -->
-                <div id="brand-filter-panel">
-                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Brand</label>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                <div id="brand-filter-panel" class="relative">
+                    <button type="button" onclick="toggleFilterPanel('brand')" class="flex items-center justify-between w-full text-slate-400 mb-1.5 font-medium text-xs hover:text-white transition-colors">
+                        <span>Brand</span>
+                        <span id="brand-toggle-icon" class="text-[10px]">▼</span>
+                    </button>
+                    <div id="brand-filter-content" class="hidden absolute z-50 w-full min-w-[180px] bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-xl">
                         <input type="text" id="search-brand" placeholder="Search brand..." class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white mb-2 focus:outline-none focus:border-teal-500 text-[10px]">
                         <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
                             <input id="filter-brand-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
                             <span>All</span>
                         </label>
-                        <div id="brand-cb-container" class="custom-scrollbar mt-1.5 max-h-28 overflow-y-auto space-y-1 pr-1">
+                        <div id="brand-cb-container" class="custom-scrollbar mt-1.5 max-h-48 overflow-y-auto space-y-1 pr-1">
+                            <!-- Populated after data loads -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model -->
+                <div id="model-filter-panel" class="relative">
+                    <button type="button" onclick="toggleFilterPanel('model')" class="flex items-center justify-between w-full text-slate-400 mb-1.5 font-medium text-xs hover:text-white transition-colors">
+                        <span>Model</span>
+                        <span id="model-toggle-icon" class="text-[10px]">▼</span>
+                    </button>
+                    <div id="model-filter-content" class="hidden absolute z-50 w-full min-w-[180px] bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-xl">
+                        <input type="text" id="search-model" placeholder="Search model..." class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white mb-2 focus:outline-none focus:border-teal-500 text-[10px]">
+                        <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
+                            <input id="filter-model-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
+                            <span>All</span>
+                        </label>
+                        <div id="model-cb-container" class="custom-scrollbar mt-1.5 max-h-48 overflow-y-auto space-y-1 pr-1">
                             <!-- Populated after data loads -->
                         </div>
                     </div>
                 </div>
 
                 <!-- Province -->
-                <div id="province-filter-panel">
-                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Province</label>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                <div id="province-filter-panel" class="relative">
+                    <button type="button" onclick="toggleFilterPanel('province')" class="flex items-center justify-between w-full text-slate-400 mb-1.5 font-medium text-xs hover:text-white transition-colors">
+                        <span>Province</span>
+                        <span id="province-toggle-icon" class="text-[10px]">▼</span>
+                    </button>
+                    <div id="province-filter-content" class="hidden absolute z-50 w-full min-w-[180px] bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-xl">
                         <input type="text" id="search-province" placeholder="Search province..." class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white mb-2 focus:outline-none focus:border-teal-500 text-[10px]">
                         <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
                             <input id="filter-province-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
                             <span>All</span>
                         </label>
-                        <div id="province-cb-container" class="custom-scrollbar mt-1.5 max-h-28 overflow-y-auto space-y-1 pr-1">
+                        <div id="province-cb-container" class="custom-scrollbar mt-1.5 max-h-48 overflow-y-auto space-y-1 pr-1">
                             <!-- Populated from meta.provinces after data loads -->
                         </div>
                     </div>
                 </div>
 
-                <!-- Powertrain — active -->
-                <div>
-                    <label for="filter-powertrain" class="block text-slate-400 mb-1.5 font-medium text-xs">Powertrain</label>
-                    <select id="filter-powertrain" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-colors text-xs">
-                        <option value="ALL">All</option>
-                        <option value="BEV" selected>BEV (100% electric)</option>
-                        <option value="HEV">HEV</option>
-                        <option value="PHEV">PHEV</option>
-                        <option value="ICE">ICE</option>
-                    </select>
+                <!-- Powertrain -->
+                <div id="powertrain-filter-panel" class="relative">
+                    <button type="button" onclick="toggleFilterPanel('powertrain')" class="flex items-center justify-between w-full text-slate-400 mb-1.5 font-medium text-xs hover:text-white transition-colors">
+                        <span>Powertrain</span>
+                        <span id="powertrain-toggle-icon" class="text-[10px]">▼</span>
+                    </button>
+                    <div id="powertrain-filter-content" class="hidden absolute z-50 w-full min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-xl">
+                        <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
+                            <input id="filter-powertrain-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
+                            <span>All</span>
+                        </label>
+                        <div id="powertrain-cb-container" class="custom-scrollbar mt-1.5 max-h-48 overflow-y-auto space-y-1 pr-1">
+                            <!-- Populated via script -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Vehicle Type -->
-                <div>
-                    <label class="block text-slate-400 mb-1.5 font-medium text-xs">Vehicle Type</label>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs">
+                <div id="vehicle-filter-panel" class="relative">
+                    <button type="button" onclick="toggleFilterPanel('vehicle')" class="flex items-center justify-between w-full text-slate-400 mb-1.5 font-medium text-xs hover:text-white transition-colors">
+                        <span>Vehicle Type</span>
+                        <span id="vehicle-toggle-icon" class="text-[10px]">▼</span>
+                    </button>
+                    <div id="vehicle-filter-content" class="hidden absolute z-50 w-full min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-xl">
                         <label class="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-700/70 cursor-pointer font-semibold text-teal-300">
                             <input id="filter-vehicle-all" type="checkbox" checked class="rounded border-slate-700 text-teal-500 focus:ring-0 w-4 h-4">
                             <span>All</span>
                         </label>
-                        <div id="vehicle-cb-container" class="custom-scrollbar mt-1.5 max-h-28 overflow-y-auto space-y-1 pr-1">
+                        <div id="vehicle-cb-container" class="custom-scrollbar mt-1.5 max-h-48 overflow-y-auto space-y-1 pr-1">
                             <!-- Populated from meta.vehicle_types_list after data loads -->
                         </div>
                     </div>
@@ -165,6 +197,32 @@
     </div>
 
     <script>
+        // ─── Filter Toggle Logic ──────────────────────────────────────────────────
+
+        function toggleFilterPanel(panelId) {
+            const content = document.getElementById(`${panelId}-filter-content`);
+            const icon = document.getElementById(`${panelId}-toggle-icon`);
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.textContent = '▲';
+            } else {
+                content.classList.add('hidden');
+                icon.textContent = '▼';
+            }
+        }
+        
+        document.addEventListener('click', (e) => {
+            ['brand', 'model', 'province', 'powertrain', 'vehicle'].forEach(panelId => {
+                const panel = document.getElementById(`${panelId}-filter-panel`);
+                const content = document.getElementById(`${panelId}-filter-content`);
+                const icon = document.getElementById(`${panelId}-toggle-icon`);
+                if (panel && content && !content.classList.contains('hidden') && !panel.contains(e.target)) {
+                    content.classList.add('hidden');
+                    icon.textContent = '▼';
+                }
+            });
+        });
+
         // ─── Constants ────────────────────────────────────────────────────────────
 
         const MONTH_ORDER = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -231,8 +289,9 @@
 
         function renderMatrixTable() {
             const activeYears = Array.from(document.querySelectorAll('.year-cb:checked')).map(cb => cb.value).sort();
-            const ptFilter    = document.getElementById('filter-powertrain').value;
+            const selectedPowertrains = getSelectedValues('powertrain');
             const selectedBrands = getSelectedValues('brand');
+            const selectedModels = getSelectedValues('model');
             const selectedVehicleTypes = getSelectedValues('vehicle');
             const selectedProvinces = getSelectedValues('province');
 
@@ -260,7 +319,7 @@
             let superGrandTotal = 0;
 
             rawVehicleMatrix.forEach(brandNode => {
-                if (ptFilter !== "ALL" && brandNode.powertrain !== ptFilter) return;
+                if (selectedPowertrains.length > 0 && !selectedPowertrains.includes(brandNode.powertrain)) return;
                 if (selectedBrands.length > 0 && !selectedBrands.includes(brandNode.brand)) return;
 
                 const toggleKey  = `${brandNode.brand}||${brandNode.powertrain}`;
@@ -303,6 +362,7 @@
 
                 if (isExpanded) {
                     brandNode.models.forEach(model => {
+                        if (selectedModels.length > 0 && !selectedModels.includes(model.name)) return;
                         let modCellsHTML  = '';
                         let modGrandTotal = 0;
                         let modYtd        = 0;
@@ -429,13 +489,24 @@
 
         // ─── Filter listeners ─────────────────────────────────────────────────────
 
-        document.getElementById('filter-powertrain').addEventListener('change', renderMatrixTable);
         document.getElementById('btn-export-excel').addEventListener('click', handleExportExcel);
 
         // Inline search logic for brand and province
         document.getElementById('search-brand').addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
             document.querySelectorAll('.brand-cb').forEach(cb => {
+                const label = cb.closest('label');
+                if (label.textContent.toLowerCase().includes(term)) {
+                    label.style.display = 'flex';
+                } else {
+                    label.style.display = 'none';
+                }
+            });
+        });
+
+        document.getElementById('search-model').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.model-cb').forEach(cb => {
                 const label = cb.closest('label');
                 if (label.textContent.toLowerCase().includes(term)) {
                     label.style.display = 'flex';
@@ -476,15 +547,24 @@
                 refBadge.textContent = `Reference Grand Total: ${refTotal.toLocaleString()}`;
 
                 buildYearCheckboxes(allYears);
+                buildCheckboxFilter('powertrain', [
+                    { code: "BEV", label: "BEV (100% electric)" },
+                    { code: "HEV", label: "HEV" },
+                    { code: "PHEV", label: "PHEV" },
+                    { code: "ICE", label: "ICE" }
+                ], 'No powertrains');
                 buildCheckboxFilter('vehicle', meta.vehicle_types_list, 'No vehicle types found');
                 buildCheckboxFilter('province', meta.provinces, 'Provinces not exported');
                 rawVehicleMatrix = brand_model_tree;
 
                 const allBrands = new Set();
+                const allModels = new Set();
                 rawVehicleMatrix.forEach(node => {
                     if (node.brand) allBrands.add(node.brand);
+                    if (node.models) node.models.forEach(m => allModels.add(m.name));
                 });
                 buildCheckboxFilter('brand', Array.from(allBrands).sort(), 'No brands');
+                buildCheckboxFilter('model', Array.from(allModels).sort(), 'No models found');
 
                 // Expand the top brand by default
                 if (rawVehicleMatrix.length > 0) {
@@ -510,15 +590,16 @@
 
         function getModelsSheetData(filteredOnly) {
             const activeYears = filteredOnly ? Array.from(document.querySelectorAll('.year-cb:checked')).map(cb => cb.value).sort() : allYears;
-            const ptFilter = filteredOnly ? document.getElementById('filter-powertrain').value : "ALL";
+            const selectedPowertrains = filteredOnly ? getSelectedValues('powertrain') : [];
             const selectedBrands = filteredOnly ? getSelectedValues('brand') : [];
+            const selectedModels = filteredOnly ? getSelectedValues('model') : [];
             const selectedVehicleTypes = filteredOnly ? getSelectedValues('vehicle') : globalMeta.vehicle_types_list.map(v => v.code);
             const selectedProvinces = filteredOnly ? getSelectedValues('province') : globalMeta.provinces;
 
             const sheetData = [];
             
             rawVehicleMatrix.forEach(brandNode => {
-                if (filteredOnly && ptFilter !== "ALL" && brandNode.powertrain !== ptFilter) return;
+                if (filteredOnly && selectedPowertrains.length > 0 && !selectedPowertrains.includes(brandNode.powertrain)) return;
                 if (filteredOnly && selectedBrands.length > 0 && !selectedBrands.includes(brandNode.brand)) return;
 
                 const toggleKey = `${brandNode.brand}||${brandNode.powertrain}`;
@@ -547,6 +628,7 @@
 
                 if (isExpanded) {
                     brandNode.models.forEach(model => {
+                        if (filteredOnly && selectedModels.length > 0 && !selectedModels.includes(model.name)) return;
                         let modGrandTotal = 0;
                         let modYtd = 0;
                         const mRow = { "Brand / Model": `  ${model.name}`, "Fuel Type": model.fuel };
