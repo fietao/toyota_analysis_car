@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — ai-reading-car-analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { curve: "basis" } });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 5 4; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .grain { background-image: radial-gradient(#e7e5e4 1px, transparent 1px); background-size: 18px 18px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 antialiased">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- ─────────── HEADER ─────────── -->
+      <header class="border-b border-stone-300 pb-8">
+        <p class="mono text-xs uppercase tracking-[0.25em] text-emerald-700">Architecture review</p>
+        <h1 class="font-serif text-4xl mt-2 mb-1">ai-reading-car-analysis</h1>
+        <p class="text-slate-500 text-sm">Thai DLT car-registration pipeline · 30 Jun 2026 · backend (3.1k LOC Python) + frontend (1.5k LOC Next.js)</p>
+
+        <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="flex items-center gap-2"><span class="inline-block w-6 h-4 border-2 border-slate-700 bg-white"></span> module</div>
+          <div class="flex items-center gap-2"><svg width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" class="seam" stroke="#475569" stroke-width="2"/></svg> seam</div>
+          <div class="flex items-center gap-2"><svg width="28" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#dc2626" stroke-width="2"/><path d="M22 2 L28 6 L22 10 Z" fill="#dc2626"/></svg> leak</div>
+          <div class="flex items-center gap-2"><span class="inline-block w-6 h-4 deep rounded-sm"></span> deep module</div>
+        </div>
+
+        <div class="mt-6 rounded-md bg-slate-900 text-slate-100 p-4 text-sm leading-relaxed">
+          The product exists to compute two facts: <span class="text-emerald-300">"what powertrain / brand / month is this row"</span>
+          and <span class="text-emerald-300">"sum units by group over a period"</span>. Each is re-implemented 3–5 times across Python and
+          TypeScript, from different source columns, with no shared module. Every candidate below is a symptom of that. The seam between
+          stages is two parquet files whose schema is an <em>unwritten</em> contract of Thai column-name string literals.
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-12">
+
+      <!-- ═══════════ CANDIDATE 1 ═══════════ -->
+      <article class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="mono text-xs px-2 py-0.5 rounded bg-emerald-600 text-white font-semibold">Strong</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">in-process</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-red-100 text-red-700">leak</span>
+          </div>
+          <h2 class="font-serif text-2xl">1 · Unify the classification module</h2>
+          <p class="text-slate-500 text-sm mt-1">Powertrain &amp; brand are classified three times, from three sources, into divergent values.</p>
+
+          <ul class="mono text-sm mt-4 text-slate-600 space-y-0.5">
+            <li>backend/config/powertrain_map.csv · brand_map.csv <span class="text-slate-400">— nominal source of truth</span></li>
+            <li>build_cleaned.py:954,967,979 <span class="text-slate-400">— CSV map + model-level BEV override + OTH fallback</span></li>
+            <li>export_dashboard.py:29–62,159 <span class="text-slate-400">— second hardcoded FUEL_MAP, N/A fallback</span></li>
+            <li>update_raw_data.py:42 <span class="text-slate-400">— third substring-heuristic classifier</span></li>
+            <li>page.tsx:42 normalizeBrandName <span class="text-slate-400">— frontend re-aliases brands</span></li>
+          </ul>
+
+          <!-- before/after -->
+          <div class="grid md:grid-cols-2 gap-4 mt-6">
+            <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-slate-500 mb-2">Before — fact computed 3×</p>
+              <pre class="mermaid">
+flowchart TD
+  CSV[(powertrain_map.csv)] --> BC["build_cleaned<br/>map + model override"]
+  BC --> PQ[("parquet<br/>Powertrain col")]
+  PQ -. ignored .-> ED
+  RAW[("raw ชนิดเชื้อเพลิง")] ==> ED["export_dashboard<br/>FUEL_MAP"]
+  ED --> JSON[(dashboard_data.json)]
+  JSON --> FE["page.tsx<br/>normalizeBrandName"]
+  classDef leak stroke:#dc2626,stroke-width:3px,color:#dc2626;
+  class ED,FE leak
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">Stored <span class="mono">Powertrain</span> is dead weight; export re-derives from raw with a coarser map.</p>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-emerald-700 mb-2">After — one classifier, parquet is the seam</p>
+              <pre class="mermaid">
+flowchart TD
+  CSV[(powertrain_map.csv<br/>brand_map.csv)] --> CL["classify()<br/>deep module"]
+  CL --> PQ[("parquet<br/>Powertrain · Brand2")]
+  PQ --> ED2["export_dashboard<br/>reads column"]
+  PQ --> AN["build_analyst<br/>reads column"]
+  ED2 --> JSON2[(json)]
+  JSON2 --> FE2["page.tsx<br/>renders, no re-alias"]
+  classDef deep fill:#0f172a,color:#fff,stroke:#0f172a;
+  class CL deep
+              </pre>
+              <p class="text-xs text-emerald-800 mt-2">Everyone reads the computed column. CSV is the only classifier.</p>
+            </div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p>Two sources of truth for one fact already disagree: default <span class="mono">OTH</span> vs <span class="mono">N/A</span>, and divergent key-sets — a fuel type added to the CSV silently never reaches the dashboard.</p>
+            </div>
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p>One <span class="mono">classify()</span> module owns powertrain + brand; the parquet column becomes the single seam every consumer reads.</p>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-md border-l-4 border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+            <span class="font-semibold">Present drift, not just latent:</span> <span class="mono">brand_map.csv</span> emits <span class="mono">Deepal+ChangAn</span> and <span class="mono">export_dashboard.TARGET_BRAND</span> matches it — but <span class="mono">page.tsx:52</span> re-canonicalizes to <span class="mono">"Deepal + Changan"</span>, a <em>different string</em>. Three representations of one brand; the frontend's no longer matches the backend's.
+          </div>
+
+          <div class="mt-5">
+            <p class="mono text-xs uppercase tracking-wider text-slate-400 mb-1">Wins</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded bg-slate-100">locality: classification lives in one module</span>
+              <span class="px-2 py-1 rounded bg-slate-100">leverage: one map, every consumer</span>
+              <span class="px-2 py-1 rounded bg-slate-100">deletion test: delete FUEL_MAP → concentrates</span>
+              <span class="px-2 py-1 rounded bg-slate-100">interface becomes the test surface</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ═══════════ CANDIDATE 2 ═══════════ -->
+      <article class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="mono text-xs px-2 py-0.5 rounded bg-emerald-600 text-white font-semibold">Strong</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">in-process</span>
+          </div>
+          <h2 class="font-serif text-2xl">2 · Collapse aggregation into one selector</h2>
+          <p class="text-slate-500 text-sm mt-1">Units · share · growth · current-period detection are reimplemented in four places.</p>
+
+          <ul class="mono text-sm mt-4 text-slate-600 space-y-0.5">
+            <li>build_analyst.py:222 _build_sheet1_data <span class="text-slate-400">— units/share/MoM/YoY</span></li>
+            <li>calculation_builder.py:50 build_calculation_table <span class="text-slate-400">— units/share/growth/rank</span></li>
+            <li>export_dashboard.py:78,191 <span class="text-slate-400">— groupby → monthly arrays</span></li>
+            <li>page.tsx:99,515,561,644,710 <span class="text-slate-400">— five engines re-sum client-side</span></li>
+          </ul>
+
+          <!-- mass diagram: interface vs implementation -->
+          <div class="grid md:grid-cols-2 gap-4 mt-6">
+            <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-slate-500 mb-3">Before — four shallow re-implementations</p>
+              <div class="flex items-end justify-around gap-2 h-44">
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-12 bg-red-300 rounded-t" style="height:90px"></div>
+                  <div class="w-12 bg-slate-300" style="height:34px"></div>
+                  <span class="mono text-[10px] text-slate-500">analyst</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-12 bg-red-300 rounded-t" style="height:96px"></div>
+                  <div class="w-12 bg-slate-300" style="height:30px"></div>
+                  <span class="mono text-[10px] text-slate-500">calc_builder</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-12 bg-red-300 rounded-t" style="height:84px"></div>
+                  <div class="w-12 bg-slate-300" style="height:30px"></div>
+                  <span class="mono text-[10px] text-slate-500">export</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-12 bg-red-300 rounded-t" style="height:100px"></div>
+                  <div class="w-12 bg-slate-300" style="height:24px"></div>
+                  <span class="mono text-[10px] text-slate-500">page.tsx</span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-3"><span class="inline-block w-3 h-3 bg-red-300 align-middle"></span> share/growth logic re-derived &nbsp; <span class="inline-block w-3 h-3 bg-slate-300 align-middle"></span> data in</p>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-emerald-700 mb-3">After — one deep selector</p>
+              <div class="flex items-end justify-center gap-6 h-44">
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-16 bg-emerald-400 rounded-t" style="height:18px"></div>
+                  <div class="w-16 deep rounded-b" style="height:120px"></div>
+                  <span class="mono text-[10px] text-slate-500">aggregate()</span>
+                </div>
+                <div class="self-center text-xs text-slate-500 leading-snug">
+                  4 call sites →<br/>thin interface<br/><span class="mono">(df, group_by, period)</span>
+                </div>
+              </div>
+              <p class="text-xs text-emerald-800 mt-3">Interface shrinks; implementation absorbs share/growth/period logic once.</p>
+            </div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p>"Current period" alone is detected three different ways (analyst last-sorted-year, export <span class="mono">sorted_periods[-1]</span>, analyst-export max-month); share/growth re-coded each time they're needed.</p>
+            </div>
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p>One <span class="mono">aggregate(df, group_by, period)</span> returning units/share/growth, consumed by analyst, calc-builder, and export.</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="mono text-xs uppercase tracking-wider text-slate-400 mb-1">Wins</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded bg-slate-100">deletion test: delete one copy → others stay (shallow)</span>
+              <span class="px-2 py-1 rounded bg-slate-100">leverage: one interface, N call sites</span>
+              <span class="px-2 py-1 rounded bg-slate-100">period-detection stops drifting</span>
+              <span class="px-2 py-1 rounded bg-slate-100">interface becomes the test surface</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ═══════════ CANDIDATE 3 ═══════════ -->
+      <article class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="mono text-xs px-2 py-0.5 rounded bg-emerald-600 text-white font-semibold">Strong</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">in-process</span>
+          </div>
+          <h2 class="font-serif text-2xl">3 · Decompose build_cleaned.main()</h2>
+          <p class="text-slate-500 text-sm mt-1">A 280-line god function: reference loading, classification, rolling merge, BEV review, parquet save, workbook rewrite — all inline.</p>
+
+          <ul class="mono text-sm mt-4 text-slate-600 space-y-0.5">
+            <li>build_cleaned.py:849–1121 main() <span class="text-slate-400">— no seams, no return values, all on locals</span></li>
+            <li>:991–1027 rolling merge <span class="text-slate-400">— duplicated for fuel at :1041–1053</span></li>
+            <li>:879–881,1007 <span class="text-slate-400">— reads its own prior-run parquet (stateful across runs)</span></li>
+          </ul>
+
+          <!-- cross-section: thin layers → cohesive units -->
+          <div class="grid md:grid-cols-2 gap-4 mt-6">
+            <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-slate-500 mb-3">Before — one procedural slab</p>
+              <div class="relative grain rounded border border-slate-300 overflow-hidden" style="height:248px">
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="text-center">
+                    <div class="mono text-xs text-slate-400 leading-relaxed">
+                      load maps · read raw · enrich fuel<br/>
+                      add brand2 · model2 · powertrain<br/>
+                      rolling merge (model) · rolling merge (fuel)<br/>
+                      bev review · save parquet ×2<br/>
+                      copy workbook · rewrite rows · pivot patch<br/>
+                      write state.json · track known_models
+                    </div>
+                    <p class="mono text-[10px] uppercase tracking-wider text-red-500 mt-3">main() — 280 lines, all locals</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-emerald-700 mb-3">After — cohesive units, each testable</p>
+              <div class="space-y-2">
+                <div class="border-l-4 border-emerald-500 bg-white px-3 py-2 mono text-xs">load_reference_maps() <span class="text-slate-400">→ maps</span></div>
+                <div class="border-l-4 border-emerald-500 bg-white px-3 py-2 mono text-xs">add_derived_columns(df, maps) <span class="text-slate-400">→ df &nbsp;<span class="text-emerald-700">(see #1)</span></span></div>
+                <div class="border-l-4 border-emerald-500 bg-white px-3 py-2 mono text-xs">rolling_merge(df, prior, years) <span class="text-slate-400">→ df</span></div>
+                <div class="border-l-4 border-emerald-500 bg-white px-3 py-2 mono text-xs">resolve_bev_review(df) <span class="text-slate-400">→ records</span></div>
+                <div class="border-l-4 border-slate-400 bg-white px-3 py-2 mono text-xs">main() <span class="text-slate-400">→ orchestrates, ~30 lines</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p>No unit is callable or testable in isolation; the rolling-merge logic is copy-pasted for model and fuel; output depends on what's on disk, not just on inputs.</p>
+            </div>
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p>Lift the four cohesive units into named functions that take inputs and return frames; <span class="mono">main()</span> becomes a short orchestrator.</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="mono text-xs uppercase tracking-wider text-slate-400 mb-1">Wins</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded bg-slate-100">locality: rolling-merge bug in one place</span>
+              <span class="px-2 py-1 rounded bg-slate-100">deletion test: extract → main concentrates</span>
+              <span class="px-2 py-1 rounded bg-slate-100">each unit becomes a test surface</span>
+              <span class="px-2 py-1 rounded bg-slate-100">stateful merge made explicit (input, not disk)</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ═══════════ CANDIDATE 4 ═══════════ -->
+      <article class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="mono text-xs px-2 py-0.5 rounded bg-amber-500 text-white font-semibold">Worth exploring</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">in-process</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-red-100 text-red-700">leak</span>
+          </div>
+          <h2 class="font-serif text-2xl">4 · Seal the pivot-surgery leak</h2>
+          <p class="text-slate-500 text-sm mt-1">A genuinely deep module — but its interface leaks the column layout as a magic constant repeated six times.</p>
+
+          <ul class="mono text-sm mt-4 text-slate-600 space-y-0.5">
+            <li>build_cleaned.py:379–834 <span class="text-slate-400">— zip + regex OOXML splice, preserves pivot caches</span></li>
+            <li>:401,553–569 <span class="text-slate-400">— hardcoded field 8, count 10→11, id="9"</span></li>
+            <li>_col/_esc duplicated in build_BEV.py:25,33 · build_analyst.py:60,68 <span class="text-slate-400">— XLSX primitives</span></li>
+          </ul>
+
+          <!-- hand-built deep module with leak -->
+          <div class="grid md:grid-cols-2 gap-4 mt-6">
+            <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-slate-500 mb-3">Before — deep, but schema leaks out</p>
+              <div class="relative" style="height:216px">
+                <div class="absolute left-1/2 -translate-x-1/2 top-2 deep rounded-lg text-slate-100 p-4 w-56">
+                  <p class="mono text-[10px] uppercase tracking-wider text-emerald-300">rewrite_data_rows</p>
+                  <p class="text-xs mt-2 text-slate-300 leading-snug">pivot-cache-safe OOXML surgery</p>
+                  <div class="mono text-[10px] mt-3 space-y-0.5 text-red-300">
+                    <div>fld &gt;= 8 ++</div>
+                    <div>count "10" → "11"</div>
+                    <div>tableColumn id="9"</div>
+                    <div>cache-field pos 8</div>
+                  </div>
+                </div>
+                <div class="absolute right-2 bottom-2 border-2 border-red-400 bg-white rounded px-3 py-2 mono text-[10px] text-red-600">FINAL_COLS :51</div>
+                <svg class="absolute inset-0 w-full h-full pointer-events-none">
+                  <line x1="55%" y1="160" x2="78%" y2="178" stroke="#dc2626" stroke-width="2"/>
+                  <path d="M0,0 L-8,-3 L-6,4 Z" fill="#dc2626" transform="translate(78%,178) rotate(20)"/>
+                </svg>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Reorder <span class="mono">FINAL_COLS</span> → pivots corrupt silently, no error.</p>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-emerald-700 mb-3">After — leak sealed, primitives shared</p>
+              <div class="relative" style="height:216px">
+                <div class="absolute left-1/2 -translate-x-1/2 top-2 deep rounded-lg text-slate-100 p-4 w-56">
+                  <p class="mono text-[10px] uppercase tracking-wider text-emerald-300">rewrite_data_rows</p>
+                  <p class="text-xs mt-2 text-slate-300 leading-snug">derives field positions <em>from</em> FINAL_COLS</p>
+                  <div class="mono text-[10px] mt-3 text-emerald-300">cols.index("Powertrain")</div>
+                </div>
+                <div class="absolute right-2 bottom-2 border-2 border-emerald-400 bg-white rounded px-3 py-2 mono text-[10px] text-emerald-700">xlsx_util.py<br/>_col · _esc · find_sheet</div>
+                <svg class="absolute inset-0 w-full h-full pointer-events-none">
+                  <line x1="55%" y1="160" x2="78%" y2="178" class="seam" stroke="#10b981" stroke-width="2"/>
+                </svg>
+              </div>
+              <p class="text-xs text-emerald-800 mt-2">Layout flows in through one seam; primitives extracted once.</p>
+            </div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p>The module passes the deletion test (no library substitute) — so the fix isn't removal, it's the leak: a "write rows" function secretly encodes the 11-column layout in six magic constants.</p>
+            </div>
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p>Derive every field index from <span class="mono">FINAL_COLS</span>; extract the duplicated <span class="mono">_col/_esc/find-sheet</span> primitives into one <span class="mono">xlsx_util</span>.</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="mono text-xs uppercase tracking-wider text-slate-400 mb-1">Wins</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded bg-slate-100">leak sealed: column order stops being implicit</span>
+              <span class="px-2 py-1 rounded bg-slate-100">deletion test: xlsx_util concentrates primitives</span>
+              <span class="px-2 py-1 rounded bg-slate-100">cheapest win: extract _col/_esc, zero behaviour change</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ═══════════ CANDIDATE 5 ═══════════ -->
+      <article class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="mono text-xs px-2 py-0.5 rounded bg-amber-500 text-white font-semibold">Worth exploring</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">in-process</span>
+          </div>
+          <h2 class="font-serif text-2xl">5 · Extract the dashboard selector seam</h2>
+          <p class="text-slate-500 text-sm mt-1">page.tsx (1146 lines) hides five aggregation engines and unnamed business rules inside presentation.</p>
+
+          <ul class="mono text-sm mt-4 text-slate-600 space-y-0.5">
+            <li>page.tsx:99 getNodeSums · :515 trend · :561 rankings · :644 chart · :710 province</li>
+            <li>:793–800 <span class="text-slate-400">— "Stronghold/Growth/Weak Spot" thresholds, unnamed, in a useMemo</span></li>
+            <li>:42 normalizeBrandName · :32 VEHICLE_TYPE_DICT <span class="text-slate-400">— duplicated from backend</span></li>
+          </ul>
+
+          <div class="grid md:grid-cols-2 gap-4 mt-6">
+            <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-slate-500 mb-2">Before — transform tangled in render</p>
+              <pre class="mermaid">
+flowchart TD
+  D[(json)] --> DASH
+  subgraph DASH["Dashboard() — 720 lines"]
+    F["filter cascade<br/>(copy-pasted ×5)"]
+    R[rankingsData]
+    C[dynamicChartData]
+    P[provinceAnalysisData]
+    T[trendData]
+    F --> R & C & P & T
+  end
+  R & C & P & T --> UI[layout + charts]
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">Identical filter/normalize prelude pasted into each engine.</p>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-emerald-700 mb-2">After — selectors behind one seam</p>
+              <pre class="mermaid">
+flowchart TD
+  D2[(json)] --> SEL["selectors.ts<br/>deep module"]
+  SEL --> UI2["Dashboard()<br/>renders only"]
+  classDef deep fill:#0f172a,color:#fff,stroke:#0f172a;
+  class SEL deep
+              </pre>
+              <p class="text-xs text-emerald-800 mt-2">Pure selectors are testable without a browser; render stays dumb.</p>
+            </div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p>The filter cascade is copy-pasted into five engines, and the province-status thresholds are product logic with no name and no test, found only by reading a 100-line memo.</p>
+            </div>
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p>Lift the five engines + filter cascade into a pure <span class="mono">selectors.ts</span>; the render reads selectors only.</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="mono text-xs uppercase tracking-wider text-slate-400 mb-1">Wins</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded bg-slate-100">locality: filter cascade in one place</span>
+              <span class="px-2 py-1 rounded bg-slate-100">selectors testable without a browser</span>
+              <span class="px-2 py-1 rounded bg-slate-100">deletion test: getNodeSums → spreads (shallow)</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ═══════════ CANDIDATE 6 ═══════════ -->
+      <article class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-400 text-white font-semibold">Speculative</span>
+            <span class="mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">in-process</span>
+          </div>
+          <h2 class="font-serif text-2xl">6 · Name the cleaned-data schema</h2>
+          <p class="text-slate-500 text-sm mt-1">The cross-stage contract is an unwritten set of Thai column-name string literals, retyped in five files.</p>
+
+          <ul class="mono text-sm mt-4 text-slate-600 space-y-0.5">
+            <li>build_cleaned.py:51 FINAL_COLS <span class="text-slate-400">— the only declaration</span></li>
+            <li>retyped in build_analyst.py:146 · calculation_builder.py:87 · export_dashboard.py groupby · export_analyst.py</li>
+            <li>validation: only two minimal <span class="mono">required</span> checks (:236, :882)</li>
+          </ul>
+
+          <div class="grid md:grid-cols-2 gap-4 mt-6">
+            <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-slate-500 mb-3">Before — contract by absence</p>
+              <div class="relative" style="height:170px">
+                <div class="absolute left-2 top-4 border border-slate-300 bg-white rounded px-2 py-1 mono text-[10px]">build_cleaned</div>
+                <div class="absolute left-2 top-16 border border-slate-300 bg-white rounded px-2 py-1 mono text-[10px]">build_analyst</div>
+                <div class="absolute left-2 top-28 border border-slate-300 bg-white rounded px-2 py-1 mono text-[10px]">export_dashboard</div>
+                <div class="absolute right-4 top-16 border border-dashed border-red-400 bg-red-50 rounded px-2 py-2 mono text-[10px] text-red-600 text-center">"ชนิดเชื้อเพลิง"<br/>retyped ×5</div>
+                <svg class="absolute inset-0 w-full h-full pointer-events-none">
+                  <line x1="40%" y1="26" x2="62%" y2="78" stroke="#dc2626" stroke-width="1.5" class="seam"/>
+                  <line x1="40%" y1="74" x2="62%" y2="84" stroke="#dc2626" stroke-width="1.5" class="seam"/>
+                  <line x1="40%" y1="122" x2="62%" y2="90" stroke="#dc2626" stroke-width="1.5" class="seam"/>
+                </svg>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Breakage discovered at runtime via KeyError.</p>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+              <p class="mono text-xs uppercase tracking-wider text-emerald-700 mb-3">After — one schema module</p>
+              <div class="relative" style="height:170px">
+                <div class="absolute left-1/2 -translate-x-1/2 top-6 deep rounded px-4 py-3 text-slate-100 mono text-[11px] text-center">
+                  schema.py<br/><span class="text-emerald-300">COLS · validate(df)</span>
+                </div>
+                <div class="absolute left-4 bottom-4 border border-emerald-300 bg-white rounded px-2 py-1 mono text-[10px]">analyst</div>
+                <div class="absolute left-1/2 -translate-x-1/2 bottom-4 border border-emerald-300 bg-white rounded px-2 py-1 mono text-[10px]">export</div>
+                <div class="absolute right-4 bottom-4 border border-emerald-300 bg-white rounded px-2 py-1 mono text-[10px]">analyst2</div>
+              </div>
+              <p class="text-xs text-emerald-800 mt-2">Column names imported, not retyped; <span class="mono">validate()</span> gates each stage.</p>
+            </div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p>No schema module exists to delete — the contract is shallow by absence; <span class="mono">pipeline_state.json</span> is an equally undocumented hand-off from build_cleaned to build_BEV.</p>
+            </div>
+            <div>
+              <p class="mono text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p>Add <span class="mono">schema.py</span> (column constants + <span class="mono">validate(df)</span> gate) that every stage imports and calls at its entry.</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="mono text-xs uppercase tracking-wider text-slate-400 mb-1">Wins</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded bg-slate-100">contract concentrates in one module</span>
+              <span class="px-2 py-1 rounded bg-slate-100">breakage caught at the seam, not deep in a groupby</span>
+              <span class="px-2 py-1 rounded bg-slate-100">leverage: rename a column once</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      </section>
+
+      <!-- ─────────── TOP RECOMMENDATION ─────────── -->
+      <section id="top-recommendation">
+        <div class="deep rounded-xl text-slate-100 p-8 shadow-lg">
+          <p class="mono text-xs uppercase tracking-[0.25em] text-emerald-300">Tackle first</p>
+          <h2 class="font-serif text-3xl mt-2">1 · Unify the classification module</h2>
+          <p class="mt-4 text-slate-300 leading-relaxed max-w-3xl">
+            It's the fact the whole product exists to compute, and it fails the deletion test today — three classifiers that merely
+            <em>happen</em> to mostly agree. It already shows present drift (the <span class="mono text-emerald-300">Deepal+ChangAn</span> /
+            <span class="mono text-emerald-300">Deepal + Changan</span> mismatch) and a latent one (a new fuel type never reaches the dashboard).
+            Deepening it concentrates classification in one module and turns the parquet column into a real seam — which is the
+            precondition for #3 (its cleanest extraction) and removes the frontend re-aliasing in #5.
+          </p>
+          <a href="#candidates" class="inline-block mt-5 mono text-sm text-emerald-300 hover:text-emerald-200">↑ back to candidate 1</a>
+        </div>
+        <p class="mono text-xs text-slate-400 mt-6">
+          Note — there are no tests anywhere in the repo (one backend golden test on the safest function; zero frontend). Each
+          deepening above turns its interface into the first real test surface; that's folded into every card's wins rather than
+          listed as its own candidate.
+        </p>
+      </section>
+
+    </main>
+  </body>
+</html>
