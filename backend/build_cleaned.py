@@ -21,7 +21,6 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import load_workbook
 from schema import validate
-from schema import validate
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -848,10 +847,7 @@ def _new_model_path(df_raw: "pd.DataFrame", current_model: Path) -> Path:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
-    raw1_file  = find_file(RAW1_PATTERN,  "fuel raw data")
-    raw2_file  = find_file(RAW2_PATTERN,  "model raw data")
-
+def find_master_model_file() -> Path:
     # Find master Model template. Prefer refer/ when the operator keeps masters there.
     model_matches = [
         p for pattern in [
@@ -868,16 +864,9 @@ def main():
     ]
     if not model_matches:
         print("ERROR: No masterModel.xlsx found in project root."); sys.exit(1)
-    model_file = Path(max(model_matches, key=os.path.getmtime))
+    return Path(max(model_matches, key=os.path.getmtime))
 
-    print(f"Raw 1 (Fuel) : {raw1_file.name}")
-    print(f"Raw 2 (Model): {raw2_file.name}")
-    print(f"Master Model : {model_file.name}")
-
-    # ── Parquet path (used for rolling rebuild and final save) ────────────────
-    pq_path = BASE / "test_model_cleaned.parquet"
-    df_existing = None
-
+def load_existing_parquet(pq_path: Path) -> pd.DataFrame | None:
     if pq_path.exists():
         print(f"\n[Rolling rebuild] Loading existing: {pq_path.name}")
         df_existing = pd.read_parquet(str(pq_path))
@@ -889,26 +878,26 @@ def main():
                 + ", ".join(sorted(missing_existing_cols))
             )
             print("  Rebuilding from raw data.")
-            df_existing = None
+            return None
         else:
             ex_key_col = df_existing["ปี"].astype(str) + "_" + df_existing["เดือน"].astype(str)
             print(f"  {len(set(ex_key_col.unique()))} year-month pairs | {len(df_existing):,} rows")
+            return df_existing
     else:
         print("\n[Full build] No existing parquet — rebuilding from scratch.")
+        return None
 
-    # 1. Reference tables
+def load_reference_maps(model_file: Path) -> dict:
     print("\n[1/4] Reading reference tables...", flush=True)
     wb_ref = load_workbook(str(model_file), read_only=True, data_only=True)
 
     powertrain_map = load_powertrain_map(str(BASE / "config" / "powertrain_map.csv"))
-    unknown_fuels = set()
     print(f"      {len(powertrain_map)} powertrain mappings")
 
     brand_csv_map = load_powertrain_map(str(BASE / "config" / "brand_map.csv"), "brand", "brand2")
     ref_brand2_map = {k.upper(): v for k, v in brand_csv_map.items()}
     brand_rows = sorted(ref_brand2_map.items())
     brand2_order = list(dict.fromkeys(v for _, v in brand_rows))
-    brand2_table = [("Brand1", "Brand2")] + brand_rows
     merged_brand2_map = ref_brand2_map
     print(f"      {len(brand_rows)} ยี่ห้อรถ2 entries from brand_map.csv")
 
@@ -936,16 +925,25 @@ def main():
         print(f"      Loaded {len(csv_model2_map)} mappings from model2_map.csv")
 
     print(f"      {len(model2_map)} รุ่นรถ2 mappings")
+    
+    return {
+        "powertrain_map": powertrain_map,
+        "brand2_order": brand2_order,
+        "merged_brand2_map": merged_brand2_map,
+        "known_bev_models": known_bev_models,
+        "model2_map": model2_map,
+        "pt_from_model_map": pt_from_model_map,
+        "unknown_fuels": set()
+    }
 
-    # 2. Raw files
-    print("\n[2/4] Reading raw data...", flush=True)
-    df_fuel  = read_dlt_file(raw1_file)
-    df_model = read_dlt_file(raw2_file)
-    df_model = enrich_fuel_type(df_model, df_fuel)
-    print(f"      {len(df_fuel):,} fuel rows | {len(df_model):,} model rows")
-
-    # 3. Derived columns
+def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
     print("\n[3/4] Adding derived columns...", flush=True)
+
+    powertrain_map = maps["powertrain_map"]
+    merged_brand2_map = maps["merged_brand2_map"]
+    model2_map = maps["model2_map"]
+    pt_from_model_map = maps["pt_from_model_map"]
+    unknown_fuels = maps["unknown_fuels"]
 
     # df_fuel used only for master powertrain summary — not included in cleaned data.
     add_brand2(df_fuel, merged_brand2_map)
@@ -983,110 +981,74 @@ def main():
         df_model["Powertrain"] = powertrain_col
     else:
         df_model.insert(df_model.columns.get_loc("รุ่นรถ2") + 1, "Powertrain", powertrain_col)
+        
+    return df_model, df_fuel
 
-    # df_fuel is used above for the master powertrain summary sheet only.
-    # Final cleaned data uses df_model only — matches refer file row count (636,333).
-    df_cleaned = ordered_cols(df_model)
-    df_cleaned = sort_cleaned_data(df_cleaned, brand2_order)
-    validate(df_cleaned)
-    print(f"      {len(df_cleaned):,} raw rows processed | cols: {list(df_cleaned.columns)}")
-
-    # ── Rolling merge: rebuild latest raw year and the year before it ───────────
+def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, rebuild_years: set[int], maps: dict, is_fuel: bool = False) -> tuple[pd.DataFrame, dict]:
     raw_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
-    latest_raw_year = int(raw_year.max())
-    rebuild_years = {latest_raw_year - 1, latest_raw_year}
-    rebuild_year_labels = sorted(str(y) for y in rebuild_years)
     raw_rebuild_mask = raw_year.isin(rebuild_years)
-    raw_key = df_cleaned["ปี"].astype(str) + "_" + df_cleaned["เดือน"].astype(str)
-    rebuilt_keys = set(raw_key[raw_rebuild_mask].unique())
-    new_keys = set()
-    corrected_keys = rebuilt_keys
-
-    print(
-        f"  Rolling rebuild: BE years {rebuild_year_labels} | "
-        f"{len(rebuilt_keys)} month(s) from raw data"
-    )
-
+    
     if df_existing is not None:
         existing_year = pd.to_numeric(df_existing["ปี"], errors="coerce")
         existing_rebuild_mask = existing_year.isin(rebuild_years)
-        existing_rebuild_key = ex_key_col[existing_rebuild_mask]
-        existing_rebuild_keys = set(existing_rebuild_key.unique())
-        new_keys = rebuilt_keys - existing_rebuild_keys
-        corrected_keys = rebuilt_keys & existing_rebuild_keys
-
+        
         df_keep = df_existing[~existing_rebuild_mask]
         df_add = df_cleaned[raw_rebuild_mask]
-        df_cleaned = ordered_cols(
-            sort_cleaned_data(pd.concat([df_keep, df_add], ignore_index=True), brand2_order)
-        )
+        merged = pd.concat([df_keep, df_add], ignore_index=True)
+        if not is_fuel:
+            merged = sort_cleaned_data(merged, maps["brand2_order"])
+        df_cleaned = ordered_cols(merged)
+        
+        if not is_fuel:
+            raw_key = df_cleaned["ปี"].astype(str) + "_" + df_cleaned["เดือน"].astype(str)
+            rebuilt_keys = set(raw_key[raw_rebuild_mask].unique())
+            ex_key_col = df_existing["ปี"].astype(str) + "_" + df_existing["เดือน"].astype(str)
+            existing_rebuild_key = ex_key_col[existing_rebuild_mask]
+            existing_rebuild_keys = set(existing_rebuild_key.unique())
+            new_keys = rebuilt_keys - existing_rebuild_keys
+            corrected_keys = rebuilt_keys & existing_rebuild_keys
+            
+            rebuild_year_labels = sorted(str(y) for y in rebuild_years)
+            print(f"  Rolling rebuild: BE years {rebuild_year_labels} | {len(rebuilt_keys)} month(s) from raw data")
+            print(f"  Kept rows before {min(rebuild_years)}: {len(df_keep):,}")
+            if new_keys:
+                print(f"  Added {len(new_keys)} new month(s): {', '.join(sorted(new_keys))}")
+            if corrected_keys:
+                print(f"  Rebuilt {len(corrected_keys)} existing month(s): {', '.join(sorted(corrected_keys))}")
+            print(f"  Final row count: {len(df_cleaned):,}")
+            
+            return df_cleaned, {"new_keys": new_keys, "corrected_keys": corrected_keys}
+        else:
+            return df_cleaned, {}
+    else:
+        if not is_fuel:
+            raw_key = df_cleaned["ปี"].astype(str) + "_" + df_cleaned["เดือน"].astype(str)
+            rebuilt_keys = set(raw_key[raw_rebuild_mask].unique())
+            rebuild_year_labels = sorted(str(y) for y in rebuild_years)
+            print(f"  Rolling rebuild: BE years {rebuild_year_labels} | {len(rebuilt_keys)} month(s) from raw data")
+            return ordered_cols(df_cleaned), {"new_keys": set(), "corrected_keys": rebuilt_keys}
+        return ordered_cols(df_cleaned), {}
 
-        print(f"  Kept rows before {min(rebuild_years)}: {len(df_keep):,}")
-        if new_keys:
-            print(f"  Added {len(new_keys)} new month(s): {', '.join(sorted(new_keys))}")
-        if corrected_keys:
-            print(f"  Rebuilt {len(corrected_keys)} existing month(s): "
-                  f"{', '.join(sorted(corrected_keys))}")
-        print(f"  Final row count: {len(df_cleaned):,}")
-
-    # ── BEV review preflight: only scan the rolling rebuild window ─────────────
+def resolve_bev_review_records(df_cleaned: pd.DataFrame, maps: dict, rebuild_years: set[int]) -> list[dict]:
     bev_scope_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
     bev_scope_mask = bev_scope_year.isin(rebuild_years)
-    new_bev_records = resolve_bev_review(df_cleaned, known_bev_models, bev_scope_mask)
+    return resolve_bev_review(df_cleaned, maps["known_bev_models"], bev_scope_mask)
 
-    # Save intermediate for pivot builder (parquet: safe, fast, preserves dtypes)
-    # Cast object columns to str to avoid mixed-type ArrowTypeError
-    for col in df_cleaned.select_dtypes(include=["object", "str"]).columns:
-        df_cleaned[col] = df_cleaned[col].astype(str).replace("nan", pd.NA)
-    df_cleaned.to_parquet(str(pq_path), index=False)
-    print(f"      Saved intermediate: {pq_path.name}")
-
-    # ── Save fuel parquet (rolling merge — same rebuild_years as model) ───────────
-    fuel_pq_path = BASE / "test_fuel_cleaned.parquet"
-    df_fuel_save = ordered_cols(df_fuel).copy()
-    for col in df_fuel_save.select_dtypes(include=["object", "str"]).columns:
-        df_fuel_save[col] = df_fuel_save[col].astype(str).replace("nan", pd.NA)
-    if fuel_pq_path.exists():
-        df_fuel_existing = pd.read_parquet(str(fuel_pq_path))
-        fuel_raw_year = pd.to_numeric(df_fuel_save["ปี"], errors="coerce")
-        fuel_rebuild_mask = fuel_raw_year.isin(rebuild_years)
-        fuel_existing_year = pd.to_numeric(df_fuel_existing["ปี"], errors="coerce")
-        df_fuel_keep = df_fuel_existing[~fuel_existing_year.isin(rebuild_years)]
-        df_fuel_save = ordered_cols(pd.concat([df_fuel_keep, df_fuel_save[fuel_rebuild_mask]], ignore_index=True))
-    validate(df_fuel_save)
-    df_fuel_save.to_parquet(str(fuel_pq_path), index=False)
-    print(f"      Saved fuel intermediate: {fuel_pq_path.name}")
-
-    # 4. Write output — copy current master Model to new versioned filename, update Data rows
-    import shutil
-    out_file = _new_model_path(df_model, model_file)
-    print(f"\n[4/4] Output: {out_file.name}", flush=True)
-
-    if out_file.resolve() != model_file.resolve() and out_file.exists():
-        ans = input(f"  {out_file.name} already exists. Overwrite? [Y/N]: ").strip().upper()
-        if ans != "Y":
-            print("  Skipped. Existing file unchanged.")
-            return
-
-    if out_file.resolve() != model_file.resolve():
-        shutil.copy2(model_file, out_file)
-        print(f"  Copied {model_file.name} → {out_file.name}")
-
-    rewrite_data_rows(out_file, df_cleaned, data_start_row=8)
-
+def write_pipeline_state(base_dir: Path, out_file: Path, new_keys: set, corrected_keys: set, new_bev_records: list[dict], df_existing: pd.DataFrame | None) -> None:
     import json, datetime
     state = {
-        "master_model":    str(out_file.relative_to(BASE)),
+        "master_model":    str(out_file.relative_to(base_dir)),
         "run_date":        str(datetime.date.today()),
         "new_months":      sorted(new_keys) if df_existing is not None else [],
         "corrected_months": sorted(corrected_keys) if df_existing is not None else [],
         "new_bev_models":  new_bev_records,
     }
-    (BASE / "pipeline_state.json").write_text(
+    (base_dir / "pipeline_state.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2), "utf-8"
     )
 
-    known_models_path = BASE / "config" / "known_models.txt"
+def update_known_models(base_dir: Path, df_cleaned: pd.DataFrame) -> None:
+    known_models_path = base_dir / "config" / "known_models.txt"
     known_models_path.parent.mkdir(exist_ok=True, parents=True)
     
     if "รุ่นรถ" in df_cleaned.columns and "ยี่ห้อรถ2" in df_cleaned.columns:
@@ -1119,11 +1081,84 @@ def main():
                     for m in new_models:
                         f.write(f"{m}\n")
 
+def main():
+    raw1_file = find_file(RAW1_PATTERN, "fuel raw data")
+    raw2_file = find_file(RAW2_PATTERN, "model raw data")
+    model_file = find_master_model_file()
+
+    print(f"Raw 1 (Fuel) : {raw1_file.name}")
+    print(f"Raw 2 (Model): {raw2_file.name}")
+    print(f"Master Model : {model_file.name}")
+
+    pq_path = BASE / "test_model_cleaned.parquet"
+    df_existing = load_existing_parquet(pq_path)
+
+    maps = load_reference_maps(model_file)
+
+    print("\n[2/4] Reading raw data...", flush=True)
+    df_fuel = read_dlt_file(raw1_file)
+    df_model = read_dlt_file(raw2_file)
+    df_model = enrich_fuel_type(df_model, df_fuel)
+    print(f"      {len(df_fuel):,} fuel rows | {len(df_model):,} model rows")
+
+    df_model, df_fuel = add_derived_columns(df_model, df_fuel, maps)
+
+    df_cleaned = ordered_cols(df_model)
+    df_cleaned = sort_cleaned_data(df_cleaned, maps["brand2_order"])
+    validate(df_cleaned)
+    print(f"      {len(df_cleaned):,} raw rows processed | cols: {list(df_cleaned.columns)}")
+
+    raw_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
+    latest_raw_year = int(raw_year.max())
+    rebuild_years = {latest_raw_year - 1, latest_raw_year}
+
+    df_cleaned, merge_info = rolling_merge(df_cleaned, df_existing, rebuild_years, maps, is_fuel=False)
+    new_keys = merge_info.get("new_keys", set())
+    corrected_keys = merge_info.get("corrected_keys", set())
+
+    new_bev_records = resolve_bev_review_records(df_cleaned, maps, rebuild_years)
+
+    # Save intermediate for pivot builder (parquet: safe, fast, preserves dtypes)
+    for col in df_cleaned.select_dtypes(include=["object", "str"]).columns:
+        df_cleaned[col] = df_cleaned[col].astype(str).replace("nan", pd.NA)
+    df_cleaned.to_parquet(str(pq_path), index=False)
+    print(f"      Saved intermediate: {pq_path.name}")
+
+    # Save fuel parquet
+    fuel_pq_path = BASE / "test_fuel_cleaned.parquet"
+    df_fuel_save = ordered_cols(df_fuel).copy()
+    for col in df_fuel_save.select_dtypes(include=["object", "str"]).columns:
+        df_fuel_save[col] = df_fuel_save[col].astype(str).replace("nan", pd.NA)
+        
+    df_fuel_existing = load_existing_parquet(fuel_pq_path)
+    df_fuel_save, _ = rolling_merge(df_fuel_save, df_fuel_existing, rebuild_years, maps, is_fuel=True)
+    validate(df_fuel_save)
+    df_fuel_save.to_parquet(str(fuel_pq_path), index=False)
+    print(f"      Saved fuel intermediate: {fuel_pq_path.name}")
+
+    import shutil
+    out_file = _new_model_path(df_model, model_file)
+    print(f"\n[4/4] Output: {out_file.name}", flush=True)
+
+    if out_file.resolve() != model_file.resolve() and out_file.exists():
+        ans = input(f"  {out_file.name} already exists. Overwrite? [Y/N]: ").strip().upper()
+        if ans != "Y":
+            print("  Skipped. Existing file unchanged.")
+            return
+
+    if out_file.resolve() != model_file.resolve():
+        shutil.copy2(model_file, out_file)
+        print(f"  Copied {model_file.name} → {out_file.name}")
+
+    rewrite_data_rows(out_file, df_cleaned, data_start_row=8)
+
+    write_pipeline_state(BASE, out_file, new_keys, corrected_keys, new_bev_records, df_existing)
+    update_known_models(BASE, df_cleaned)
+
     print(f"\n  Rows : {len(df_cleaned):,}")
     print(f"  → {out_file.name}")
     print("  → pipeline_state.json updated")
-    print(f"Unknown fuel types (->OTH): {sorted(unknown_fuels)}")
+    print(f"Unknown fuel types (->OTH): {sorted(maps['unknown_fuels'])}")
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
