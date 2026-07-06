@@ -82,6 +82,6 @@ Powertrain column before the pitch.
 **Incident (2026-07-06):** an accidental `git checkout backend/build_cleaned.py` destroyed an uncommitted first attempt at this decomposition before it was committed — unrecoverable, since it was never staged. Redone from scratch. **Lesson: commit each candidate immediately after its byte-diff passes — do not start the next prompt on top of uncommitted work.**
 | 4 | Seal the pivot-surgery leak | **PARTIAL** | `_col`/`_esc` extracted to `backend/xlsx_util.py` (the cheap win) — but `_patch_pivot_table_def1`/`_patch_pivot_table_def2` in `build_cleaned.py:379-435` still hardcode field position `8`, count `"11"`, id `"9"` instead of deriving from `FINAL_COLS` |
 | 5 | Extract dashboard selector seam | **DONE** | `frontend/src/app/selectors.ts` (430 lines) wired into `page.tsx` |
-| 6 | Name the cleaned-data schema | **PARTIAL** | `backend/schema.py` (`COLS` + `validate(df)`) exists, called in `build_analyst.py` and `export_dashboard.py` — but NOT called in `build_cleaned.py` (the producer) or `export_analyst.py`, so the gate doesn't cover every stage boundary the review specified |
+| 6 | Name the cleaned-data schema | **DONE** | `backend/schema.py` (`COLS` + `validate(df)`) is called at all four stage entries: `build_cleaned.py` (both parquet saves), `build_analyst.py`, `export_dashboard.py`, `export_analyst.py` |
 
 **Remaining work:** finish #3 (thin `main()`), finish #4 (derive field indices from `FINAL_COLS`), finish #6 (call `validate()` at every stage entry, including `build_cleaned.py` and `export_analyst.py`).
