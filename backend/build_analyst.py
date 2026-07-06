@@ -11,6 +11,10 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import load_workbook
 
+from aggregate import aggregate, current_period
+from xlsx_util import _col, _esc
+from schema import validate
+
 BASE         = Path(__file__).resolve().parent
 CLEANED_FILE = BASE / "test_model_cleaned.parquet"
 
@@ -47,27 +51,13 @@ def filter_ry(df):
     codes = df["ประเภทรถ"].str.extract(r"รย\.(\d+)")[0]
     return df[codes.isin(INCLUDE_RY)].copy()
 
-
 def _get_year_info(df):
     years = sorted(df["ปี"].unique())
-    curr_year      = int(years[-1])
+    curr_year, _ = current_period(df, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
     prev_year      = int(years[-2]) if len(years) >= 2 else curr_year
     prev_prev_year = int(years[-3]) if len(years) >= 3 else prev_year - 1
     curr_months    = [m for m in MONTH_ORDER if m in df[df["ปี"] == curr_year]["เดือน"].unique()]
     return prev_year, curr_year, prev_prev_year, curr_months
-
-
-def _col_letter(n):
-    result = ""
-    while n > 0:
-        n, rem = divmod(n - 1, 26)
-        result = chr(65 + rem) + result
-    return result
-
-
-def _xml_esc(s):
-    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
 
 def _find_data_sheet_xml_name(zip_path):
     """Return the xl/worksheets/sheetN.xml path for the sheet named 'Data'."""
@@ -86,7 +76,6 @@ def _find_data_sheet_xml_name(zip_path):
     target = m2.group(1)
     return f"xl/{target}" if not target.startswith("xl/") else target
 
-
 def _build_sheet_xml(meta_rows, col_names, df):
     """Build minimal worksheet XML for the Data sheet (inline strings)."""
     parts = [
@@ -98,14 +87,14 @@ def _build_sheet_xml(meta_rows, col_names, df):
     r = 1
     for meta_row in meta_rows:
         cells = [
-            f'<c r="{_col_letter(c)}{r}" t="inlineStr"><is><t>{_xml_esc(v)}</t></is></c>'
+            f'<c r="{_col(c)}{r}" t="inlineStr"><is><t>{_esc(v)}</t></is></c>'
             for c, v in enumerate(meta_row, 1) if v is not None and str(v).strip()
         ]
         if cells:
             parts.append(f'<row r="{r}">{"".join(cells)}</row>')
         r += 1
     cells = [
-        f'<c r="{_col_letter(c)}{r}" t="inlineStr"><is><t>{_xml_esc(n)}</t></is></c>'
+        f'<c r="{_col(c)}{r}" t="inlineStr"><is><t>{_esc(n)}</t></is></c>'
         for c, n in enumerate(col_names, 1)
     ]
     parts.append(f'<row r="{r}">{"".join(cells)}</row>')
@@ -114,17 +103,16 @@ def _build_sheet_xml(meta_rows, col_names, df):
         cells = []
         for c, v in enumerate(row, 1):
             if pd.notna(v):
-                col = _col_letter(c)
+                col = _col(c)
                 if isinstance(v, (int, float)) and not isinstance(v, bool):
                     cells.append(f'<c r="{col}{r}"><v>{v}</v></c>')
                 else:
-                    cells.append(f'<c r="{col}{r}" t="inlineStr"><is><t>{_xml_esc(v)}</t></is></c>')
+                    cells.append(f'<c r="{col}{r}" t="inlineStr"><is><t>{_esc(v)}</t></is></c>')
         if cells:
             parts.append(f'<row r="{r}">{"".join(cells)}</row>')
         r += 1
     parts.append("</sheetData></worksheet>")
     return "".join(parts)
-
 
 def _clear_hard_formula_errors(xml):
     hard_errors = ("#DIV/0!", "#REF!", "#VALUE!", "#NAME?")
@@ -139,7 +127,6 @@ def _clear_hard_formula_errors(xml):
         return f"<c{attrs}/>"
 
     return re.sub(r"<c\b([^>]*)>.*?</c>", repl, xml)
-
 
 def write_calculation_data_sheet(path, df):
     """Replace the Data sheet in an xlsx without loading all rows into openpyxl."""
@@ -195,13 +182,11 @@ def write_calculation_data_sheet(path, df):
     tmp.replace(path)
     print(f"      Saved: {path.name} ({len(df_out):,} data rows)")
 
-
 def _col_to_num(col):
     n = 0
     for ch in col:
         n = n * 26 + (ord(ch) - ord("A") + 1)
     return n
-
 
 def _find_sheet1_xml_name(zip_path):
     """Return xl/worksheets/sheetN.xml for '1.Reg by Powertrain'."""
@@ -217,7 +202,6 @@ def _find_sheet1_xml_name(zip_path):
     m2 = re.search(rf'<Relationship\b[^>]*Id="{re.escape(rid)}"[^>]*Target="([^"]+)"', rels_xml)
     target = m2.group(1)
     return f"xl/{target}" if not target.startswith("xl/") else target
-
 
 def _build_sheet1_data(df_ry, curr_year, prev_year, curr_month_num):
     """
@@ -240,7 +224,12 @@ def _build_sheet1_data(df_ry, curr_year, prev_year, curr_month_num):
         ((df["ปี"] == curr_year) & (df["month_num"] <= curr_month_num))
     ].copy()
 
-    agg = df.groupby(["ปี", "month_num", "Powertrain"])["จำนวนรถ"].sum()
+    monthly = aggregate(
+        df,
+        ["ปี", "month_num", "Powertrain"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
+    agg = monthly.set_index(["ปี", "month_num", "Powertrain"])["จำนวนรถ"]
 
     def get(year, month, pt):
         try:
@@ -327,12 +316,10 @@ def _build_sheet1_data(df_ry, curr_year, prev_year, curr_month_num):
 
     return data
 
-
 # Columns B–AC that Python writes (in order)
 _SHEET1_WRITE_COLS = (
     "B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC".split()
 )
-
 
 def write_sheet1(out_path, df_ry, curr_year, prev_year, curr_month_num):
     """Surgically replace rows 8-12 and 14-18 in 1.Reg by Powertrain with static values."""
@@ -428,13 +415,11 @@ def write_sheet1(out_path, df_ry, curr_year, prev_year, curr_month_num):
     tmp.replace(Path(out_path))
     print(f"      Sheet 1 written.")
 
-
 _MONTH_ENG = {
     1: "Jan", 2: "Feb", 3: "Mar", 4:  "Apr",
     5: "May", 6: "Jun", 7: "Jul", 8:  "Aug",
     9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
 }
-
 
 def write_sheet1_standalone(out_path, df_ry, curr_year, prev_year, curr_month_num):
     """Write a fresh xlsx with '1.Reg by Powertrain' — no template required."""
@@ -511,7 +496,6 @@ def write_sheet1_standalone(out_path, df_ry, curr_year, prev_year, curr_month_nu
     wb.save(str(out_path))
     print(f"      Standalone Sheet 1: {Path(out_path).name}")
 
-
 def _verify_sheet1(df_ry, curr_year, prev_year, curr_month_num):
     """Print independent verification totals for sheet 1."""
     MONTH_TO_NUM = {v: k for k, v in THAI_MONTHS.items()}
@@ -548,7 +532,6 @@ def _verify_sheet1(df_ry, curr_year, prev_year, curr_month_num):
         print(f"  {pt:4s} curr month            : {n:,}")
     print("---------------------------------------------------")
 
-
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     if not CLEANED_FILE.exists():
@@ -562,6 +545,7 @@ def main():
 
     print("Loading cleaned data...", flush=True)
     df_raw = pd.read_parquet(str(CLEANED_FILE))
+    validate(df_raw)
     df_raw["จำนวนรถ"] = pd.to_numeric(df_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df_raw["ปี"]      = pd.to_numeric(df_raw["ปี"],      errors="coerce").dropna().astype(int)
     df_raw = df_raw.dropna(subset=["ปี"]).copy()
@@ -610,7 +594,6 @@ def main():
 
     print(f"\nOutput: {out_file.name}")
     print(f"Standalone: {standalone_file.name}")
-
 
 if __name__ == "__main__":
     main()

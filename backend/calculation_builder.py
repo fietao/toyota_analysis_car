@@ -2,6 +2,8 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Literal, Optional, List
 
+from aggregate import aggregate
+
 @dataclass
 class CalculationRow:
     # Identity
@@ -73,14 +75,6 @@ def build_calculation_table(
     # Map month numbers
     if "เดือน" in df.columns:
         df["month_num"] = df["เดือน"].map(MONTH_TO_NUM).fillna(0).astype(int)
-    
-    # Prepare previous month (chronological) for MoM growth
-    if current_month_num == 1:
-        prev_month_year = current_year - 1
-        prev_month_num = 12
-    else:
-        prev_month_year = current_year
-        prev_month_num = current_month_num - 1
 
     # Identity Columns
     if view_by == "model":
@@ -90,42 +84,30 @@ def build_calculation_table(
 
     # Filter out records without an identity
     df = df.dropna(subset=groupby_cols)
-
-    # Function to get aggregated units for a specific condition
-    def get_units(condition) -> pd.Series:
-        sub = df[condition]
-        if sub.empty:
-            return pd.Series(dtype=int)
-        return sub.groupby(groupby_cols)["จำนวนรถ"].sum()
-
-    # Pre-calculate periods
-    cond_prev_month_same = (df["ปี"] == current_year - 1) & (df["month_num"] == current_month_num)
-    cond_prev_ytd = (df["ปี"] == current_year - 1) & (df["month_num"] <= current_month_num)
-    cond_prev_full = (df["ปี"] == current_year - 1)
     
-    cond_curr_month = (df["ปี"] == current_year) & (df["month_num"] == current_month_num)
-    cond_curr_prev_month = (df["ปี"] == prev_month_year) & (df["month_num"] == prev_month_num)
-    cond_curr_ytd = (df["ปี"] == current_year) & (df["month_num"] <= current_month_num)
+    summary = aggregate(
+        df,
+        groupby_cols,
+        {
+            "year_col": "ปี",
+            "month_col": "month_num",
+            "units_col": "จำนวนรถ",
+            "current_year": current_year,
+            "current_month_num": current_month_num,
+        },
+    )
+    series = summary.attrs["series"]
+    totals = summary.attrs["totals"]
 
-    s_prev_month = get_units(cond_prev_month_same)
-    s_prev_ytd = get_units(cond_prev_ytd)
-    s_prev_full = get_units(cond_prev_full)
-    s_curr_month = get_units(cond_curr_month)
-    s_curr_prev_month = get_units(cond_curr_prev_month)
-    s_curr_ytd = get_units(cond_curr_ytd)
+    s_prev_full = series["prev_full"]
+    s_curr_ytd = series["curr_ytd"]
 
-    # Identify all unique identities
-    all_identities = set()
-    for s in [s_prev_month, s_prev_ytd, s_prev_full, s_curr_month, s_curr_prev_month, s_curr_ytd]:
-        all_identities.update(s.index.tolist())
-        
-    # Totals
-    gt_prev_month = s_prev_month.sum()
-    gt_prev_ytd = s_prev_ytd.sum()
-    gt_prev_full = s_prev_full.sum()
-    gt_curr_month = s_curr_month.sum()
-    gt_curr_prev_month = s_curr_prev_month.sum()
-    gt_curr_ytd = s_curr_ytd.sum()
+    gt_prev_month = totals["prev_month"]
+    gt_prev_ytd = totals["prev_ytd"]
+    gt_prev_full = totals["prev_full"]
+    gt_curr_month = totals["curr_month"]
+    gt_curr_prev_month = totals["curr_prev_month"]
+    gt_curr_ytd = totals["curr_ytd"]
 
     def safe_div(a, b):
         return (a / b) if pd.notna(a) and pd.notna(b) and b else None
@@ -148,41 +130,30 @@ def build_calculation_table(
     s_prev_rank = s_prev_full.rank(method="min", ascending=False)
 
     rows = []
-    for ident in all_identities:
+    for _, summary_row in summary.iterrows():
+        ident = summary_row["_identity"]
         if isinstance(ident, tuple):
             brand, model = str(ident[0]), str(ident[1])
         else:
             brand, model = str(ident), None
-            
-        u_pm = s_prev_month.get(ident, 0)
-        u_pytd = s_prev_ytd.get(ident, 0)
-        u_pfull = s_prev_full.get(ident, 0)
-        u_cm = s_curr_month.get(ident, 0)
-        u_cpm = s_curr_prev_month.get(ident, 0)
-        u_cytd = s_curr_ytd.get(ident, 0)
-        
-        # We store Nones if the value is 0 and it represents an entirely missing period for this brand. 
-        # But wait, 0 is fine. Let's keep 0 to match totals, but safe_div will handle it.
-        # Actually, let's treat missing as None so we can distinguish 0 sales vs missing.
-        u_pm_val = int(u_pm) if ident in s_prev_month else None
-        u_pytd_val = int(u_pytd) if ident in s_prev_ytd else None
-        u_pfull_val = int(u_pfull) if ident in s_prev_full else None
-        u_cm_val = int(u_cm) if ident in s_curr_month else None
-        u_cpm_val = int(u_cpm) if ident in s_curr_prev_month else None
-        u_cytd_val = int(u_cytd) if ident in s_curr_ytd else None
 
-        sh_pm = safe_div(u_pm_val, gt_prev_month)
-        sh_pytd = safe_div(u_pytd_val, gt_prev_ytd)
-        sh_pfull = safe_div(u_pfull_val, gt_prev_full)
-        sh_cm = safe_div(u_cm_val, gt_curr_month)
-        sh_cytd = safe_div(u_cytd_val, gt_curr_ytd)
+        u_pm_val = summary_row["prev_month_units"]
+        u_pytd_val = summary_row["prev_ytd_units"]
+        u_pfull_val = summary_row["prev_full_units"]
+        u_cm_val = summary_row["curr_month_units"]
+        u_cytd_val = summary_row["curr_ytd_units"]
 
-        growth_prev_month = safe_div(u_cm_val, u_cpm_val) - 1 if (u_cpm_val and u_cm_val is not None) else None
-        growth_prev_year_month = safe_div(u_cm_val, u_pm_val) - 1 if (u_pm_val and u_cm_val is not None) else None
-        ytd_growth = safe_div(u_cytd_val, u_pytd_val) - 1 if (u_pytd_val and u_cytd_val is not None) else None
+        sh_pm = summary_row["prev_month_share"]
+        sh_pytd = summary_row["prev_ytd_share"]
+        sh_pfull = summary_row["prev_full_share"]
+        sh_cm = summary_row["curr_month_share"]
+        sh_cytd = summary_row["curr_ytd_share"]
 
-        diff_cm = (sh_cm - sh_pm) if sh_cm is not None and sh_pm is not None else None
-        diff_cytd = (sh_cytd - sh_pytd) if sh_cytd is not None and sh_pytd is not None else None
+        growth_prev_month = summary_row["curr_growth_vs_prev_month"]
+        growth_prev_year_month = summary_row["curr_growth_vs_same_month_prev_year"]
+        ytd_growth = summary_row["curr_ytd_growth"]
+        diff_cm = summary_row["curr_month_diff"]
+        diff_cytd = summary_row["curr_ytd_diff"]
 
         c_rank = int(s_curr_rank.get(ident, 0)) if ident in s_curr_rank else None
         p_rank = int(s_prev_rank.get(ident, 0)) if ident in s_prev_rank else None

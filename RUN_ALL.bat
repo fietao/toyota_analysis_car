@@ -1,10 +1,11 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
 cd /d "%~dp0"
 
 echo ==== Step 1: backend data pipeline ====
 cd backend
-python run_pipeline.py --skip-map --skip-analyst
+py -3.12 run_pipeline.py --skip-map --skip-analyst
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Step 1 backend data pipeline failed.
     pause
@@ -12,7 +13,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo ==== Step 2: export dashboard data ====
-python export_dashboard.py
+py -3.12 export_dashboard.py
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Step 2 export dashboard data failed.
     pause

@@ -20,6 +20,8 @@ from pathlib import Path
 
 import pandas as pd
 from openpyxl import load_workbook
+from schema import validate
+from schema import validate
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -986,6 +988,7 @@ def main():
     # Final cleaned data uses df_model only — matches refer file row count (636,333).
     df_cleaned = ordered_cols(df_model)
     df_cleaned = sort_cleaned_data(df_cleaned, brand2_order)
+    validate(df_cleaned)
     print(f"      {len(df_cleaned):,} raw rows processed | cols: {list(df_cleaned.columns)}")
 
     # ── Rolling merge: rebuild latest raw year and the year before it ───────────
@@ -1050,6 +1053,7 @@ def main():
         fuel_existing_year = pd.to_numeric(df_fuel_existing["ปี"], errors="coerce")
         df_fuel_keep = df_fuel_existing[~fuel_existing_year.isin(rebuild_years)]
         df_fuel_save = ordered_cols(pd.concat([df_fuel_keep, df_fuel_save[fuel_rebuild_mask]], ignore_index=True))
+    validate(df_fuel_save)
     df_fuel_save.to_parquet(str(fuel_pq_path), index=False)
     print(f"      Saved fuel intermediate: {fuel_pq_path.name}")
 

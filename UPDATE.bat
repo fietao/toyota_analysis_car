@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo.
 echo ============================================================
@@ -8,7 +9,7 @@ echo  Drop the 2 DLT files into "backend\raw data\" then run this.
 echo ============================================================
 echo.
 cd backend
-python update_raw_data.py
+py -3.12 update_raw_data.py
 if %ERRORLEVEL% neq 0 (
     echo.
     echo ERROR: Update failed. See message above.

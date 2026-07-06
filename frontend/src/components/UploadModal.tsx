@@ -84,7 +84,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Upload failed");
+        throw new Error(errorData.details || errorData.error || "Upload failed");
       }
 
       setStatus("success");

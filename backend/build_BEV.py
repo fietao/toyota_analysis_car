@@ -16,23 +16,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from xlsx_util import _col, _esc
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 BASE = Path(__file__).resolve().parent
 STATE_PATH = BASE / "pipeline_state.json"
 
-
-def _col(n):
-    r = ""
-    while n > 0:
-        n, rem = divmod(n - 1, 26)
-        r = chr(65 + rem) + r
-    return r
-
-
-def _esc(s):
-    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
-                 .replace(">", "&gt;").replace('"', "&quot;"))
 
 
 def _find_sheet_xml_paths(wb_xml, rels_xml, sheet_name):

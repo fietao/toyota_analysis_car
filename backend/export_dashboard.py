@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from aggregate import aggregate, current_period
+from schema import validate
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 BASE = Path(__file__).resolve().parent
@@ -78,8 +81,11 @@ PT_FUEL_LABEL = {
 def build_brand_model_tree(df_brand: pd.DataFrame, df_model_rows: pd.DataFrame) -> list:
     """Brand monthly totals from df_brand (fuel parquet), model rows from df_model_rows (model parquet)."""
     # Brand-level monthly from fuel parquet
-    brand_grp = df_brand.groupby(["ยี่ห้อรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"])["จำนวนรถ"].sum().reset_index()
-    brand_grp = brand_grp[brand_grp["จำนวนรถ"] > 0]
+    brand_grp = aggregate(
+        df_brand,
+        ["ยี่ห้อรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
 
     brand_map: dict = {}
     for _, row in brand_grp.iterrows():
@@ -97,8 +103,11 @@ def build_brand_model_tree(df_brand: pd.DataFrame, df_model_rows: pd.DataFrame) 
         bn_p.setdefault(year, [0] * 12)[m_idx] += u
 
     # Model-level monthly from model parquet
-    model_grp = df_model_rows.groupby(["ยี่ห้อรถ2", "รุ่นรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"])["จำนวนรถ"].sum().reset_index()
-    model_grp = model_grp[model_grp["จำนวนรถ"] > 0]
+    model_grp = aggregate(
+        df_model_rows,
+        ["ยี่ห้อรถ2", "รุ่นรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
 
     for _, row in model_grp.iterrows():
         b, mod, pt, vc = row["ยี่ห้อรถ2"], row["รุ่นรถ2"], row["PT"], row["v_code"]
@@ -141,6 +150,7 @@ def short_code(label: str) -> str:
 
 def load_data(parquet: Path) -> pd.DataFrame:
     df = pd.read_parquet(str(parquet))
+    validate(df)
 
     # Strip whitespace from ประเภทรถ to match correctly
     df["ประเภทรถ"] = df["ประเภทรถ"].astype(str).str.strip()
@@ -156,8 +166,7 @@ def load_data(parquet: Path) -> pd.DataFrame:
     df["v"] = df["v_code"].map(VEHICLE_TYPE_DICT).fillna(df["ประเภทรถ"])
 
     # Apply exact Powertrain mapping from ชนิดเชื้อเพลิง
-    df["PT"] = df["ชนิดเชื้อเพลิง"].map(FUEL_MAP)
-    df["PT"] = df["PT"].fillna("N/A")
+    df["PT"] = df["ชนิดเชื้อเพลิง"].map(FUEL_MAP).fillna("N/A")
 
     df["จำนวนรถ"] = pd.to_numeric(df["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df["ปี"] = pd.to_numeric(df["ปี"], errors="coerce").dropna().astype(int)
@@ -189,8 +198,11 @@ def export_data():
     df_fuel = df_fuel_all
     
     # 1. Powertrain master from fuel parquet
-    pm_grp = df_fuel.groupby(["ชนิดเชื้อเพลิง", "PT", "ปี"])["จำนวนรถ"].sum().reset_index()
-    pm_grp = pm_grp[pm_grp["จำนวนรถ"] > 0]
+    pm_grp = aggregate(
+        df_fuel,
+        ["ชนิดเชื้อเพลิง", "PT", "ปี"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
     pm_data = []
     for _, row in pm_grp.iterrows():
         pm_data.append({
@@ -211,8 +223,11 @@ def export_data():
     print(f"  brand_model_tree total units (fuel): {tree_total:,}")
 
     # 3. Fuel & Powertrain monthly (from fuel parquet)
-    fuel_grp = df_fuel.groupby(["ปี", "เดือน", "PT", "ชนิดเชื้อเพลิง", "v"])["จำนวนรถ"].sum().reset_index()
-    fuel_grp = fuel_grp[fuel_grp["จำนวนรถ"] > 0]
+    fuel_grp = aggregate(
+        df_fuel,
+        ["ปี", "เดือน", "PT", "ชนิดเชื้อเพลิง", "v"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
     fuel_data = []
     for _, row in fuel_grp.iterrows():
         fuel_data.append({
@@ -221,8 +236,11 @@ def export_data():
         })
 
     # 4. Brand monthly (from fuel parquet)
-    brand_grp = df_fuel.groupby(["ปี", "เดือน", "PT", "ยี่ห้อรถ2", "v"])["จำนวนรถ"].sum().reset_index()
-    brand_grp = brand_grp[brand_grp["จำนวนรถ"] > 0]
+    brand_grp = aggregate(
+        df_fuel,
+        ["ปี", "เดือน", "PT", "ยี่ห้อรถ2", "v"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
     brand_data = []
     for _, row in brand_grp.iterrows():
         brand_data.append({
@@ -231,8 +249,11 @@ def export_data():
         })
 
     # 5. Model monthly from model parquet (export all models)
-    model_grp = df.groupby(["ปี", "เดือน", "PT", "ยี่ห้อรถ2", "รุ่นรถ2", "v"])["จำนวนรถ"].sum().reset_index()
-    model_grp = model_grp[model_grp["จำนวนรถ"] > 0]
+    model_grp = aggregate(
+        df,
+        ["ปี", "เดือน", "PT", "ยี่ห้อรถ2", "รุ่นรถ2", "v"],
+        {"mode": "monthly", "units_col": "จำนวนรถ"},
+    )
     model_data = []
     for _, row in model_grp.iterrows():
         model_data.append({
@@ -255,14 +276,18 @@ def export_data():
     ]
 
     # --- BRAND FOCUS ---
-    TARGET_BRAND = "Deepal+ChangAn"
+    TARGET_BRAND = "Deepal + Changan"
     BEV_PT = "BEV"
 
     month_order = list(MONTH_MAP.values())
     
     all_periods = set((row["y"], row["m"]) for row in brand_data)
     sorted_periods = sorted(list(all_periods), key=lambda x: (x[0], month_order.index(x[1])))
-    latest_y, latest_m = sorted_periods[-1] if sorted_periods else (None, None)
+    if sorted_periods:
+        latest_y, latest_m_num = current_period(df_fuel, year_col="ปี", month_col="เดือน", month_order=month_order)
+        latest_m = month_order[latest_m_num - 1]
+    else:
+        latest_y, latest_m = None, None
 
     if latest_y is not None:
         latest_m_idx = month_order.index(latest_m)

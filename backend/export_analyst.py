@@ -6,7 +6,9 @@ import sys
 
 # Adjust path to import calculation_builder
 sys.path.append(os.path.dirname(__file__))
+from aggregate import current_period
 from calculation_builder import build_calculation_table, MONTH_TO_NUM, THAI_MONTHS
+from schema import validate
 
 def export_analyst_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -22,13 +24,14 @@ def export_analyst_data():
 
     print(f"Loading model data from {model_path}...")
     df_model = pd.read_parquet(model_path)
+    validate(df_fuel)
+    validate(df_model)
 
     # Determine current year and month from fuel data
     if "เดือน" in df_fuel.columns:
         df_fuel["month_num"] = df_fuel["เดือน"].map(MONTH_TO_NUM).fillna(0).astype(int)
 
-    max_year = int(df_fuel["ปี"].max())
-    current_month_num = int(df_fuel[df_fuel["ปี"] == max_year]["month_num"].max())
+    max_year, current_month_num = current_period(df_fuel, year_col="ปี", month_col="month_num")
     current_month_th = THAI_MONTHS.get(current_month_num, "")
     print(f"Current period detected: Year {max_year}, Month {current_month_num}")
 

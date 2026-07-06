@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
     // Python script is at `../backend/update_raw_data.py`
     const pythonScriptPath = path.join(process.cwd(), "..", "backend", "update_raw_data.py");
     
-    // We run it with python. Assuming 'python' is in PATH.
+    // Use the same Python runtime as the verified backend pipeline.
     // Use execFile Async to avoid shell injection and safely pass Windows paths
     console.log("Running pipeline with execFile:", pythonScriptPath);
-    const { stdout, stderr } = await execFileAsync("python", [pythonScriptPath, fuelFilePath, modelFilePath], { env: { ...process.env, PYTHONUTF8: "1" }, maxBuffer: 64 * 1024 * 1024 });
+    const { stdout, stderr } = await execFileAsync("py", ["-3.12", pythonScriptPath, fuelFilePath, modelFilePath], { env: { ...process.env, PYTHONUTF8: "1" }, maxBuffer: 64 * 1024 * 1024 });
     
     console.log("Pipeline stdout:", stdout);
     if (stderr) {
