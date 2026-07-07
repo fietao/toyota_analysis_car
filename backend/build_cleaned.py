@@ -378,16 +378,17 @@ def _esc(s):
 
 
 def _patch_pivot_table_def1(xml):
-    """pivotTable1/2/3 (cache def1): ชนิดเชื้อเพลิง inserted at field 8, so
-    Powertrain shifts 8→9, จำนวนรถ shifts 9→10. Insert blank pivotField at pos 8
-    and increment all fld/x refs >= 8 by 1."""
-    # Insert blank pivotField before the 8th <pivotField element (0-indexed)
+    """pivotTable1/2/3 (cache def1): ชนิดเชื้อเพลิง inserted at field FINAL_COLS.index("ชนิดเชื้อเพลิง"), so
+    subsequent fields shift. Insert blank pivotField at that pos
+    and increment all fld/x refs >= that pos by 1."""
+    insert_pos = FINAL_COLS.index("ชนิดเชื้อเพลิง")
+    # Insert blank pivotField before the insert_pos-th <pivotField element (0-indexed)
     pos, count = 0, 0
     while True:
         idx = xml.find("<pivotField", pos)
         if idx == -1:
             break
-        if count == 8:
+        if count == insert_pos:
             xml = xml[:idx] + "<pivotField/>" + xml[idx:]
             break
         pos = idx + 1
@@ -399,7 +400,7 @@ def _patch_pivot_table_def1(xml):
         xml, count=1,
     )
 
-    def _inc(val): return str(int(val) + 1) if int(val) >= 8 else val
+    def _inc(val): return str(int(val) + 1) if int(val) >= insert_pos else val
     xml = re.sub(r'(\bfld=")(-?\d+)(")', lambda m: m.group(1) + _inc(m.group(2)) + m.group(3), xml)
     xml = re.sub(r'(<field\s+x=")(\d+)(")',  lambda m: m.group(1) + _inc(m.group(2)) + m.group(3), xml)
     return xml
@@ -407,32 +408,32 @@ def _patch_pivot_table_def1(xml):
 
 def _patch_pivot_table_def2(xml):
     """pivotTable4 (cache def2, master powertrain): replace pivotFields block entirely
-    so it aligns with the new 11-col layout (ชนิดเชื้อเพลิง=8, Powertrain=9, จำนวนรถ=10).
+    so it aligns with the new layout in FINAL_COLS.
     Also fix rowField x refs and dataField fld ref."""
-    new_pf = (
-        '<pivotFields count="11">'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField compact="0" outline="0" showAll="0"/>'
-        '<pivotField axis="axisRow" compact="0" outline="0" showAll="0"/>'
-        '<pivotField axis="axisRow" compact="0" outline="0" showAll="0"/>'
-        '<pivotField dataField="1" compact="0" numFmtId="3" outline="0" showAll="0"/>'
-        '</pivotFields>'
-    )
+    idx_fuel = FINAL_COLS.index("ชนิดเชื้อเพลิง")
+    idx_powertrain = FINAL_COLS.index("Powertrain")
+    idx_count = FINAL_COLS.index("จำนวนรถ")
+
+    fields = []
+    for i in range(len(FINAL_COLS)):
+        if i in (idx_fuel, idx_powertrain):
+            fields.append('<pivotField axis="axisRow" compact="0" outline="0" showAll="0"/>')
+        elif i == idx_count:
+            fields.append('<pivotField dataField="1" compact="0" numFmtId="3" outline="0" showAll="0"/>')
+        else:
+            fields.append('<pivotField compact="0" outline="0" showAll="0"/>')
+
+    new_pf = f'<pivotFields count="{len(FINAL_COLS)}">' + "".join(fields) + '</pivotFields>'
+
     start = xml.find("<pivotFields")
     end   = xml.find("</pivotFields>") + len("</pivotFields>")
     if start >= 0 and end > start:
         xml = xml[:start] + new_pf + xml[end:]
 
-    # ชนิดเชื้อเพลิง: old def2 row field x=7 → new pos x=8
-    xml = re.sub(r'(<field\s+x=")7(")', r'\g<1>8\2', xml)
-    # จำนวนรถ: old def2 data field fld=8 → new pos fld=10
-    xml = re.sub(r'(<dataField\b[^>]*\bfld=")8(")', r'\g<1>10\2', xml)
+    # ชนิดเชื้อเพลิง: old def2 row field x=7 → new pos
+    xml = re.sub(r'(<field\s+x=")7(")', rf'\g<1>{idx_fuel}\2', xml)
+    # จำนวนรถ: old def2 data field fld=8 → new pos
+    xml = re.sub(r'(<dataField\b[^>]*\bfld=")8(")', rf'\g<1>{idx_count}\2', xml)
     return xml
 
 
