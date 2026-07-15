@@ -1,0 +1,337 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+
+// Canonical manual report: /report renders this JSON directly and never recomputes
+// spreadsheet logic. Produced by backend/export_manual_report.py.
+
+type ReportRow = {
+  key: string;
+  label: string;
+  prev_months: number[];
+  prev_total: number;
+  prev_ytd: number;
+  prev_total_share: number | null;
+  prev_ytd_share: number | null;
+  curr_months: number[];
+  curr_ytd: number;
+  curr_ytd_share: number | null;
+  growth_vs_prev_month: number | null;
+  growth_vs_same_month_prev_year: number | null;
+  growth_vs_prev_ytd: number | null;
+  prev_rank?: number | null;
+  curr_rank?: number | null;
+  rank_diff?: number | null;
+  level?: "grand" | "brand" | "model" | "province";
+  group?: string;
+  brand?: string;
+  model?: string;
+  overall?: number;
+};
+
+type SectionMeta = { title: string; source: string; filter: string; powertrain: string };
+
+type ManualReport = {
+  meta: {
+    reporting_period: string;
+    latest_year: number;
+    latest_month: string;
+    latest_month_num: number;
+    prev_year: number;
+    months: string[];
+    default_vehicle_types: string[];
+    source_files: { brand_powertrain: string; model: string };
+    sections: Record<string, SectionMeta>;
+    known_mismatches?: { sheets: string[]; row: string; note: string }[];
+    generated_at: string;
+  };
+  sheets: Record<string, ReportRow[]>;
+};
+
+type SheetKind = "powertrain" | "brand" | "model_tree" | "model_rank" | "province_tree";
+
+const SHEETS: { id: string; kind: SheetKind; rowLabel: string }[] = [
+  { id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" },
+  { id: "sheet2_brand_all", kind: "brand", rowLabel: "Brand" },
+  { id: "sheet3_brand_ice", kind: "brand", rowLabel: "Brand" },
+  { id: "sheet4_brand_bev", kind: "brand", rowLabel: "Brand" },
+  { id: "sheet5_brand_hev", kind: "brand", rowLabel: "Brand" },
+  { id: "sheet6_brand_phev", kind: "brand", rowLabel: "Brand" },
+  { id: "sheet7_bev_by_model", kind: "model_tree", rowLabel: "Brand / Model" },
+  { id: "sheet8_model_top_rank", kind: "model_rank", rowLabel: "Model" },
+  { id: "sheet9_by_province", kind: "province_tree", rowLabel: "Province / Brand" },
+];
+
+const nf = new Intl.NumberFormat("en-US");
+const pf = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+function num(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return n === 0 ? "—" : nf.format(n);
+}
+function pct(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return pf.format(n);
+}
+function signed(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  const s = pf.format(n);
+  return n > 0 ? `+${s}` : s;
+}
+function growthClass(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "text-slate-500";
+  return n > 0 ? "text-emerald-400" : n < 0 ? "text-rose-400" : "text-slate-400";
+}
+
+export default function ManualReportPage() {
+  const [report, setReport] = useState<ManualReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState("sheet1_powertrain");
+  const [search, setSearch] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    fetch("/data/manual_report.json")
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((json: ManualReport) => {
+        setReport(json);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load manual_report.json:", err);
+        setError("Failed to load manual_report.json. Run backend/export_manual_report.py.");
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/data/manual_report.json")
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((json: ManualReport) => {
+        if (!cancelled) {
+          setReport(json);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Failed to load manual_report.json:", err);
+          setError("Failed to load manual_report.json. Run backend/export_manual_report.py.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const active = SHEETS.find((s) => s.id === activeId) ?? SHEETS[0];
+  const meta = report?.meta;
+  const section = meta?.sections?.[active.id];
+  const currMonths = useMemo(
+    () => (meta ? meta.months.slice(0, meta.latest_month_num) : []),
+    [meta]
+  );
+
+  const rows = useMemo(() => {
+    if (!report) return [];
+    const all = report.sheets[active.id] ?? [];
+    const q = search.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter((r) => {
+      if (r.level === "grand") return true;
+      const hay = `${r.label} ${r.group ?? ""} ${r.brand ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [report, active.id, search]);
+
+  const knownWarning = useMemo(() => {
+    if (!meta?.known_mismatches) return null;
+    return meta.known_mismatches.find((k) => k.sheets.includes(active.id)) ?? null;
+  }, [meta, active.id]);
+
+  const hasRank = active.kind === "brand" || active.kind === "model_rank";
+  const hasOverall = active.kind === "province_tree";
+  const isTree = active.kind === "model_tree" || active.kind === "province_tree";
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 text-slate-100" role="status" aria-live="polite">
+        <div className="mx-auto max-w-[110rem] space-y-4">
+          <div className="h-24 rounded-md border border-slate-800 bg-slate-900" />
+          <div className="h-96 rounded-md border border-slate-800 bg-slate-900" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !report || !meta) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
+        <div className="max-w-md rounded-md border border-red-900/60 bg-red-950/30 p-6 text-center">
+          <AlertTriangle className="mx-auto mb-3 h-9 w-9 text-red-400" />
+          <h1 className="mb-2 text-sm font-semibold text-red-200">Manual report failed to load</h1>
+          <p className="mb-4 text-xs text-red-200/80">{error}</p>
+          <button onClick={load} className="inline-flex items-center gap-2 rounded-md bg-red-700 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600">
+            <RefreshCw className="h-3.5 w-3.5" /> Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const labelCellBg = (row: ReportRow, first: boolean) =>
+    first || row.level === "grand" ? "bg-slate-800" : row.level === "model" || (row.level === "brand" && isTree) ? "bg-slate-950" : "bg-slate-900";
+
+  return (
+    <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
+      <div className="mx-auto max-w-[110rem] space-y-4">
+        <nav aria-label="Breadcrumb">
+          <Link href="/" className="text-xs text-slate-400 transition-colors hover:text-teal-400">← Back to Dashboard</Link>
+        </nav>
+
+        {/* Header + status strip */}
+        <section className="rounded-md border border-slate-800 bg-slate-900 p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-400">Manual Report Mode</p>
+              <h1 className="mt-1 text-lg font-semibold text-slate-100">Workbook parity — sheets 1–9</h1>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-400">
+                Rendered directly from <span className="font-mono text-slate-300">manual_report.json</span>. No spreadsheet logic is recomputed in the browser.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-md border border-slate-800 bg-slate-950 px-4 py-3 text-[10px] text-slate-400">
+              <span className="text-slate-500">Reporting period</span>
+              <span className="text-right font-mono text-slate-200">{meta.reporting_period}</span>
+              <span className="text-slate-500">Comparison year</span>
+              <span className="text-right font-mono text-slate-200">{meta.prev_year} (full) vs {meta.latest_year} YTD</span>
+              <span className="text-slate-500">Vehicle filter</span>
+              <span className="text-right font-mono text-slate-200">รย.1,2,3,6,9,10,11</span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {SHEETS.map((s) => {
+              const on = s.id === active.id;
+              const st = meta.sections[s.id];
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => { setActiveId(s.id); setSearch(""); }}
+                  className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                    on ? "border-teal-500 bg-teal-500/10 text-teal-100" : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                  }`}
+                >
+                  <div className="truncate text-xs font-semibold">{st?.title ?? s.id}</div>
+                  <div className="mt-0.5 truncate text-[10px] opacity-80">{st?.powertrain}</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Active sheet */}
+        <section className="rounded-md border border-slate-800 bg-slate-900">
+          <div className="flex flex-col gap-3 border-b border-slate-800 p-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-100">{section?.title ?? active.id}</h2>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Source: <span className="font-mono text-slate-400">{section?.source}</span> · {section?.filter} · Powertrain = {section?.powertrain}
+              </p>
+            </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${active.rowLabel.toLowerCase()}...`}
+              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-teal-500 md:w-64"
+            />
+          </div>
+
+          {knownWarning && (
+            <div className="flex items-start gap-2 border-b border-amber-900/40 bg-amber-950/20 px-4 py-2.5 text-[11px] text-amber-200/90">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+              <span><span className="font-semibold">Known markdown mismatch ({knownWarning.row}):</span> {knownWarning.note}</span>
+            </div>
+          )}
+
+          <div className="max-h-[72vh] overflow-auto custom-scrollbar">
+            <table className="w-full border-separate border-spacing-0 text-left text-xs">
+              <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
+                <tr>
+                  <th rowSpan={2} className="sticky left-0 z-30 min-w-48 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
+                  <th colSpan={13} className="border-r border-slate-700 p-2 text-center">{meta.prev_year}</th>
+                  <th colSpan={currMonths.length + 3} className="p-2 text-center">{meta.latest_year} YTD</th>
+                  {hasOverall && <th rowSpan={2} className="min-w-24 border-l-2 border-slate-600 p-2 text-center align-bottom">Overall</th>}
+                  {hasRank && <th colSpan={3} className="border-l-2 border-slate-600 p-2 text-center">Rank</th>}
+                </tr>
+                <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {(meta.months).map((m) => <th key={`p-${m}`} className="min-w-14 border-l border-slate-700 p-2 text-center">{m}</th>)}
+                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Total</th>
+                  {currMonths.map((m) => <th key={`c-${m}`} className="min-w-14 border-l border-slate-700 p-2 text-center">{m}</th>)}
+                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">YTD</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                  <th className="min-w-20 border-l border-slate-700 p-2 text-center">MoM</th>
+                  {hasRank && (
+                    <>
+                      <th className="min-w-14 border-l-2 border-slate-600 p-2 text-center">{meta.prev_year}</th>
+                      <th className="min-w-14 border-l border-slate-700 p-2 text-center">{meta.latest_year}</th>
+                      <th className="min-w-14 border-l border-slate-700 p-2 text-center">Δ</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => {
+                  const first = i === 0;
+                  const isChild = row.level === "model" || (row.level === "brand" && active.kind === "province_tree");
+                  const isGroup = row.level === "brand" && active.kind === "model_tree" ? true : row.level === "province";
+                  const rowClass = first || row.level === "grand"
+                    ? "bg-slate-800/60 font-bold text-teal-300"
+                    : isGroup
+                    ? "bg-slate-800/20 font-semibold text-slate-200"
+                    : "text-slate-300 hover:bg-slate-800/30";
+                  return (
+                    <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
+                      <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelCellBg(row, first)} ${isChild ? "pl-7 font-normal text-slate-400" : ""}`}>
+                        {row.label}
+                      </td>
+                      {row.prev_months.map((v, idx) => <td key={`pm-${idx}`} className="border-l border-slate-800/70 p-2 text-center font-mono">{num(v)}</td>)}
+                      <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.prev_total)}</td>
+                      {currMonths.map((_, idx) => <td key={`cm-${idx}`} className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.curr_months[idx])}</td>)}
+                      <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_ytd_share)}</td>
+                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                      {hasOverall && <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.overall)}</td>}
+                      {hasRank && (
+                        <>
+                          <td className="border-l-2 border-slate-700 p-2 text-center font-mono text-slate-400">{row.prev_rank ?? "—"}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.curr_rank ?? "—"}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.rank_diff === null || row.rank_diff === undefined ? "—" : row.rank_diff > 0 ? `+${row.rank_diff}` : row.rank_diff}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-slate-800 p-2 text-right text-[10px] text-slate-600">
+            {rows.length.toLocaleString()} rows · generated {new Date(meta.generated_at).toLocaleString()}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

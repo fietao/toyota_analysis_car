@@ -10,10 +10,12 @@ export const VEHICLE_TYPE_DICT: Record<string, string> = {
 
 export type PowertrainMasterRow = { f: string; pt: string; y: number; u: number };
 export type FuelRow = { y: number; m: string; pt: string; f: string; v: string; u: number };
+export type BrandMonthlyRow = { y: number; m: string; pt: string; b: string; v: string; u: number };
 export type TreeMonthly = Record<string, Record<string, Record<string, number[]>>>;
 
 export type ModelNode = {
   name: string;
+  powertrain?: string;
   fuel: string;
   monthly: TreeMonthly;
 };
@@ -27,15 +29,20 @@ export type BrandNode = {
 };
 
 export type DashboardData = {
-  meta: { 
-    years: number[]; 
-    months: string[]; 
-    provinces: string[]; 
+  meta: {
+    years: number[];
+    months: string[];
+    provinces: string[];
     vehicle_types_list?: { code: string; label: string }[];
+    generated_at?: string;
+    latest_year?: number | null;
+    latest_month?: string | null;
+    reporting_period?: string | null;
   };
   powertrain_master: PowertrainMasterRow[];
   fuel_monthly: FuelRow[];
-  brand_model_tree: BrandNode[];
+  brand_monthly: BrandMonthlyRow[];
+  brand_model_tree?: BrandNode[];
 };
 
 export type Rec = Record<string, string | number | boolean | null>;
@@ -95,16 +102,21 @@ export function determineProvinceStatus(
   return "Average";
 }
 
-export function selectFilterOptions(data: DashboardData | null, rankingBrand: string[]) {
-  if (!data?.brand_model_tree) return { allDataBrands: [], allDataModels: [] };
-  
-  const allDataBrands = Array.from(new Set(data.brand_model_tree.map(b => b.brand))).sort();
-  
+export function selectFilterOptions(data: DashboardData | null, rankingBrand: string[], brandModelTree?: BrandNode[] | null) {
+  // Brand names come from brand_monthly (already in the small summary payload) so the
+  // Brand filter is populated before the heavy brand_model_tree has loaded.
+  const allDataBrands = data?.brand_monthly
+    ? Array.from(new Set(data.brand_monthly.map(r => r.b))).sort()
+    : [];
+
+  const tree = brandModelTree || data?.brand_model_tree;
+  if (!tree) return { allDataBrands, allDataModels: [] };
+
   const mSet = new Set<string>();
-  data.brand_model_tree.forEach(b => {
+  tree.forEach(b => {
     const cleanBrand = b.brand;
     if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
-    
+
     b.models?.forEach(m => mSet.add(m.name));
   });
   const allDataModels = Array.from(mSet).sort();
@@ -176,6 +188,85 @@ export function selectTrendData(
   return { trendKeys, trendData, trendTable: trendTable.filter(r => Number(r.YTD) > 0) };
 }
 
+// Brand-level-only rankings computed from brand_monthly (present in the small summary
+// payload) — used before brand_model_tree has loaded. No model drill-down, no province
+// filter (brand_monthly carries no province axis); callers fall back to this only when
+// no province/model filter is active and the tree isn't loaded yet.
+export function selectBrandRankingsFromMonthly(
+  data: DashboardData | null,
+  rankingPt: string[],
+  rankingBrand: string[],
+  expandedBrands: Set<string>,
+  selectedYear: number | "All",
+  selectedVehicleTypes: string[],
+  timeKeys: string[]
+) {
+  if (!data?.brand_monthly) return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] };
+
+  const map = new Map<string, Rec>();
+  let totalUnits = 0;
+  let bevUnits = 0;
+  const ptMixMap: Record<string, number> = { ICE: 0, BEV: 0, HEV: 0, PHEV: 0 };
+
+  data.brand_monthly.forEach(row => {
+    if (rankingPt.length > 0 && !rankingPt.includes(row.pt)) return;
+    if (rankingBrand.length > 0 && !rankingBrand.includes(row.b)) return;
+    if (selectedVehicleTypes.length > 0 && !selectedVehicleTypes.includes(row.v)) return;
+    if (selectedYear !== "All" && row.y !== selectedYear) return;
+
+    if (!map.has(row.b)) {
+      // Model breakdown isn't known yet (brand_monthly has no model axis) — assume
+      // expandable so the "Click Brand to Drill-Down" affordance renders; clicking
+      // fetches brand_model_tree, after which rankingsData switches to the tree path.
+      const r: Rec = { id: row.b, name: row.b, YTD: 0, hasChildren: true, isExpanded: expandedBrands.has(row.b) };
+      timeKeys.forEach(t => r[t] = 0);
+      map.set(row.b, r);
+    }
+    const r = map.get(row.b)!;
+    const tKey = selectedYear === "All" ? String(row.y) : row.m;
+    if (tKey in r) r[tKey] = Number(r[tKey]) + row.u;
+    r.YTD = Number(r.YTD) + row.u;
+
+    totalUnits += row.u;
+    if (row.pt === "BEV") bevUnits += row.u;
+    if (row.pt in ptMixMap) ptMixMap[row.pt] += row.u;
+  });
+
+  const rows = Array.from(map.values())
+    .filter(r => Number(r.YTD) > 0)
+    .sort((a, b) => Number(b.YTD) - Number(a.YTD));
+
+  const ptMix = Object.entries(ptMixMap).map(([name, val]) => ({ name, YTD: val })).filter(d => d.YTD > 0);
+
+  return { rows, totalUnits, bevUnits, ptMix };
+}
+
+// Brands-only version of selectDynamicChartData computed from brand_monthly, for use
+// before brand_model_tree has loaded (Models/Provinces grouping still needs the tree).
+export function selectDynamicChartDataFromMonthly(
+  data: DashboardData | null,
+  rankingPt: string[],
+  rankingBrand: string[],
+  selectedYear: number | "All",
+  selectedVehicleTypes: string[]
+) {
+  if (!data?.brand_monthly) return [];
+  const cMap = new Map<string, number>();
+
+  data.brand_monthly.forEach(row => {
+    if (rankingPt.length > 0 && !rankingPt.includes(row.pt)) return;
+    if (rankingBrand.length > 0 && !rankingBrand.includes(row.b)) return;
+    if (selectedVehicleTypes.length > 0 && !selectedVehicleTypes.includes(row.v)) return;
+    if (selectedYear !== "All" && row.y !== selectedYear) return;
+    cMap.set(row.b, (cMap.get(row.b) || 0) + row.u);
+  });
+
+  return Array.from(cMap.entries())
+    .map(([name, YTD]) => ({ name, YTD }))
+    .sort((a, b) => b.YTD - a.YTD)
+    .slice(0, 10);
+}
+
 export function selectRankingsData(
   data: DashboardData | null,
   rankingPt: string[],
@@ -185,9 +276,11 @@ export function selectRankingsData(
   expandedBrands: Set<string>,
   selectedYear: number | "All",
   selectedVehicleTypes: string[],
-  timeKeys: string[]
+  timeKeys: string[],
+  brandModelTree?: BrandNode[] | null
 ) {
-  if (!data?.brand_model_tree) return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] };
+  const tree = brandModelTree || data?.brand_model_tree;
+  if (!tree) return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] };
 
   const map = new Map<string, Rec>();
   const modelsMap = new Map<string, Rec[]>(); // parentId -> array of model rows
@@ -196,7 +289,7 @@ export function selectRankingsData(
   let bevUnits = 0;
   const ptMixMap: Record<string, number> = { ICE: 0, BEV: 0, HEV: 0, PHEV: 0 };
 
-  data.brand_model_tree.forEach(brandNode => {
+  tree.forEach(brandNode => {
     if (rankingPt.length > 0 && !rankingPt.includes(brandNode.powertrain)) return;
     const cleanBrand = brandNode.brand;
     if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
@@ -276,12 +369,14 @@ export function selectDynamicChartData(
   rankingModel: string[],
   rankingProvince: string[],
   selectedYear: number | "All",
-  selectedVehicleTypes: string[]
+  selectedVehicleTypes: string[],
+  brandModelTree?: BrandNode[] | null
 ) {
-  if (!data?.brand_model_tree) return [];
+  const tree = brandModelTree || data?.brand_model_tree;
+  if (!tree) return [];
   const cMap = new Map<string, number>();
 
-  data.brand_model_tree.forEach(brandNode => {
+  tree.forEach(brandNode => {
     if (rankingPt.length > 0 && !rankingPt.includes(brandNode.powertrain)) return;
     const cleanBrand = brandNode.brand;
     if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
@@ -327,14 +422,16 @@ export function selectProvinceAnalysisData(
   trendProvBrand: string,
   trendProvModel: string,
   selectedVehicleTypes: string[],
-  selectedYear: number | "All"
+  selectedYear: number | "All",
+  brandModelTree?: BrandNode[] | null
 ) {
-  if (!data?.brand_model_tree) return [];
+  const tree = brandModelTree || data?.brand_model_tree;
+  if (!tree) return [];
   const provMap = new Map<string, { prov: string; totalProvVol: number; selectedVol: number; rankMap: Map<string, number> }>();
   
   const targetKey = trendProvBrand && trendProvModel ? `${trendProvBrand}|${trendProvModel}` : trendProvBrand;
 
-  data.brand_model_tree.forEach(brandNode => {
+  tree.forEach(brandNode => {
     const cleanBrand = brandNode.brand;
 
     const processNode = (node: { monthly: TreeMonthly }, isSelected: boolean, key: string) => {
@@ -420,9 +517,13 @@ export function selectProvinceAnalysisData(
        else shareStr = (p.share * 100).toFixed(1) + "%";
     }
 
-    const { rankMap, ...rest } = p;
     return {
-      ...rest,
+      prov: p.prov,
+      totalProvVol: p.totalProvVol,
+      selectedVol: p.selectedVol,
+      share: p.share,
+      topCompetitor: p.topCompetitor,
+      myRank: p.myRank,
       status,
       shareStr
     };

@@ -1,22 +1,41 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
-  PieChart as PieChartIcon, Trophy, Battery, Car, Filter, Layers, Upload, ChevronDown, Check, Search, ChevronRight, MapPin
+  AlertTriangle,
+  RefreshCw,
+  Filter,
+  Layers,
+  Trophy,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
-  Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ScatterChart, Scatter, ZAxis,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import UploadModal from "@/components/UploadModal";
 import {
-  DashboardData, Rec,
+  DashboardData, Rec, BrandNode,
   selectFilterOptions,
   selectTrendData,
   selectRankingsData,
+  selectBrandRankingsFromMonthly,
   selectDynamicChartData,
+  selectDynamicChartDataFromMonthly,
   selectProvinceAnalysisData
 } from "./selectors";
+import { FilterPillPopover } from "../components/FilterPillPopover";
 
 /* ── Palette & constants ─────────────────────────────────────────────── */
 
@@ -62,122 +81,14 @@ function Card({ title, children, className = "" }: { title?: string; children: R
 
 function MetricCard({ title, value, subtitle }: { title: string; value: string | number; subtitle?: string }) {
   return (
-    <Card className="flex flex-col justify-center border-t-2 border-t-brand-light/30 h-24 shadow-md">
+    <Card className="flex flex-col justify-center border-t-2 border-t-brand-light/30 h-24">
       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</div>
-      <div className="mt-1 font-mono text-2xl font-semibold tracking-tight text-slate-100 truncate" title={String(value)}>{value}</div>
+      <div className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100 truncate" title={String(value)}>{value}</div>
       {subtitle && <div className="mt-1 text-xs text-brand-light font-medium">{subtitle}</div>}
     </Card>
   );
 }
 
-function FilterPillPopover({ 
-  options, 
-  value, 
-  onChange, 
-  label,
-  placeholder,
-  singleSelect = false
-}: { 
-  options: (string | { id: string, label: string })[]; 
-  value: string[]; 
-  onChange: (v: string[]) => void;
-  label: string;
-  placeholder?: string;
-  singleSelect?: boolean;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) setIsOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const normalizedOptions = options.map(o => typeof o === 'string' ? { id: o, label: o } : o);
-  const filtered = normalizedOptions.filter(o => o.label.toLowerCase().includes(search.toLowerCase()) || o.id.toLowerCase().includes(search.toLowerCase()));
-
-  const toggleOpt = (optId: string) => {
-    if (singleSelect) {
-      if (value.includes(optId)) {
-        onChange([]);
-      } else {
-        onChange([optId]);
-        setIsOpen(false);
-      }
-    } else {
-      if (value.includes(optId)) onChange(value.filter(v => v !== optId));
-      else onChange([...value, optId]);
-    }
-  };
-
-  const btnText = value.length === 0 ? "All" : (singleSelect ? (normalizedOptions.find(o => o.id === value[0])?.label || value[0]) : `${value.length} / ${options.length}`);
-
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button 
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-          value.length > 0 
-            ? "border-brand-primary bg-brand-primary/10 text-brand-light" 
-            : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
-        }`}
-      >
-        <span>{label}: {btnText}</span>
-        <ChevronDown className="h-3 w-3 opacity-70" />
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-2 w-[300px] rounded-sm border border-slate-700 bg-slate-800 shadow-2xl">
-          <div className="p-2 border-b border-slate-700">
-            <div className="flex items-center rounded-sm bg-slate-900 px-2 py-1 text-xs border border-slate-700">
-              <Search className="h-3 w-3 text-slate-500 mr-2" />
-              <input 
-                type="text"
-                autoFocus
-                className="w-full bg-transparent text-slate-200 outline-none placeholder:text-slate-500"
-                placeholder={placeholder || "Search..."}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
-            {!singleSelect && (
-              <label className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${value.length === 0 ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
-                <span>All {label}</span>
-                <input type="checkbox" className="hidden" checked={value.length === 0} onChange={() => onChange([])} />
-                {value.length === 0 && <Check className="h-3 w-3" />}
-              </label>
-            )}
-            {singleSelect && value.length > 0 && (
-              <label className="flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-700" onClick={() => { onChange([]); setIsOpen(false); }}>
-                <span>Clear Selection</span>
-              </label>
-            )}
-            {filtered.map(opt => {
-              const isChecked = value.includes(opt.id);
-              return (
-                <label key={opt.id} className={`flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-xs ${isChecked ? "bg-brand-primary/20 text-brand-light" : "text-slate-300 hover:bg-slate-700"}`}>
-                  <span className="truncate pr-2">{opt.label}</span>
-                  <input type="checkbox" className="hidden" checked={isChecked} onChange={() => toggleOpt(opt.id)} />
-                  {isChecked && <Check className="h-3 w-3 flex-shrink-0" />}
-                </label>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="px-2 py-3 text-center text-xs text-slate-500">No results found</div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function DataTable({ columns, rows, onToggleRow, highlightFirst = false }: {
   columns: { key: string; label: string; align?: string }[];
@@ -195,7 +106,7 @@ function DataTable({ columns, rows, onToggleRow, highlightFirst = false }: {
     // but the instruction implies clicking the header sorts the rows.
     // If rows are already a mix of parents and subRows, sorting them flatly will detach models from brands.
     // Therefore, we must implement grouped sorting.
-    let sortableItems = [...rows];
+    const sortableItems = [...rows];
     if (sortConfig !== null) {
       // Split into parents and children mapping
       const parents = sortableItems.filter(r => !r.isSubRow);
@@ -282,11 +193,14 @@ function DataTable({ columns, rows, onToggleRow, highlightFirst = false }: {
                     {isNameCol ? (
                       <div className="flex items-center gap-2" style={{ paddingLeft: row.isSubRow ? '1.5rem' : '0' }}>
                         {row.hasChildren && onToggleRow ? (
-                          <button 
+                          <button
+                            type="button"
                             onClick={(e) => { e.stopPropagation(); onToggleRow(String(row.id)); }}
+                            aria-expanded={!!row.isExpanded}
+                            aria-label={`${row.isExpanded ? "Collapse" : "Expand"} ${row.name} models`}
                             className="flex h-4 w-4 items-center justify-center rounded-sm bg-slate-800 text-slate-400 hover:bg-brand-primary hover:text-white transition-colors"
                           >
-                            {row.isExpanded ? "▼" : "▶"}
+                            <span aria-hidden="true">{row.isExpanded ? "▼" : "▶"}</span>
                           </button>
                         ) : (
                           !row.isSubRow && <div className="w-4" />
@@ -334,10 +248,10 @@ function TopBarChart({ data, nameKey, title }: { data: Rec[], nameKey: string, t
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("rankings");
   const [selectedYear, setSelectedYear] = useState<number | "All">("All");
   const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Filter Pills (Arrays)
   const [rankingPt, setRankingPt] = useState<string[]>([]);
@@ -356,25 +270,58 @@ export default function Dashboard() {
   const [trendProvBrand, setTrendProvBrand] = useState<string>("");
   const [trendProvModel, setTrendProvModel] = useState<string>("");
 
-  useEffect(() => {
-    fetch("/data/dashboard_data.json")
-      .then((r) => r.json())
-      .then((j: DashboardData) => { 
-        setData(j); 
-        if (j.meta?.years?.length > 0) {
-          setSelectedYear(j.meta.years[j.meta.years.length - 1]);
-        }
-        setLoading(false); 
+  // Model/brand tree (dashboard_models.json) is heavy and fetched lazily —
+  // only once a tab that needs brand/model drill-down is active.
+  const [brandModelTree, setBrandModelTree] = useState<BrandNode[] | null>(null);
+  const modelsStatus = useRef<"idle" | "loading" | "loaded">("idle");
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  
+  const ensureModels = useCallback(() => {
+    if (modelsStatus.current !== "idle") return;
+    modelsStatus.current = "loading";
+    setModelsError(null);
+    fetch("/data/dashboard_models.json")
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load models data");
+        return r.json();
       })
-      .catch(() => { setLoading(false); });
+      .then((models) => {
+        modelsStatus.current = "loaded";
+        setBrandModelTree(models.brand_model_tree);
+      })
+      .catch((err) => {
+        console.error("Error loading model details:", err);
+        modelsStatus.current = "idle";
+        setModelsError("Failed to load brand/model data. Rankings and province breakdowns may be incomplete.");
+      });
+  }, []);
+
+  useEffect(() => {
+    fetch("/data/dashboard_summary.json")
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load summary data");
+        return r.json();
+      })
+      .then((summary: DashboardData) => {
+        setData(summary);
+        if (summary.meta?.years?.length > 0) {
+          setSelectedYear(summary.meta.years[summary.meta.years.length - 1]);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading summary:", err);
+        setError("Failed to load dashboard summary data.");
+        setLoading(false);
+      });
   }, []);
 
   const years = data?.meta?.years ?? [];
   const months = data?.meta?.months ?? [];
   const allDataProvinces = data?.meta?.provinces ?? [];
   const { allDataBrands, allDataModels } = useMemo(
-    () => selectFilterOptions(data, rankingBrand),
-    [data, rankingBrand]
+    () => selectFilterOptions(data, rankingBrand, brandModelTree),
+    [data, rankingBrand, brandModelTree]
   );
 
 
@@ -383,7 +330,10 @@ export default function Dashboard() {
     if (rankingModel.length > 0) {
       const validModels = rankingModel.filter(m => allDataModels.includes(m));
       if (validModels.length !== rankingModel.length) {
-        setRankingModel(validModels);
+        const timer = setTimeout(() => {
+          setRankingModel(validModels);
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, [allDataModels, rankingModel]);
@@ -402,19 +352,34 @@ export default function Dashboard() {
 
 
   // -- Drill-Down Rankings Engine (DataTable) --
-  const rankingsData = useMemo(
-    () => selectRankingsData(data, rankingPt, rankingBrand, rankingModel, rankingProvince, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys),
-    [data, rankingPt, rankingBrand, rankingModel, rankingProvince, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys]
-  );
+  // Model drill-down and province filtering need brand_model_tree (lazy-loaded); until it's
+  // loaded and neither is in play, rank by brand alone from the already-loaded brand_monthly.
+  const rankingsData = useMemo(() => {
+    if (activeTab !== "rankings") {
+      return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] };
+    }
+    if (brandModelTree) {
+      return selectRankingsData(data, rankingPt, rankingBrand, rankingModel, rankingProvince, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys, brandModelTree);
+    }
+    if (rankingProvince.length > 0 || rankingModel.length > 0) {
+      return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] }; // awaiting model/province data
+    }
+    return selectBrandRankingsFromMonthly(data, rankingPt, rankingBrand, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys);
+  }, [data, rankingPt, rankingBrand, rankingModel, rankingProvince, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys, brandModelTree, activeTab]);
 
   // -- Dynamic Group By Engine (Charts) --
-  const dynamicChartData = useMemo(
-    () => selectDynamicChartData(data, chartGroupBy, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes),
-    [data, chartGroupBy, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes]
-  );
+  const dynamicChartData = useMemo(() => {
+    if (activeTab !== "rankings") return [];
+    if (brandModelTree) {
+      return selectDynamicChartData(data, chartGroupBy, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes, brandModelTree);
+    }
+    if (chartGroupBy !== "Brands") return []; // awaiting model/province data
+    return selectDynamicChartDataFromMonthly(data, rankingPt, rankingBrand, selectedYear, selectedVehicleTypes);
+  }, [data, chartGroupBy, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes, brandModelTree, activeTab]);
 
 
   const toggleBrandExpand = (brandId: string) => {
+     ensureModels(); // expanding a brand row needs model-level data
      setExpandedBrands(prev => {
         const next = new Set(prev);
         if (next.has(brandId)) next.delete(brandId);
@@ -434,10 +399,10 @@ export default function Dashboard() {
   ];
 
   // -- Province Analysis Engine --
-  const provinceAnalysisData = useMemo(
-    () => selectProvinceAnalysisData(data, trendProvBrand, trendProvModel, selectedVehicleTypes, selectedYear),
-    [data, trendProvBrand, trendProvModel, selectedVehicleTypes, selectedYear]
-  );
+  const provinceAnalysisData = useMemo(() => {
+    if (activeTab !== "powertrain") return [];
+    return selectProvinceAnalysisData(data, trendProvBrand, trendProvModel, selectedVehicleTypes, selectedYear, brandModelTree);
+  }, [data, trendProvBrand, trendProvModel, selectedVehicleTypes, selectedYear, brandModelTree, activeTab]);
 
   const topProvinces = useMemo(() => {
     if (!trendProvBrand) return [...provinceAnalysisData].sort((a,b)=>b.totalProvVol-a.totalProvVol);
@@ -453,16 +418,41 @@ export default function Dashboard() {
   }, [provinceAnalysisData]);
 
   if (loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-light border-t-transparent"></div>
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-200 md:flex-row font-sans" role="status" aria-live="polite">
+      <span className="sr-only">Loading dashboard…</span>
+      <aside className="w-full border-b border-slate-800 bg-slate-950 md:h-screen md:w-56 md:border-b-0 md:border-r" aria-hidden="true" />
+      <main className="flex-1 space-y-4 p-4 md:space-y-6 md:p-6" aria-hidden="true">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-sm border border-slate-800 bg-slate-900" />
+          ))}
+        </div>
+        <div className="h-64 rounded-sm border border-slate-800 bg-slate-900" />
+      </main>
     </div>
   );
+
+  if (error || !data) {
+    return (
+      <div className="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-6" role="alert" aria-live="assertive">
+        <div className="flex flex-col items-center gap-4 bg-slate-900 border border-slate-800 p-6 rounded-md max-w-md text-center">
+          <AlertTriangle className="h-10 w-10 text-red-500" />
+          <h2 className="text-sm font-semibold text-red-400">Failed to Load Dashboard</h2>
+          <p className="text-xs text-slate-400">{error || "Data could not be loaded."}</p>
+          <button onClick={() => window.location.reload()} className="bg-teal-600 hover:bg-teal-500 text-white font-medium text-xs px-4 py-2 rounded-md transition-colors flex items-center gap-1.5 focus:ring-2 focus:ring-teal-400 outline-none">
+            <RefreshCw className="h-3 w-3" /> Reload
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const tabs = [
     { id: "rankings", label: "Rankings & Leaderboards", icon: Trophy },
     { id: "powertrain", label: "Powertrain & Fuel Type", icon: PieChartIcon },
-    { id: "deep-dive", label: "Brand & Model Deep-Dive", icon: Layers, href: "/models.html" },
-    { id: "analyst", label: "Analyst Table", icon: Layers, href: "/analyst.html" },
+    { id: "report", label: "Manual Report Mode", icon: Trophy, href: "/report" },
+    { id: "deep-dive", label: "Brand & Model Deep-Dive", icon: Layers, href: "/models" },
+    { id: "analyst", label: "Analyst Table", icon: Layers, href: "/analyst" },
   ];
 
   return (
@@ -472,6 +462,7 @@ export default function Dashboard() {
       <aside className="sticky top-0 z-20 flex w-full flex-col border-b border-slate-800 bg-slate-950 md:h-screen md:w-56 md:border-b-0 md:border-r">
         <div className="flex flex-col gap-2 p-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Eternity@One Logo" className="h-6 w-6 object-contain" />
             <h1 className="text-sm font-bold tracking-tight text-brand-light uppercase">EV Analytics</h1>
           </div>
@@ -484,19 +475,14 @@ export default function Dashboard() {
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value === "All" ? "All" : Number(e.target.value))}
               >
-                <option value="All" className="bg-slate-900">All Years (2564-2569)</option>
+                <option value="All" className="bg-slate-900">
+                  All Years {years.length > 0 ? `(${years[0]}-${years[years.length - 1]})` : ""}
+                </option>
                 {years.slice().reverse().map(y => (
                   <option key={y} value={y} className="bg-slate-900">Year {y}</option>
                 ))}
               </select>
             </div>
-            <button
-              onClick={() => setIsUploadModalOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-sm bg-brand-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-accent"
-            >
-              <Upload className="h-3 w-3" />
-              Upload Data
-            </button>
           </div>
         </div>
 
@@ -506,11 +492,11 @@ export default function Dashboard() {
             const Icon = t.icon;
             if ("href" in t) {
               return (
-                <a key={t.id} href={t.href}
+                <Link key={t.id} href={t.href as string}
                   className="flex min-w-max items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-900 hover:text-slate-200">
                   <Icon className="h-3.5 w-3.5 text-slate-500" />
                   <span>{t.label}</span>
-                </a>
+                </Link>
               );
             }
             return (
@@ -532,14 +518,14 @@ export default function Dashboard() {
           <div className="flex items-center gap-8 text-sm">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Selected Year</p>
-              <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-100">{selectedYear}</p>
+              <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">{selectedYear}</p>
             </div>
             {selectedVehicleTypes.length > 0 && selectedVehicleTypes.length < (data?.meta?.vehicle_types_list?.length || 0) && (
               <>
                 <div className="h-8 w-px bg-slate-800" />
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Vehicle Types Active</p>
-                  <p className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-100">
+                  <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">
                     {selectedVehicleTypes.length} <span className="text-sm text-slate-500 font-sans font-normal">of {data?.meta?.vehicle_types_list?.length || 0}</span>
                   </p>
                 </div>
@@ -549,6 +535,18 @@ export default function Dashboard() {
         </header>
 
         <div className="p-4 md:p-6">
+          {modelsError && (
+            <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-sm border border-red-900/60 bg-red-950/30 px-3 py-2 text-xs text-red-300">
+              <span className="flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" /> {modelsError}</span>
+              <button
+                type="button"
+                onClick={ensureModels}
+                className="flex items-center gap-1 rounded-sm border border-red-800/60 px-2 py-1 font-medium text-red-200 hover:bg-red-900/40 transition-colors"
+              >
+                <RefreshCw className="h-3 w-3" /> Retry
+              </button>
+            </div>
+          )}
           {/* Vehicle Type Global Filter */}
           <div className="mb-4 md:mb-6 flex flex-wrap items-center gap-2">
             <FilterPillPopover 
@@ -576,8 +574,8 @@ export default function Dashboard() {
               <div className="flex flex-wrap gap-2 items-center bg-slate-900 border border-slate-800 rounded-sm p-3">
                 <FilterPillPopover label="Powertrain" placeholder="Powertrains" options={["ICE", "BEV", "HEV", "PHEV"]} value={rankingPt} onChange={setRankingPt} />
                 <FilterPillPopover label="Brand" placeholder="Brands" options={allDataBrands} value={rankingBrand} onChange={setRankingBrand} />
-                <FilterPillPopover label="Model" placeholder="Models" options={allDataModels} value={rankingModel} onChange={setRankingModel} />
-                <FilterPillPopover label="Province" placeholder="Provinces" options={allDataProvinces} value={rankingProvince} onChange={setRankingProvince} />
+                <FilterPillPopover label="Model" placeholder="Models" options={allDataModels} value={rankingModel} onChange={setRankingModel} onOpen={ensureModels} />
+                <FilterPillPopover label="Province" placeholder="Provinces" options={allDataProvinces} value={rankingProvince} onChange={setRankingProvince} onOpen={ensureModels} />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -587,7 +585,7 @@ export default function Dashboard() {
                      {(["Brands", "Models", "Provinces"] as const).map(opt => (
                         <button
                            key={opt}
-                           onClick={() => setChartGroupBy(opt)}
+                           onClick={() => { setChartGroupBy(opt); if (opt !== "Brands") ensureModels(); }}
                            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full transition-colors ${
                               chartGroupBy === opt ? "bg-brand-primary text-white" : "text-slate-400 hover:text-slate-200"
                            }`}
@@ -682,7 +680,7 @@ export default function Dashboard() {
                     <p className="text-xs text-slate-500 mt-0.5">Identify strongholds and gaps across regions</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <FilterPillPopover 
+                    <FilterPillPopover
                        label="Brand"
                        placeholder="Search brand..."
                        options={allDataBrands}
@@ -691,16 +689,18 @@ export default function Dashboard() {
                           setTrendProvBrand(val[0] || "");
                           setTrendProvModel("");
                        }}
+                       onOpen={ensureModels}
                        singleSelect
                     />
 
                     {trendProvBrand && (
-                       <FilterPillPopover 
+                       <FilterPillPopover
                           label="Model"
                           placeholder="Search model..."
-                          options={data?.brand_model_tree.find(b => b.brand === trendProvBrand)?.models?.map(m => m.name) || []}
+                           options={brandModelTree?.find(b => b.brand === trendProvBrand)?.models?.map(m => m.name) || []}
                           value={trendProvModel ? [trendProvModel] : []}
                           onChange={(val) => setTrendProvModel(val[0] || "")}
+                          onOpen={ensureModels}
                           singleSelect
                        />
                     )}
@@ -759,14 +759,27 @@ export default function Dashboard() {
               </div>
             </>)}
 
+            {/* ── Disclosures Footer ───────────────── */}
+            <footer className="mt-12 border-t border-slate-800/80 pt-6 text-[10px] text-slate-500 space-y-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+                <p><strong>Source:</strong> Thailand Department of Land Transport (DLT) New Vehicle Registrations</p>
+                <p><strong>Reporting Period:</strong> {data.meta?.reporting_period ?? "—"}</p>
+              </div>
+              <p>
+                <strong>Vehicle Types Included:</strong> {data.meta?.vehicle_types_list?.map(v => v.label).join(", ") || "—"}
+              </p>
+              <p>
+                <strong>Methodology:</strong> Historical and current registration data are unified and mapped against a canonical dictionary of brand/model aliases. Fuel classifications are derived from DLT category definitions.
+              </p>
+              <p>
+                <strong>Limitations:</strong> Registration records may feature lag relative to purchase dates. Data is subject to corrections by the DLT. Normalization mappings are updated continuously to minimize classification discrepancies.
+              </p>
+              <p className="text-slate-600">Independent analysis; not an official DLT website.</p>
+            </footer>
+
           </div>
         </div>
       </main>
-
-      <UploadModal 
-        isOpen={isUploadModalOpen} 
-        onClose={() => setIsUploadModalOpen(false)} 
-      />
     </div>
   );
 }

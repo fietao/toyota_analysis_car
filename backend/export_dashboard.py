@@ -1,6 +1,7 @@
 """Export multi-year dashboard data from parquet to flat JSON."""
 import sys
 import json
+import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -73,6 +74,12 @@ MONTH_MAP = {
 
 MONTH_IDX = {m: i for i, m in enumerate(MONTH_MAP.values())}
 
+FULL_MONTH_EN = {
+    "Jan": "January", "Feb": "February", "Mar": "March", "Apr": "April",
+    "May": "May", "Jun": "June", "Jul": "July", "Aug": "August",
+    "Sep": "September", "Oct": "October", "Nov": "November", "Dec": "December",
+}
+
 PT_FUEL_LABEL = {
     "BEV": "ไฟฟ้า (BEV)", "HEV": "ไฮบริด (HEV)",
     "PHEV": "ปลั๊กอินไฮบริด (PHEV)", "ICE": "เครื่องยนต์สันดาป (ICE)",
@@ -105,12 +112,12 @@ def build_brand_model_tree(df_brand: pd.DataFrame, df_model_rows: pd.DataFrame) 
     # Model-level monthly from model parquet
     model_grp = aggregate(
         df_model_rows,
-        ["ยี่ห้อรถ2", "รุ่นรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"],
+        ["ยี่ห้อรถ2", "รุ่นรถ2", "PT", "Powertrain", "v_code", "จังหวัด", "ปี", "เดือน"],
         {"mode": "monthly", "units_col": "จำนวนรถ"},
     )
 
     for _, row in model_grp.iterrows():
-        b, mod, pt, vc = row["ยี่ห้อรถ2"], row["รุ่นรถ2"], row["PT"], row["v_code"]
+        b, mod, pt, model_powertrain, vc = row["ยี่ห้อรถ2"], row["รุ่นรถ2"], row["PT"], row["Powertrain"], row["v_code"]
         province = row["จังหวัด"]
         year, m_idx, u = str(int(row["ปี"])), MONTH_IDX.get(row["เดือน"]), int(row["จำนวนรถ"])
         if m_idx is None:
@@ -120,9 +127,10 @@ def build_brand_model_tree(df_brand: pd.DataFrame, df_model_rows: pd.DataFrame) 
         if bkey not in brand_map:
             brand_map[bkey] = {"brand": b, "powertrain": pt, "fuel": fuel_label, "monthly": {}, "models": {}}
         bn = brand_map[bkey]
-        if mod not in bn["models"]:
-            bn["models"][mod] = {"name": mod, "fuel": fuel_label, "monthly": {}}
-        mn = bn["models"][mod]
+        model_key = f"{mod}||{model_powertrain}"
+        if model_key not in bn["models"]:
+            bn["models"][model_key] = {"name": mod, "powertrain": model_powertrain, "fuel": fuel_label, "monthly": {}}
+        mn = bn["models"][model_key]
         mn_p = mn["monthly"].setdefault(vc, {}).setdefault(province, {})
         mn_p.setdefault(year, [0] * 12)[m_idx] += u
 
@@ -196,7 +204,7 @@ def export_data():
     # Use all rows, no รย filter
     df = df_model_all
     df_fuel = df_fuel_all
-    
+
     # 1. Powertrain master from fuel parquet
     pm_grp = aggregate(
         df_fuel,
@@ -280,7 +288,7 @@ def export_data():
     BEV_PT = "BEV"
 
     month_order = list(MONTH_MAP.values())
-    
+
     all_periods = set((row["y"], row["m"]) for row in brand_data)
     sorted_periods = sorted(list(all_periods), key=lambda x: (x[0], month_order.index(x[1])))
     if sorted_periods:
@@ -288,6 +296,10 @@ def export_data():
         latest_m = month_order[latest_m_num - 1]
     else:
         latest_y, latest_m = None, None
+
+    reporting_period = (
+        f"{FULL_MONTH_EN.get(latest_m, latest_m)} {latest_y}" if latest_y is not None else None
+    )
 
     if latest_y is not None:
         latest_m_idx = month_order.index(latest_m)
@@ -309,12 +321,12 @@ def export_data():
             u = row["u"]
             b = row["b"]
             pt = row["pt"]
-            
+
             if b == TARGET_BRAND:
                 monthly_units_dict[k] = monthly_units_dict.get(k, 0) + u
                 if pt == BEV_PT:
                     monthly_bev_dict[k] = monthly_bev_dict.get(k, 0) + u
-                    
+
             if pt == BEV_PT:
                 total_bev_monthly_dict[k] = total_bev_monthly_dict.get(k, 0) + u
                 if k == (latest_y, latest_m):
@@ -329,10 +341,10 @@ def export_data():
             mu = monthly_units_dict.get(k, 0)
             mbev = monthly_bev_dict.get(k, 0)
             tbev = total_bev_monthly_dict.get(k, 0)
-            
+
             monthly_units.append({"y": y, "m": m, "u": mu})
             monthly_bev.append({"y": y, "m": m, "u": mbev})
-            
+
             share = mbev / tbev if tbev > 0 else 0.0
             bev_share_monthly.append({"y": y, "m": m, "share": round(share, 4)})
 
@@ -345,7 +357,7 @@ def export_data():
 
         bev_competitor_ranking = [{"brand": b, "u": u} for b, u in latest_month_bev.items() if u > 0]
         bev_competitor_ranking.sort(key=lambda x: -x["u"])
-        
+
         bev_rank_latest = next((i + 1 for i, item in enumerate(bev_competitor_ranking) if item["brand"] == TARGET_BRAND), None)
 
         top_models_dict = {}
@@ -353,7 +365,7 @@ def export_data():
             if row["b"] == TARGET_BRAND and row["y"] == latest_y and row["m"] == latest_m:
                 k = (row["mod"], row["pt"])
                 top_models_dict[k] = top_models_dict.get(k, 0) + row["u"]
-                
+
         top_models = [{"mod": mod, "pt": pt, "u": u} for (mod, pt), u in top_models_dict.items()]
         top_models.sort(key=lambda x: -x["u"])
 
@@ -371,99 +383,85 @@ def export_data():
         }
     else:
         brand_focus = {}
-        
+
     print("brand_focus keys: " + str(list(brand_focus.keys())))
 
-    data = {
+    summary_data = {
         "meta": {"years": years, "months": list(MONTH_MAP.values()),
                  "vehicle_types": all_v, "vehicle_types_list": vehicle_types_list,
-                 "provinces": provinces},
+                 "provinces": provinces,
+                 "generated_at": datetime.datetime.now().isoformat(),
+                 "latest_year": latest_y, "latest_month": latest_m,
+                 "reporting_period": reporting_period},
         "powertrain_master": pm_data,
         "fuel_monthly": fuel_data,
         "brand_monthly": brand_data,
-        "model_monthly_all": model_data,
-        "brand_model_tree": brand_model_tree,
         "brand_focus": brand_focus,
+    }
+
+    models_data = {
+        "meta": summary_data["meta"],
+        "brand_model_tree": brand_model_tree,
     }
 
     print(f"  powertrain_master rows: {len(pm_data):,}")
     print(f"  fuel_monthly rows: {len(fuel_data):,}")
     print(f"  brand_monthly rows: {len(brand_data):,}")
-    print(f"  model_monthly_all rows: {len(model_data):,}")
     print(f"  brand_model_tree brands: {len(brand_model_tree):,}")
 
-    out_file = FRONTEND_DATA_DIR / "dashboard_data.json"
-    with open(out_file, "w", encoding="utf-8") as f:
-        # no indent to save space, it will be around 1-3MB
-        json.dump(data, f, ensure_ascii=False)
+    summary_file = FRONTEND_DATA_DIR / "dashboard_summary.json"
+    with open(summary_file, "w", encoding="utf-8") as f:
+        json.dump(summary_data, f, ensure_ascii=False)
 
-    mb = out_file.stat().st_size / (1024 * 1024)
-    print(f"Exported to {out_file.name} ({mb:.1f} MB)")
+    models_file = FRONTEND_DATA_DIR / "dashboard_models.json"
+    with open(models_file, "w", encoding="utf-8") as f:
+        json.dump(models_data, f, ensure_ascii=False)
+
+    sum_mb = summary_file.stat().st_size / (1024 * 1024)
+    mod_mb = models_file.stat().st_size / (1024 * 1024)
+    print(f"Exported to {summary_file.name} ({sum_mb:.2f} MB)")
+    print(f"Exported to {models_file.name} ({mod_mb:.2f} MB)")
 
     print(f"Filtered model summary total: {df['จำนวนรถ'].sum():,}")
-    validate_export(data)
 
-    # --- Export Full Cleaned Data ---
-    import shutil
-    import datetime
+    # Run validation
+    validate_export(summary_data, models_data, int(df_model_all["จำนวนรถ"].sum()), int(df_fuel_all["จำนวนรถ"].sum()))
 
-    cleaned_model_dest = FRONTEND_DATA_DIR / "cleaned_model_data.parquet"
-    cleaned_fuel_dest = FRONTEND_DATA_DIR / "cleaned_fuel_data.parquet"
-    
-    print("Copying full cleaned parquets to frontend...")
-    shutil.copy2(MODEL_PARQUET, cleaned_model_dest)
-    shutil.copy2(FUEL_PARQUET, cleaned_fuel_dest)
-    
-    # Validation for the copies
-    print("Validating copied parquets...")
-    df_model_copy = load_data(cleaned_model_dest)
-    df_fuel_copy = load_data(cleaned_fuel_dest)
-    
-    if len(df_model_copy) != len(df_model_all):
-        raise ValueError(f"VALIDATION FAILED: Copied model parquet row count mismatch ({len(df_model_copy)} vs {len(df_model_all)})")
-    if len(df_fuel_copy) != len(df_fuel_all):
-        raise ValueError(f"VALIDATION FAILED: Copied fuel parquet row count mismatch ({len(df_fuel_copy)} vs {len(df_fuel_all)})")
-        
-    model_copy_sum = df_model_copy["จำนวนรถ"].sum()
-    fuel_copy_sum = df_fuel_copy["จำนวนรถ"].sum()
-    model_all_sum = df_model_all["จำนวนรถ"].sum()
-    fuel_all_sum = df_fuel_all["จำนวนรถ"].sum()
-    
-    if model_copy_sum != model_all_sum:
-        raise ValueError(f"VALIDATION FAILED: Copied model total mismatch ({model_copy_sum} vs {model_all_sum})")
-    if fuel_copy_sum != fuel_all_sum:
-        raise ValueError(f"VALIDATION FAILED: Copied fuel total mismatch ({fuel_copy_sum} vs {fuel_all_sum})")
-         
-    raw_model_cols = list(pd.read_parquet(cleaned_model_dest).columns)
-    raw_fuel_cols = list(pd.read_parquet(cleaned_fuel_dest).columns)
-    
+    # --- Export Metadata Manifest Only (No Parquet Copies) ---
+    raw_model_cols = list(pd.read_parquet(MODEL_PARQUET).columns)
+    raw_fuel_cols = list(pd.read_parquet(FUEL_PARQUET).columns)
+
     manifest = {
         "generated_at": datetime.datetime.now().isoformat(),
-        "model_row_count": len(df_model_copy),
-        "fuel_row_count": len(df_fuel_copy),
-        "model_total_units": int(model_copy_sum),
-        "fuel_total_units": int(fuel_copy_sum),
-        "years_present": sorted([int(y) for y in df_model_copy["ปี"].unique() if pd.notnull(y)]),
-        "vehicle_type_codes": sorted([str(v) for v in df_model_copy["v_code"].unique() if pd.notnull(v)]),
+        "latest_year": latest_y,
+        "latest_month": latest_m,
+        "reporting_period": reporting_period,
+        "model_row_count": len(df_model_all),
+        "fuel_row_count": len(df_fuel_all),
+        "model_total_units": int(df_model_all["จำนวนรถ"].sum()),
+        "fuel_total_units": int(df_fuel_all["จำนวนรถ"].sum()),
+        "years_present": sorted([int(y) for y in df_model_all["ปี"].unique() if pd.notnull(y)]),
+        "vehicle_type_codes": sorted([str(v) for v in df_model_all["v_code"].unique() if pd.notnull(v)]),
         "model_columns": raw_model_cols,
         "fuel_columns": raw_fuel_cols
     }
-    
+
     manifest_dest = FRONTEND_DATA_DIR / "cleaned_data_manifest.json"
     with open(manifest_dest, "w", encoding="utf-8") as mf:
         json.dump(manifest, mf, indent=2, ensure_ascii=False)
-        
-    print(f"Exported raw parquet copies and manifest to {FRONTEND_DATA_DIR.name}")
 
-def validate_export(data: dict):
+    print(f"Exported manifest to {FRONTEND_DATA_DIR.name}")
+
+def validate_export(summary: dict, models: dict, source_model_sum: int, source_fuel_sum: int):
     print("\n--- VALIDATING DASHBOARD EXPORT ---")
-    fuel_total = sum(d.get("u", 0) for d in data.get("fuel_monthly", []))
+    fuel_total = sum(d.get("u", 0) for d in summary.get("fuel_monthly", []))
+    brand_monthly_total = sum(d.get("u", 0) for d in summary.get("brand_monthly", []))
 
     brand_total = 0
     model_total = 0
     tree_by_v = set()
-    
-    for b in data.get("brand_model_tree", []):
+
+    for b in models.get("brand_model_tree", []):
         b_sum = 0
         for v, v_data in b.get("monthly", {}).items():
             tree_by_v.add(v)
@@ -484,23 +482,43 @@ def validate_export(data: dict):
         model_total += m_sum
 
     print(f"  fuel_monthly total: {fuel_total:,}")
+    print(f"  brand_monthly total: {brand_monthly_total:,}")
     print(f"  brand_model_tree brand total: {brand_total:,}")
     print(f"  brand_model_tree model total: {model_total:,}")
-    
-    meta_v_list = data.get("meta", {}).get("vehicle_types_list", [])
+    print(f"  Source model parquet total: {source_model_sum:,}")
+    print(f"  Source fuel parquet total: {source_fuel_sum:,}")
+
+    meta_v_list = summary.get("meta", {}).get("vehicle_types_list", [])
     meta_v_codes = {v["code"] for v in meta_v_list}
-    
+
     print(f"  Vehicle types exported in tree: {len(tree_by_v)} codes")
     print(f"  {sorted(list(tree_by_v))}")
-    
-    if not (fuel_total == brand_total == model_total):
-        raise ValueError(f"VALIDATION FAILED: Totals do not match! fuel={fuel_total}, brand={brand_total}, model={model_total}")
-        
+
+    # Assertions
+    if not (fuel_total == brand_monthly_total == brand_total == model_total == source_model_sum == source_fuel_sum):
+        raise ValueError(
+            f"VALIDATION FAILED: Totals do not match!\n"
+            f"  fuel_monthly={fuel_total}\n"
+            f"  brand_monthly={brand_monthly_total}\n"
+            f"  brand_tree={brand_total}\n"
+            f"  model_tree={model_total}\n"
+            f"  source_model={source_model_sum}\n"
+            f"  source_fuel={source_fuel_sum}"
+        )
+
     missing_in_meta = tree_by_v - meta_v_codes
     if missing_in_meta:
         raise ValueError(f"VALIDATION FAILED: Vehicle types in tree missing from meta.vehicle_types_list: {missing_in_meta}")
-        
-    print("VALIDATION PASSED: All totals reconcile and vehicle types are properly mapped.\n")
+
+    # Invariant: No duplicated dataset or wrong shapes
+    if "brand_model_tree" in summary:
+        raise ValueError("VALIDATION FAILED: brand_model_tree should not be present in dashboard_summary.json")
+    if "model_monthly_all" in models:
+        raise ValueError("VALIDATION FAILED: model_monthly_all should not be present in dashboard_models.json")
+    if "fuel_monthly" in models:
+        raise ValueError("VALIDATION FAILED: fuel_monthly should not be present in dashboard_models.json")
+
+    print("VALIDATION PASSED: All totals reconcile, shapes are correct, and vehicle types are properly mapped.\n")
 
 if __name__ == "__main__":
     export_data()

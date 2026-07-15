@@ -3,15 +3,16 @@
 build_cleaned.py — Data Cleaner Agent script.
 
 Steps:
-  1. Read reference tables from Model.xlsx (powertrain map, BEV series name table)
-  2. Read both raw DLT files (fuel + model)
-  3. Add derived columns: ยี่ห้อรถ2, รุ่นรถ2, Powertrain
-  4. Write Cleaned Data + master powertrain sheets
-  5. Save df_cleaned as pickle for build_pivots.py
+  1. Read both raw DLT files (fuel + model)
+  2. Append raw model names missing from the existing master mapping sheet
+  3. Read reference tables from Model.xlsx (powertrain map, BEV series name table)
+  4. Add derived columns: ยี่ห้อรถ2, รุ่นรถ2, Powertrain
+  5. Update Cleaned Data in the existing master workbook in place
+  6. Save df_cleaned as parquet for downstream scripts
 
 Output:
-  test_model_1.xlsx  (Cleaned Data, master powertrain)
-  test_model_cleaned.pkl  (intermediate for pivot builder)
+  existing masterModel.xlsx updated in place
+  test_model_cleaned.parquet  (intermediate for downstream scripts)
 """
 
 import csv, glob, sys, os, zipfile, re
@@ -30,7 +31,7 @@ def read_dlt_file(path: Path) -> pd.DataFrame:
     if "จำนวนรถ" in df.columns:
         df["จำนวนรถ"] = pd.to_numeric(df["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     return df
-    
+
 BASE = Path(__file__).resolve().parent
 RAW1_PATTERN  = str(BASE / "raw data" / "**" / "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx")
 RAW2_PATTERN  = str(BASE / "raw data" / "**" / "รถใหม่_ยี่ห้อรถ-รุ่นรถ-จังหวัด ปี 2564*.xlsx")
@@ -73,7 +74,7 @@ def find_file(pattern, label):
     return Path(max(matches, key=os.path.getmtime))
 
 
-# what is kwargs 
+# what is kwargs
 def read_sheet_raw(path, sheet_name, **kwargs):
     try:
         return pd.read_excel(str(path), sheet_name=sheet_name, header=None, engine="calamine", **kwargs)
@@ -375,6 +376,224 @@ def _col(n):
 def _esc(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;")
                  .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _header_key(value):
+    return re.sub(r"[\s_\-().]+", "", str(value or "").strip().lower())
+
+
+def _find_header(headers, aliases):
+    wanted = {_header_key(alias) for alias in aliases}
+    for idx, header in enumerate(headers, start=1):
+        if _header_key(header) in wanted:
+            return idx
+    return None
+
+
+def _sheet_xml_path(workbook_path, sheet_name):
+    with zipfile.ZipFile(str(workbook_path), "r") as z:
+        wb_xml = z.read("xl/workbook.xml").decode("utf-8")
+        rels_xml = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+
+    rid_m = (
+        re.search(rf'<sheet\b[^>]*\bname="{re.escape(sheet_name)}"[^>]*\br:id="([^"]+)"', wb_xml)
+        or re.search(rf'<sheet\b[^>]*\br:id="([^"]+)"[^>]*\bname="{re.escape(sheet_name)}"', wb_xml)
+    )
+    if not rid_m:
+        return None
+
+    rel_m = re.search(rf'<Relationship\b(?=[^>]*\bId="{re.escape(rid_m.group(1))}")[^>]*/?>', rels_xml)
+    target_m = re.search(r'\bTarget="([^"]+)"', rel_m.group(0)) if rel_m else None
+    if not target_m:
+        return None
+    target = target_m.group(1).lstrip("/")
+    return f"xl/{target}" if not target.startswith("xl/") else target
+
+
+def _normalise_model_key(value):
+    return str(value).strip().upper() if pd.notna(value) else ""
+
+
+def _load_model2_csv_map():
+    csv_map_path = BASE / "refer" / "model2_map.csv"
+    if not csv_map_path.exists():
+        return {}
+    df_csv = pd.read_csv(str(csv_map_path), encoding="utf-8-sig")
+    if not {"รุ่นรถ_raw", "รุ่นรถ2"}.issubset(df_csv.columns):
+        return {}
+    return dict(zip(
+        df_csv["รุ่นรถ_raw"].astype(str).str.strip().str.upper(),
+        df_csv["รุ่นรถ2"].astype(str).str.strip(),
+    ))
+
+
+def _suggest_missing_model_rows(df_model):
+    brand_map = load_powertrain_map(str(BASE / "config" / "brand_map.csv"), "brand", "brand2")
+    brand_map = {str(k).strip().upper(): str(v).strip() for k, v in brand_map.items()}
+    powertrain_map = load_powertrain_map(str(BASE / "config" / "powertrain_map.csv"))
+    model2_csv_map = _load_model2_csv_map()
+
+    required = {"ยี่ห้อรถ", "รุ่นรถ"}
+    if not required.issubset(df_model.columns):
+        return []
+
+    work = df_model.copy()
+    work["_raw_model"] = work["รุ่นรถ"].astype(str).str.strip()
+    work["_model_key"] = work["_raw_model"].str.upper()
+    work = work[work["_raw_model"] != ""]
+    if work.empty:
+        return []
+
+    work["_brand"] = (
+        work["ยี่ห้อรถ"].astype(str).str.strip().str.upper()
+        .map(brand_map)
+        .fillna(work["ยี่ห้อรถ"].astype(str).str.strip())
+    )
+    if "ชนิดเชื้อเพลิง" in work.columns:
+        work["_powertrain"] = work["ชนิดเชื้อเพลิง"].map(powertrain_map).map(clean_powertrain_value)
+    else:
+        work["_powertrain"] = "OTH"
+    work["_units"] = pd.to_numeric(work.get("จำนวนรถ", 1), errors="coerce").fillna(1)
+    work["_order"] = range(len(work))
+
+    # Keep the first-seen model order for append order, but choose suggestions from
+    # the highest-volume brand/powertrain tuple for that raw model.
+    ranked = (
+        work.groupby(["_model_key", "_raw_model", "_brand", "_powertrain"], dropna=False)
+        .agg(_units=("_units", "sum"), _order=("_order", "min"))
+        .reset_index()
+        .sort_values(["_model_key", "_units", "_order"], ascending=[True, False, True])
+        .drop_duplicates(subset=["_model_key"], keep="first")
+    )
+    first_order = work.groupby("_model_key")["_order"].min().to_dict()
+    ranked["_first_order"] = ranked["_model_key"].map(first_order)
+    ranked = ranked.sort_values("_first_order", kind="mergesort")
+
+    rows = []
+    for _, row in ranked.iterrows():
+        raw_model = str(row["_raw_model"]).strip()
+        model_key = str(row["_model_key"]).strip().upper()
+        rows.append({
+            "Brand": str(row["_brand"]).strip() or "N/A",
+            "รุ่นรถ": raw_model,
+            "รุ่นรถ2": model2_csv_map.get(model_key, raw_model),
+            "Powertrain": clean_powertrain_value(row["_powertrain"]),
+        })
+    return rows
+
+
+def append_missing_master_model_rows(workbook_path: Path, df_model: pd.DataFrame) -> int:
+    """Append raw models missing from the workbook mapping sheet, without rewriting it.
+
+    The current workbook uses "BEV Series Name Table" as the raw model mapping sheet.
+    Future templates may add optional Index/Status columns; when present, they are
+    populated, but existing rows/cells are never edited.
+    """
+    sheet_name = "BEV Series Name Table"
+    path = Path(workbook_path)
+    wb = load_workbook(str(path), read_only=True, data_only=False)
+    try:
+        if sheet_name not in wb.sheetnames:
+            print(f"      {sheet_name}: not found — skipping missing-model append")
+            return 0
+        ws = wb[sheet_name]
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        cols = {
+            "index": _find_header(headers, ["Index", "Idx", "#", "No", "No.", "ลำดับ"]),
+            "brand": _find_header(headers, ["Brand", "ยี่ห้อรถ2", "ยี่ห้อรถ"]),
+            "raw_model": _find_header(headers, ["รุ่นรถ", "raw model", "model", "รุ่นรถ_raw"]),
+            "canonical": _find_header(headers, ["รุ่นรถ2", "canonical model", "model2"]),
+            "powertrain": _find_header(headers, ["Powertrain", "powertrain suggestion"]),
+            "status": _find_header(headers, ["Status", "สถานะ", "Review Status"]),
+        }
+        required_cols = ["brand", "raw_model", "canonical", "powertrain"]
+        missing_cols = [name for name in required_cols if not cols[name]]
+        if missing_cols:
+            print(f"      {sheet_name}: missing column(s) {', '.join(missing_cols)} — skipping")
+            return 0
+
+        existing_models = set()
+        last_data_row = 1
+        max_index = 0
+        for row in ws.iter_rows(min_row=2, max_col=len(headers), values_only=False):
+            raw_value = row[cols["raw_model"] - 1].value
+            raw_key = _normalise_model_key(raw_value)
+            if raw_key:
+                existing_models.add(raw_key)
+                last_data_row = max(last_data_row, row[0].row)
+            if cols["index"]:
+                idx_value = row[cols["index"] - 1].value
+                try:
+                    max_index = max(max_index, int(idx_value))
+                except (TypeError, ValueError):
+                    pass
+    finally:
+        wb.close()
+
+    suggestions = [
+        row for row in _suggest_missing_model_rows(df_model)
+        if _normalise_model_key(row["รุ่นรถ"]) not in existing_models
+    ]
+    if not suggestions:
+        print(f"      {sheet_name}: no new raw model names")
+        return 0
+
+    sheet_path = _sheet_xml_path(path, sheet_name)
+    if not sheet_path:
+        print(f"      {sheet_name}: could not resolve sheet XML — skipping")
+        return 0
+
+    with zipfile.ZipFile(str(path), "r") as z:
+        old_xml = z.read(sheet_path).decode("utf-8")
+
+    style_by_col = {}
+    last_row_m = re.search(rf'<row\b[^>]*\br="{last_data_row}"[^>]*>(.*?)</row>', old_xml, flags=re.S)
+    if last_row_m:
+        for cell_m in re.finditer(r'<c\b([^>]*)\br="([A-Z]+)\d+"([^>]*)>', last_row_m.group(1)):
+            attrs = cell_m.group(1) + cell_m.group(3)
+            style_m = re.search(r'\bs="([^"]+)"', attrs)
+            if style_m:
+                style_by_col[cell_m.group(2)] = style_m.group(1)
+
+    def cell_xml(col_idx, row_idx, value):
+        col = _col(col_idx)
+        style = f' s="{style_by_col[col]}"' if col in style_by_col else ""
+        value = "" if value is None else str(value).strip()
+        return f'<c r="{col}{row_idx}"{style} t="inlineStr"><is><t>{_esc(value)}</t></is></c>'
+
+    rows_xml = []
+    for offset, row in enumerate(suggestions, start=1):
+        row_idx = last_data_row + offset
+        values = {}
+        if cols["index"]:
+            values[cols["index"]] = max_index + offset
+        values[cols["brand"]] = row["Brand"]
+        values[cols["raw_model"]] = row["รุ่นรถ"]
+        values[cols["canonical"]] = row["รุ่นรถ2"]
+        values[cols["powertrain"]] = row["Powertrain"]
+        if cols["status"]:
+            values[cols["status"]] = "NEW"
+
+        cells = "".join(cell_xml(col_idx, row_idx, values[col_idx]) for col_idx in sorted(values))
+        rows_xml.append(f'<row r="{row_idx}">{cells}</row>')
+
+    new_last_row = last_data_row + len(suggestions)
+    new_xml = old_xml.replace("</sheetData>", "".join(rows_xml) + "</sheetData>", 1)
+    last_col = _col(len(headers))
+    if re.search(r'<dimension\b[^>]*\bref="[^"]+"', new_xml):
+        new_xml = re.sub(r'(<dimension\b[^>]*\bref=")[^"]+"', rf'\g<1>A1:{last_col}{new_last_row}"', new_xml, count=1)
+    if re.search(r'<autoFilter\b[^>]*\bref="[^"]+"', new_xml):
+        new_xml = re.sub(r'(<autoFilter\b[^>]*\bref=")[^"]+"', rf'\g<1>A1:{last_col}{new_last_row}"', new_xml, count=1)
+
+    tmp = path.with_suffix(".tmp-model-map.xlsx")
+    with zipfile.ZipFile(str(path), "r") as zin, \
+         zipfile.ZipFile(str(tmp), "w", compression=zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = new_xml.encode("utf-8") if item.filename == sheet_path else zin.read(item.filename)
+            zout.writestr(item, data)
+    tmp.replace(path)
+    print(f"      {sheet_name}: appended {len(suggestions)} new raw model row(s)")
+    return len(suggestions)
 
 
 def _patch_pivot_table_def1(xml):
@@ -836,16 +1055,6 @@ def _add_summary_sheet(workbook_path, sheet_name, df_cleaned):
     print(f"      Added sheet '{sheet_name}': {len(tbl_a)} fuel rows | {len(tbl_b)} BEV series rows")
 
 
-def _new_model_path(df_raw: "pd.DataFrame", current_model: Path) -> Path:
-    """Build the test run output filename, incrementing the run counter."""
-    parent = BASE / "output"
-    parent.mkdir(exist_ok=True)
-    n = 1
-    while (parent / f"test_{n}_masterModel.xlsx").exists():
-        n += 1
-    return parent / f"test_{n}_masterModel.xlsx"
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def find_master_model_file() -> Path:
@@ -926,7 +1135,7 @@ def load_reference_maps(model_file: Path) -> dict:
         print(f"      Loaded {len(csv_model2_map)} mappings from model2_map.csv")
 
     print(f"      {len(model2_map)} รุ่นรถ2 mappings")
-    
+
     return {
         "powertrain_map": powertrain_map,
         "brand2_order": brand2_order,
@@ -982,24 +1191,24 @@ def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dic
         df_model["Powertrain"] = powertrain_col
     else:
         df_model.insert(df_model.columns.get_loc("รุ่นรถ2") + 1, "Powertrain", powertrain_col)
-        
+
     return df_model, df_fuel
 
 def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, rebuild_years: set[int], maps: dict, is_fuel: bool = False) -> tuple[pd.DataFrame, dict]:
     raw_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
     raw_rebuild_mask = raw_year.isin(rebuild_years)
-    
+
     if df_existing is not None:
         existing_year = pd.to_numeric(df_existing["ปี"], errors="coerce")
         existing_rebuild_mask = existing_year.isin(rebuild_years)
-        
+
         df_keep = df_existing[~existing_rebuild_mask]
         df_add = df_cleaned[raw_rebuild_mask]
         merged = pd.concat([df_keep, df_add], ignore_index=True)
         if not is_fuel:
             merged = sort_cleaned_data(merged, maps["brand2_order"])
         df_cleaned = ordered_cols(merged)
-        
+
         if not is_fuel:
             raw_key = df_cleaned["ปี"].astype(str) + "_" + df_cleaned["เดือน"].astype(str)
             rebuilt_keys = set(raw_key[raw_rebuild_mask].unique())
@@ -1008,7 +1217,7 @@ def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, re
             existing_rebuild_keys = set(existing_rebuild_key.unique())
             new_keys = rebuilt_keys - existing_rebuild_keys
             corrected_keys = rebuilt_keys & existing_rebuild_keys
-            
+
             rebuild_year_labels = sorted(str(y) for y in rebuild_years)
             print(f"  Rolling rebuild: BE years {rebuild_year_labels} | {len(rebuilt_keys)} month(s) from raw data")
             print(f"  Kept rows before {min(rebuild_years)}: {len(df_keep):,}")
@@ -1017,7 +1226,7 @@ def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, re
             if corrected_keys:
                 print(f"  Rebuilt {len(corrected_keys)} existing month(s): {', '.join(sorted(corrected_keys))}")
             print(f"  Final row count: {len(df_cleaned):,}")
-            
+
             return df_cleaned, {"new_keys": new_keys, "corrected_keys": corrected_keys}
         else:
             return df_cleaned, {}
@@ -1029,6 +1238,19 @@ def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, re
             print(f"  Rolling rebuild: BE years {rebuild_year_labels} | {len(rebuilt_keys)} month(s) from raw data")
             return ordered_cols(df_cleaned), {"new_keys": set(), "corrected_keys": rebuilt_keys}
         return ordered_cols(df_cleaned), {}
+
+def reapply_canonical_maps(df: pd.DataFrame, maps: dict, is_fuel: bool = False) -> pd.DataFrame:
+    """Narrowly reapplies canonical brand and model identity fields to final dataset."""
+    brand_map = maps["merged_brand2_map"]
+    upper_brand = df["ยี่ห้อรถ"].astype(str).str.strip().str.upper()
+    df["ยี่ห้อรถ2"] = upper_brand.map(brand_map).fillna(df["ยี่ห้อรถ"])
+
+    if not is_fuel:
+        model2_map = maps["model2_map"]
+        upper_model = df["รุ่นรถ"].astype(str).str.strip().str.upper()
+        df["รุ่นรถ2"] = upper_model.map(model2_map).fillna(df["รุ่นรถ"])
+
+    return df
 
 def resolve_bev_review_records(df_cleaned: pd.DataFrame, maps: dict, rebuild_years: set[int]) -> list[dict]:
     bev_scope_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
@@ -1051,7 +1273,7 @@ def write_pipeline_state(base_dir: Path, out_file: Path, new_keys: set, correcte
 def update_known_models(base_dir: Path, df_cleaned: pd.DataFrame) -> None:
     known_models_path = base_dir / "config" / "known_models.txt"
     known_models_path.parent.mkdir(exist_ok=True, parents=True)
-    
+
     if "รุ่นรถ" in df_cleaned.columns and "ยี่ห้อรถ2" in df_cleaned.columns:
         curr_models_df = df_cleaned[["รุ่นรถ", "ยี่ห้อรถ2"]].dropna().copy()
         curr_models_df["รุ่นรถ_clean"] = curr_models_df["รุ่นรถ"].astype(str).str.strip()
@@ -1068,7 +1290,7 @@ def update_known_models(base_dir: Path, df_cleaned: pd.DataFrame) -> None:
         else:
             with open(known_models_path, "r", encoding="utf-8") as f:
                 known = {line.strip() for line in f if line.strip()}
-            
+
             new_models = []
             for _, row in curr_models_df.iterrows():
                 m = row["รุ่นรถ_clean"]
@@ -1076,7 +1298,7 @@ def update_known_models(base_dir: Path, df_cleaned: pd.DataFrame) -> None:
                     b = row["ยี่ห้อรถ2_clean"]
                     print(f"NEW MODEL DETECTED: {m} (brand: {b})")
                     new_models.append(m)
-            
+
             if new_models:
                 with open(known_models_path, "a", encoding="utf-8") as f:
                     for m in new_models:
@@ -1094,13 +1316,16 @@ def main():
     pq_path = BASE / "test_model_cleaned.parquet"
     df_existing = load_existing_parquet(pq_path)
 
-    maps = load_reference_maps(model_file)
-
     print("\n[2/4] Reading raw data...", flush=True)
     df_fuel = read_dlt_file(raw1_file)
     df_model = read_dlt_file(raw2_file)
     df_model = enrich_fuel_type(df_model, df_fuel)
     print(f"      {len(df_fuel):,} fuel rows | {len(df_model):,} model rows")
+
+    print("\n[Mapping update] Checking master model mapping...", flush=True)
+    append_missing_master_model_rows(model_file, df_model)
+
+    maps = load_reference_maps(model_file)
 
     df_model, df_fuel = add_derived_columns(df_model, df_fuel, maps)
 
@@ -1114,6 +1339,7 @@ def main():
     rebuild_years = {latest_raw_year - 1, latest_raw_year}
 
     df_cleaned, merge_info = rolling_merge(df_cleaned, df_existing, rebuild_years, maps, is_fuel=False)
+    df_cleaned = reapply_canonical_maps(df_cleaned, maps, is_fuel=False)
     new_keys = merge_info.get("new_keys", set())
     corrected_keys = merge_info.get("corrected_keys", set())
 
@@ -1130,26 +1356,16 @@ def main():
     df_fuel_save = ordered_cols(df_fuel).copy()
     for col in df_fuel_save.select_dtypes(include=["object", "str"]).columns:
         df_fuel_save[col] = df_fuel_save[col].astype(str).replace("nan", pd.NA)
-        
+
     df_fuel_existing = load_existing_parquet(fuel_pq_path)
     df_fuel_save, _ = rolling_merge(df_fuel_save, df_fuel_existing, rebuild_years, maps, is_fuel=True)
+    df_fuel_save = reapply_canonical_maps(df_fuel_save, maps, is_fuel=True)
     validate(df_fuel_save)
     df_fuel_save.to_parquet(str(fuel_pq_path), index=False)
     print(f"      Saved fuel intermediate: {fuel_pq_path.name}")
 
-    import shutil
-    out_file = _new_model_path(df_model, model_file)
-    print(f"\n[4/4] Output: {out_file.name}", flush=True)
-
-    if out_file.resolve() != model_file.resolve() and out_file.exists():
-        ans = input(f"  {out_file.name} already exists. Overwrite? [Y/N]: ").strip().upper()
-        if ans != "Y":
-            print("  Skipped. Existing file unchanged.")
-            return
-
-    if out_file.resolve() != model_file.resolve():
-        shutil.copy2(model_file, out_file)
-        print(f"  Copied {model_file.name} → {out_file.name}")
+    out_file = model_file
+    print(f"\n[4/4] Updating in place: {out_file.name}", flush=True)
 
     rewrite_data_rows(out_file, df_cleaned, data_start_row=8)
 
