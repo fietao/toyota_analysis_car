@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fix Sticky Tables"
+  short_description: "Diagnose and harden sticky data tables"
+  default_prompt: "Use $fix-sticky-tables to diagnose and fix this sticky table without introducing scroll-time performance regressions."

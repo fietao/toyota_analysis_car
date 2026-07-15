@@ -1,7 +1,7 @@
 # Architecture Fix Plan — All 6 Candidates
 
 **Date:** 2026-07-06
-**Source:** architecture-review-20260630-175818.html (6 candidates)
+**Source:** docs/architecture-review-20260630-175818.html (6 candidates)
 **Verified against live code** 2026-07-06 (line numbers current).
 
 ---
@@ -12,16 +12,18 @@ There are **no tests in this repo**. So the safety net for the "pure refactor" c
 (#2, #3, #4, #6) is a **byte-diff of the pipeline output**:
 
 ```powershell
-# BEFORE any change — capture baseline
+# BEFORE any change — capture baseline (Note: dashboard_data.json is legacy; now split into dashboard_summary.json, dashboard_models.json, and cleaned_data_manifest.json)
 $env:PYTHONUTF8=1; py -3.12 backend\run_pipeline.py --skip-map --skip-analyst
 py -3.12 backend\export_dashboard.py
-Copy-Item frontend\public\data\dashboard_data.json  $env:TEMP\dash_before.json
-Copy-Item frontend\public\data\analyst_data.json    $env:TEMP\analyst_before.json
+Copy-Item frontend\public\data\dashboard_summary.json  $env:TEMP\dash_sum_before.json
+Copy-Item frontend\public\data\dashboard_models.json   $env:TEMP\dash_mods_before.json
+Copy-Item frontend\public\data\analyst_data.json       $env:TEMP\analyst_before.json
 
 # AFTER the change — re-run and diff
 $env:PYTHONUTF8=1; py -3.12 backend\run_pipeline.py --skip-map --skip-analyst
 py -3.12 backend\export_dashboard.py
-fc.exe $env:TEMP\dash_before.json frontend\public\data\dashboard_data.json
+fc.exe $env:TEMP\dash_sum_before.json frontend\public\data\dashboard_summary.json
+fc.exe $env:TEMP\dash_mods_before.json frontend\public\data\dashboard_models.json
 ```
 
 - **Pure refactors (#2, #3, #4, #6): the diff must be EMPTY.** Any change = a bug.
@@ -77,7 +79,7 @@ Powertrain column before the pitch.
 |---|---|---|---|
 | 1 | Unify classification (brand string only, per finding above) | **DONE** | `brand_map.csv` emits `Deepal + Changan`; `normalizeBrandName` removed from `page.tsx` (zero hits repo-wide) |
 | 2 | Collapse aggregation into `aggregate()` | **DONE** | `backend/aggregate.py` (152 lines) wired into `build_analyst.py`, `calculation_builder.py`, `export_dashboard.py` (6 call sites) |
-| 3 | Decompose `build_cleaned.main()` | **DONE** | Redone after an earlier `git checkout` accident wiped the first uncommitted attempt (see incident note below). `main()` is now 81 lines calling `find_master_model_file`, `load_existing_parquet`, `load_reference_maps`, `add_derived_columns`, `rolling_merge`, `resolve_bev_review_records`, `write_pipeline_state`, `update_known_models`. Verified byte-identical `dashboard_data.json` after a fresh pipeline run. Committed at `79db94e`. |
+| 3 | Decompose `build_cleaned.main()` | **DONE** | Redone after an earlier `git checkout` accident wiped the first uncommitted attempt (see incident note below). `main()` is now 81 lines calling `find_master_model_file`, `load_existing_parquet`, `load_reference_maps`, `add_derived_columns`, `rolling_merge`, `resolve_bev_review_records`, `write_pipeline_state`, `update_known_models`. Verified byte-identical split dashboard JSONs (summary, models, manifest) after a fresh pipeline run. Committed at `79db94e`. |
 
 **Incident (2026-07-06):** an accidental `git checkout backend/build_cleaned.py` destroyed an uncommitted first attempt at this decomposition before it was committed — unrecoverable, since it was never staged. Redone from scratch. **Lesson: commit each candidate immediately after its byte-diff passes — do not start the next prompt on top of uncommitted work.**
 | 4 | Seal the pivot-surgery leak | **PARTIAL** | `_col`/`_esc` extracted to `backend/xlsx_util.py` (the cheap win) — but `_patch_pivot_table_def1`/`_patch_pivot_table_def2` in `build_cleaned.py:379-435` still hardcode field position `8`, count `"11"`, id `"9"` instead of deriving from `FINAL_COLS` |

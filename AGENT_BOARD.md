@@ -21,11 +21,11 @@ Pipeline scripts are in **`backend/`**. Old paths (project root, `.claude/script
 |---|---|---|
 | `backend/build_cleaned.py` | ✅ Working | 636,392 rows, 13,722,286 units — matches revised raw release (B6 closed, not a bug) |
 | `backend/build_BEV.py` | ✅ Working | 0 new BEV rows this run; all 888 models already in table |
-| `backend/build_analyst.py` | 🔴 Blocked | Needs `*(master cal).xlsx` restored |
-| `diagnose_pipeline.py` | ✅ New tool | Run from project root; prints raw vs parquet vs master comparison |
+| `backend/build_analyst.py` | ✅ Working | Generates the analyst workbook and exports analyst pivot JSON data |
+| `diagnose_pipeline.py` | ✅ Working | Run from project root; prints raw vs parquet vs master comparison |
 
 **Active blockers:**
-- 🔴 `*(master cal).xlsx` missing — operator must restore before `build_analyst.py` runs
+- *No current public-release blocker known.* The previous master-cal blocker is historical in this workspace; use `BUILD_RELEASE.bat` as the current release gate.
 - ✅ B6 closed (not a bug): the +745 was a data-version artifact — `diagnose_pipeline.py` compared the parquet against the **stale** `input/` copy (636,333 rows) instead of the revised `raw data/` release (636,392 rows) the pipeline actually reads. Parquet is correct.
 
 **Confirmed parquet state (session 10):**
@@ -137,9 +137,149 @@ Start operator-facing web UI:
 Stack: Next.js front end + Flask/FastAPI local API (`api.py`).
 **Do not start until T1 full pipeline run passes.**
 
+### T8 — Fix B8: duplicate brand rows from stale historical classification
+
+Owner: unassigned
+Status: Confirmed live, not fixed
+Priority: High
+
+**Finding (session 2026-07-07, orchestrator):** live-tested in the browser (Rankings
+Leaderboard, "All Years" view, and the Analyst Table brand filter). The same real-world
+brand renders as two separate rows/list entries:
+- `Deepal+ChangAn` vs `Deepal + Changan` — the exact string the architecture-fix plan's
+  candidate #1 was supposed to unify.
+- `AION` vs `AXION` in the Analyst Table brand filter (`filter-brand` select) — flagged as
+  "likely the same brand" here, but **resolved as two distinct brands** (session
+  2026-07-14, public-release pass): `test_model_cleaned.parquet` shows AION with 2,208
+  rows / 31,110 units across raw brand values `AION`/`GAC` (via `brand_map.csv`), models
+  AION V/Y/UT/ES/S, HYPTEC HT, M8, spanning BE 2564–2569. AXION has only 2 rows / 3 units,
+  raw brand value `AXION` only, single model `T5` — a model name with zero overlap with any
+  AION model. No evidence supports a shared identity; `brand_map.csv` intentionally does
+  **not** merge them. Preserve both as separate brands unless future data shows model
+  overlap.
+
+**Root cause:** `rolling_merge()` in `build_cleaned.py` only reclassifies brand2/model2 for
+`rebuild_years = {latest_raw_year-1, latest_raw_year}` (see [build_cleaned.py:987](backend/build_cleaned.py:987)).
+Older years permanently keep whatever brand2 string was computed the last time *they* were
+inside the rolling window. Fixing `brand_map.csv` (candidate #1) only reclassifies going
+forward. Removing the frontend's `normalizeBrandName` re-alias (also candidate #1) was only
+safe if 100% of stored history already used the canonical string — it doesn't, so the split
+that used to be silently merged client-side is now visible.
+
+Two possible fixes, not yet decided:
+1. One-time historical reclassification: re-run brand2/model2 classification against ALL
+   years in the parquet using the current maps, not just the rolling window. Fixes root
+   cause everywhere, but is a bigger, data-affecting job.
+2. Frontend display-only normalize/merge step in `selectors.ts`, without touching stored
+   data — faster, but leaves the underlying data inconsistent (and reintroduces the kind of
+   re-alias candidate #1 removed).
+
+File: `backend/build_cleaned.py` (`rolling_merge`), `backend/config/brand_map.csv`
+
+### T9 — Fix B9: duplicate model rows from inconsistent spacing/casing
+
+Owner: unassigned
+Status: ✅ Already fixed in stored data; ownership hardened (session 2026-07-14)
+Priority: —
+
+**Update (session 2026-07-14, public-release pass):** re-checked `test_model_cleaned.parquet`
+directly — it already contains only the canonical forms (`WAVE 110i`, `WAVE 125i`,
+`STEP WGN SPADA` + hybrid variants, `CLICK 150i`, `PCX 150`, `MOTO GUZZI`); no duplicate
+spacing/casing variants remain. `reapply_canonical_maps` (added after this note was
+originally filed) already reclassifies the *entire* historical dataset on every pipeline
+run, not just the rolling window — this note was stale. What was still wrong: these seven
+confirmed aliases were only guaranteed because `build_cleaned.py` hardcoded them in Python
+*after* loading `model2_map.csv`/`brand_map.csv`, silently overriding whatever those CSVs
+said. The CSVs themselves had stale/uncanonicalized values for these exact keys (e.g.
+`PCX150,PCX150`, `STEPWGN SPADA,STEPWGN SPADA`) — a future edit that removed the Python
+overrides without updating the CSVs would have silently reintroduced the duplicates. Fixed
+by moving the correct values into `model2_map.csv`/`brand_map.csv` and deleting the
+hardcoded block; `test_canonicalization.py` now loads the real CSVs (not a dummy dict) so
+this can't regress unnoticed.
+
+**Finding (session 2026-07-07, orchestrator):** same root cause as B8. Live DOM scan of the
+Rankings Leaderboard ("All Years" view, all brands expanded) found **13 duplicate-name
+groups across 826 rendered rows** — the same physical model split by whitespace/casing
+variants, e.g.:
+- Honda Wave 125i → `WAVE125i`, `WAVE 125i`, `WAVE 125 I`
+- Honda Wave 110i → `WAVE110i`, `WAVE 110 I`
+- Honda StepWGN Spada → `STEPWGN SPADA`, `STEP WGN SPADA` (+ Hybrid variants)
+- Honda Click150i → `CLICK150i`, `CLICK 150i`
+- PCX150 → `PCX150`, `PCX 150`
+- Moto Guzzi → `MOTOGUZZI`, `MOTO GUZZI`
+
+Same fix decision as B8 applies (historical reclassification vs display-side merge) — file
+together with B8, they're the same underlying defect surfacing in two places.
+
+File: `backend/build_cleaned.py` (`rolling_merge`, model2 canonicalization)
+
+### T10 — Fix B10: `RUN_ALL.bat` closes itself immediately on completion
+
+Owner: unassigned
+Status: ✅ Fixed and confirmed (session 2026-07-07)
+Priority: —
+
+**Finding (session 2026-07-07, orchestrator):** user reported the command "kills itself"
+when it finishes running. `RUN_ALL.bat` line 29 (`call npm run dev`) is the last line in the
+file with no `pause` after it — every error branch has `pause` (lines 11, 19) but the
+success path doesn't. `UPDATE.bat` gets this right (its line 21 has a trailing `pause`).
+When the last foreground process (`npm run dev`) exits for any reason, cmd.exe closes the
+window instantly, hiding whatever output or error was on screen.
+
+**Fix:** add `pause` as a new line immediately after line 29. One-line change, routed to
+Qwen this session — verify it landed before closing this out.
+
+File: `RUN_ALL.bat`
+
+### T11 — Dashboard feature requests from unfiled operator notes
+
+Owner: unassigned
+Status: Triaged — mixed done/open
+Priority: Medium
+
+**Source:** two loose scratch files (`maintain`, `maintainnce`) sitting at the project root
+with no extension, never filed anywhere. Merged and triaged here (session 2026-07-07,
+orchestrator) against the live dashboard rather than filed verbatim, since some asks turned
+out to already be shipped:
+
+| Ask | Status |
+|---|---|
+| Select brand | ✅ Already shipped — `FilterPillPopover` brand filter, [page.tsx:578](frontend/src/app/page.tsx:578) |
+| Type in / search a filter | ✅ Already shipped — every `FilterPillPopover` has a search box (`Search brand...`, `Search model...`, etc.) |
+| Export data to CSV/Excel | ✅ Completed — SheetJS (`xlsx` dependency) is integrated into `/models` and `/analyst` Next.js routes to allow client-side Excel exports of tables. The legacy `analyst.html` has been removed. |
+| Notify when a new model never seen before appears in raw data | ⚠️ Backend-only — `build_cleaned.py`'s `update_known_models()` already detects this and prints `NEW MODEL DETECTED` to the console, but nothing surfaces it in the web dashboard UI. An operator using only the website would never see it. |
+| Fix the bug on the sticky table | ✅ Fully Fixed and Hardened — Both `/models` and `/analyst` tables have been hardened using pure CSS sticky cells, proper z-indices, opaque backgrounds, and a ResizeObserver measuring custom header offsets directly to CSS properties (bypassing React re-renders). E2E Playwright tests confirm 0 overlap, 0 jitter, and correct alignment. |
+
+File: `frontend/src/app/page.tsx`, `frontend/src/app/analyst/page.tsx`, `frontend/src/app/models/page.tsx`, `backend/build_cleaned.py`
+
 ---
 
 ## Handoff Log
+
+### 2026-07-07 — Claude (orchestrator session)
+
+**Status: Live frontend bug hunt — 3 new bugs confirmed (B8, B9, B10), one code smell flagged**
+
+Ran the frontend dev server (`npm run dev` via `.claude/launch.json`, new this session) and
+tested the Rankings Leaderboard and Analyst Table pages directly in-browser (DOM inspection
+via JS eval, not just static code reading) — see T8/T9/T10 above for details. Did not fix
+anything; per this session's operating mode (orchestrator: research + route, never edit code
+directly), findings are logged here for a coding session to pick up.
+
+Also flagged (Historical: The legacy `frontend/public/analyst.html` has since been deleted, resolving this issue): `frontend/public/analyst.html` loaded Tailwind CSS and SheetJS from public CDNs rather than the project's installed Tailwind/PostCSS pipeline. All routes are now compiled inside Next.js using standard node modules.
+
+Ruled out: column/header misalignment in the Leaderboard table (initially suspected) —
+tested year-switch, brand-expand, and column-sort scenarios via direct DOM inspection; header
+count always matched cell count and values lined up correctly in every case tested.
+
+This session also continued `backend/plans/2026-07-06-architecture-fix-plan.md` (candidates
+#1–#3, #5, #6 done; #4 — pivot-surgery leak — still open) and logged a git-checkout incident
+as `LIBRARY.md` LL-001. See `HANDOFF.md` for that thread's full detail; not duplicated here.
+
+Next recommended action: decide the B8/B9 fix approach (historical reclassification vs
+display-only merge) before starting either — it's a data-affecting choice, not a quick patch.
+
+---
 
 ### 2026-06-22 — Claude (session 10)
 

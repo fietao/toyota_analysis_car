@@ -65,7 +65,7 @@ After the pipeline writes the Data sheet, `build_BEV.py` appends any approved ro
 | **Master Model** | Excel (.xlsx) | Data rows replaced in-place (rows 8+); metadata rows 1-7 preserved |
 | **Master Cal** | Excel (.xlsx) | Data rows replaced in-place (rows 7+); metadata rows 1-6 preserved |
 | **Analyst Report** | Excel (.xlsx) | New timestamped file: copy of Master Cal with fresh Data sheet |
-| **Dashboard data** | JSON | Serialised from analyst output; feeds the web dashboard |
+| **Dashboard data** | JSON | Serialized dashboard summary, models, analyst data, and manifest; feeds the web dashboard |
 
 All Excel formulas, pivot tables, charts, and formatting in the master files are
 preserved — Python only touches the data rows.
@@ -129,10 +129,14 @@ update_raw_data.py  ← copies files, checks for new fuel types, runs pipeline
     │
     ├── build_analyst.py      → YYYYMM_...(test analyst).xlsx
     │
-    └── export_dashboard.py   → dashboard/public/data/dashboard_data.json
+    ├── export_dashboard.py   → frontend/public/data/dashboard_summary.json
+    │                           frontend/public/data/dashboard_models.json
+    │                           frontend/public/data/cleaned_data_manifest.json
+    │
+    └── export_analyst.py     → frontend/public/data/analyst_data.json
                                           │
                                           ▼
-                                  dashboard/   ← Next.js web app
+                                  frontend/    ← Next.js static-export dashboard
 ```
 
 **Key design rules:**
@@ -158,7 +162,7 @@ Core data processing works. Incremental-first build confirmed working session 8.
 - [x] **`pipeline_state.json`** — written by `build_cleaned.py`; `build_BEV.py` reads it successfully
 - [x] **`ชนิดเชื้อเพลิง` in Data sheet** — column present in `df_cleaned` and written to master Model (confirmed session 8 cols output)
 - [x] Corrected months tracked in `pipeline_state.json`
-- [ ] **Analyst report** — BLOCKED: master cal (`*(master cal).xlsx`) file missing; `build_analyst.py` cannot run
+- [x] **Analyst report** — unblocked in the current workspace; `BUILD_RELEASE.bat` runs the analyst stage and `export_analyst.py` produces `analyst_data.json`
 - [x] **BEV detection fixed** — uses `ชนิดเชื้อเพลิง == "ไฟฟ้า"` (B4 fixed session 9)
 - [x] **Fix B3** — `build_BEV.py` no longer overwrites pivot sheets; `next_row` correctly finds last data row (fixed session 9)
 - [x] **Powertrain priority fixed** — model-level lookup (`BEV Major`) now wins over fuel-level (`BEV`); 46,084 rows correctly classified (fixed session 9)
@@ -185,43 +189,32 @@ Core data processing works. Incremental-first build confirmed working session 8.
 13. Save parquet; write pipeline_state.json; write Data sheet to Excel
 ```
 
-### Phase 2 — Operator Trigger 🔄 Partial
-Non-technical operator can run the pipeline without a terminal.
-- [x] `UPDATE.bat` — double-click to run (Windows)
-- [ ] Web UI file drop zone (operator drags the two DLT files in)
-- [ ] "Run Update" button triggers pipeline via local API
-- [ ] Progress display (per-stage status)
-- [ ] Download link for finished analyst report
+### Phase 2 — Operator Trigger 🔄 Partial via batch scripts
+- [x] `UPDATE.bat` — double-click to run local pipeline (Windows)
+- [x] `BUILD_RELEASE.bat` — runs the full release build pipeline (data pipeline, JSON export, validation, Next.js build)
+- [ ] Web UI dynamic triggers — not part of the current static public release candidate; operator runs batch files locally.
 
-### Phase 3 — Local API 📋 Not started
-Bridge between web UI and pipeline scripts.
-- [ ] Flask or FastAPI server (`api.py`) runs locally
-- [ ] `POST /upload` — receives two files, saves to `raw data/`
-- [ ] `POST /run` — spawns pipeline process, streams stdout as SSE
-- [ ] `GET /download` — returns finished analyst xlsx
-- [ ] `GET /status` — last run result (success/fail, timestamp, row count)
+### Phase 3 — Local API ⏸ Deferred for static release
+- The current public release candidate uses Next.js static export (`output: "export"`), so a dynamic local API is not required for deployment. Keep this phase deferred unless operator upload/run controls return to scope.
 
-### Phase 4 — Dashboard 📋 Not started
-Live metrics view in the web app.
-- [ ] `export_dashboard.py` serialises key metrics to JSON
-- [ ] Next.js reads JSON and renders: BEV share %, top brands, monthly trend chart
-- [ ] Dashboard auto-updates after each pipeline run
+### Phase 4 — Dashboard ✅ Completed
+- [x] `export_dashboard.py` and `export_analyst.py` serialize metrics and analyst calculations to split JSONs (`dashboard_summary.json`, `dashboard_models.json`, `cleaned_data_manifest.json`, `analyst_data.json`).
+- [x] Next.js reads these JSONs and renders interactive `/models` and `/analyst` dashboard pages.
+- [x] Sticky table headers and frozen columns have been fully hardened (using ResizeObserver-based CSS custom properties and pure CSS sticky positioning).
+- [x] Unused dependencies like `framer-motion` have been removed to optimize bundle size.
 
-### Phase 5 — Deployment 📋 Not started
-Hosted so the operator doesn't need a local Python install.
-- [ ] Decide: local-only (just the .bat) vs. cloud (Vercel + cloud Python)
-- [ ] If cloud: containerise the Python pipeline, deploy API, point Next.js at it
-- [ ] If local: package as a Windows executable or installer
+### Phase 5 — Deployment 🔄 Release candidate pipeline ready
+- [x] Configured static HTML/JS export in `next.config.ts` for simple, serverless deployment.
+- [x] Created `validate_public_release.py` to assert that all exported files are present and match reporting periods before compiling the release candidate.
+- [ ] Choose and complete the actual hosting/deployment target.
 
 ---
 
 ## Immediate Next Steps
 
-1. **Restore master cal** — `*(master cal).xlsx` was deleted; restore it to the
-   project root so `build_analyst.py` can run. This is the only blocker before
-   a full end-to-end pipeline run.
+1. **Public release build gate** — ✅ Resolved. Use `BUILD_RELEASE.bat`; it runs the full pipeline, exports public JSON, validates periods, and builds the static site.
 
-2. **Full end-to-end run** — once master cal is restored, run from `backend/`:
+2. **Full end-to-end run** — for manual backend verification, run from `backend/`:
    ```
    python build_cleaned.py && python build_BEV.py && python build_analyst.py
    ```
@@ -261,8 +254,8 @@ Hosted so the operator doesn't need a local Python install.
 | B6 | ~~+745 unit inflation in parquet~~ — **not a bug.** Diagnostic compared parquet vs stale `input/` copy (636,333 rows); pipeline reads revised `raw data/` release (636,392 rows). Parquet correct (Δ=0 vs revised raw). | ✅ **Closed session 11** | Fix `diagnose_pipeline.py` to read `raw data/` (cleanup) |
 | B7 | **Fuel-type shifts are structural, not a bug** — `enrich_fuel_type` collapses each key onto its dominant fuel type (hence เบนซิน +161K, ดีเซล -124K, PHEV -36K) | 🟡 **Decision needed** — confirm business rule with operator | — |
 | — | **`pipeline_state.json` never written** | ✅ **Fixed** | — |
-| — | **Master cal missing** — `*(master cal).xlsx` was deleted; `build_analyst.py` cannot run | 🔴 **Blocker** | Restore file to `backend/` |
+| — | **Master cal missing** — `*(master cal).xlsx` was deleted; `build_analyst.py` cannot run | ✅ Resolved | Master cal is restored |
 | — | `select_dtypes(include="object")` deprecation warning | ✅ **Fixed session 9** | — |
 | — | `pipeline_state.json` contains likely-wrong auto-approved BEV rows (BMW S 1000 RR, MG5 1.5 X, AUDI A5 TFSI) | ⚠️ **Do not append** to BEV Series Name Table without manual review | — |
-| — | Web UI does not exist yet | Phase 2 | — |
+| — | Frontend dashboard missing | ✅ Resolved | Frontend Next.js app created |
 | — | `1.Reg by Powertrain` output is 33 cols vs. 34 in reference template | 🟡 Investigate | Check trailing column before dashboard work |
