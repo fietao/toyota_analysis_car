@@ -1,20 +1,14 @@
 """Export the canonical Manual Report (sheets 1-9) to frontend/public/data/manual_report.json.
 
-This is the single source the /report page renders. It reproduces the markdown workbook
-"รถใหม่ ... (test analyst)" sheets 1-9 so the frontend never recomputes spreadsheet logic.
+This is the single source the /report page renders. It reproduces the manual report sheets
+from the two DLT raw files plus repo mapping tables so the frontend never recomputes
+spreadsheet logic.
 
 Source rules (from specs/public_dashboard_markdown_parity_spec.md):
   * Sheets 1-6 and 9 -> test_fuel_cleaned.parquet, fuel-derived powertrain (PT).
-  * Sheets 7-8      -> test_model_cleaned.parquet, model-table Powertrain == "BEV Major".
+  * Sheets 7-8      -> test_model_cleaned.parquet, include_in_bev_model_report == true.
   * Vehicle types default to รย.1,2,3,6,9,10,11.
   * Current period is auto-detected from the fuel parquet (never hardcoded).
-
-Known parity notes (do not "fix" by changing the source):
-  * Fuel-derived sheets (1-6, 9) match the markdown exactly.
-  * Model-table BEV Major (7-8) sits ~1% below the markdown because the workbook's
-    BEV-by-model came through the BEV Series Name Table review layer. This is the
-    documented open issue (BYD 2568: fuel 33,070 / markdown 33,077 / model BEV Major 31,536).
-    validate_against_markdown.py reports these as known, non-blocking mismatches.
 """
 import sys
 import json
@@ -36,10 +30,17 @@ OUT = BASE.parent / "frontend" / "public" / "data" / "manual_report.json"
 DEFAULT_VEHICLE_TYPES = ["รย.1", "รย.2", "รย.3", "รย.6", "รย.9", "รย.10", "รย.11"]
 MONTHS = list(MONTH_MAP.values())  # Jan .. Dec
 POWERTRAIN_ROWS = ["ICE", "BEV", "HEV", "PHEV"]
+BEV_MODEL_REPORT_COL = "include_in_bev_model_report"
 
 
 def _safe_div(num, den):
     return (num / den) if den else None
+
+
+def _bool_series(series: pd.Series) -> pd.Series:
+    if pd.api.types.is_bool_dtype(series):
+        return series.fillna(False)
+    return series.astype(str).str.strip().str.lower().isin({"1", "true", "yes", "y"})
 
 
 def month_matrix(df: pd.DataFrame, key_col: str) -> dict:
@@ -169,8 +170,8 @@ def sheet_brand(df_fuel: pd.DataFrame, ly, py, lm, powertrain=None) -> list:
 
 
 def sheet_bev_by_model(df_model: pd.DataFrame, ly, py, lm) -> list:
-    """Brand header rows + child model rows, both from model-table BEV Major slice."""
-    d = df_model[df_model["Powertrain"] == "BEV Major"]
+    """Brand header rows + child model rows from the explicit BEV model report mapping."""
+    d = bev_model_report_slice(df_model)
     brand_mat = month_matrix(d, "ยี่ห้อรถ2")
     brand_rows = build_rows(brand_mat, ly, py, lm, ranked=True)
     grand, brand_details = brand_rows[0], brand_rows[1:]
@@ -197,8 +198,8 @@ def sheet_bev_by_model(df_model: pd.DataFrame, ly, py, lm) -> list:
 
 
 def sheet_model_top_rank(df_model: pd.DataFrame, ly, py, lm) -> list:
-    """Flat model ranking (brand||model) from model-table BEV Major slice."""
-    d = df_model[df_model["Powertrain"] == "BEV Major"].copy()
+    """Flat model ranking (brand||model) from the explicit BEV model report mapping."""
+    d = bev_model_report_slice(df_model).copy()
     d["_mk"] = d["ยี่ห้อรถ2"].astype(str) + " || " + d["รุ่นรถ2"].astype(str)
     label_map = d.drop_duplicates("_mk").set_index("_mk")[["ยี่ห้อรถ2", "รุ่นรถ2"]].to_dict("index")
     mat = month_matrix(d, "_mk")
@@ -210,6 +211,19 @@ def sheet_model_top_rank(df_model: pd.DataFrame, ly, py, lm) -> list:
             r["model"] = info["รุ่นรถ2"]
             r["label"] = f'{info["รุ่นรถ2"]}  ·  {info["ยี่ห้อรถ2"]}'
     return rows
+
+
+def bev_model_report_slice(df_model: pd.DataFrame) -> pd.DataFrame:
+    if BEV_MODEL_REPORT_COL not in df_model.columns:
+        raise ValueError(
+            f"{MODEL_PARQUET.name} is missing {BEV_MODEL_REPORT_COL}. "
+            "Run build_cleaned.py so raw_model -> model2 -> BEV report inclusion mapping is applied."
+        )
+    include = _bool_series(df_model[BEV_MODEL_REPORT_COL])
+    d = df_model[include]
+    if d.empty:
+        raise ValueError(f"{BEV_MODEL_REPORT_COL} selected zero model rows")
+    return d
 
 
 def sheet_by_province(df_fuel: pd.DataFrame, ly, py, lm) -> list:
@@ -281,8 +295,8 @@ def export():
         "sheet4_brand_bev": {"title": "4.BEV by Brand", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "BEV (fuel-derived)"},
         "sheet5_brand_hev": {"title": "5.HEV by Brand", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "HEV (fuel-derived)"},
         "sheet6_brand_phev": {"title": "6.PHEV by Brand", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "PHEV (fuel-derived)"},
-        "sheet7_bev_by_model": {"title": "7.BEV by Model", "source": "test_model_cleaned.parquet", "filter": vt_label, "powertrain": 'model-table Powertrain == "BEV Major"'},
-        "sheet8_model_top_rank": {"title": "8.Model Top Rank", "source": "test_model_cleaned.parquet", "filter": vt_label, "powertrain": 'model-table Powertrain == "BEV Major"'},
+        "sheet7_bev_by_model": {"title": "7.BEV by Model", "source": "test_model_cleaned.parquet", "filter": vt_label, "model_report_filter": f"{BEV_MODEL_REPORT_COL} == true"},
+        "sheet8_model_top_rank": {"title": "8.Model Top Rank", "source": "test_model_cleaned.parquet", "filter": vt_label, "model_report_filter": f"{BEV_MODEL_REPORT_COL} == true"},
         "sheet9_by_province": {"title": "9.by Province", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "All"},
     }
 
@@ -300,17 +314,6 @@ def export():
                 "model": "test_model_cleaned.parquet",
             },
             "sections": sections,
-            "known_mismatches": [
-                {
-                    "sheets": ["sheet7_bev_by_model", "sheet8_model_top_rank"],
-                    "row": "model-table BEV Major totals",
-                    "note": "Sheets 7-8 use model-table Powertrain=='BEV Major', a slightly older BEV-review "
-                            "vintage than the markdown workbook, so BEV model totals sit ~1% below it "
-                            "(e.g. BYD 2568: model BEV Major 31,536 vs workbook 33,077; JAECOO 5 EV 2569 "
-                            "11,133 vs 11,137). Fuel-derived sheets (1-6, 9) match the markdown exactly. "
-                            "Documented, non-blocking.",
-                }
-            ],
             "generated_at": datetime.datetime.now().isoformat(),
         },
         "sheets": sheets,

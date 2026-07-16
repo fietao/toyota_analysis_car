@@ -179,6 +179,8 @@ def validate_public_release():
             for required_key in ("reporting_period", "default_vehicle_types", "source_files", "generated_at"):
                 if not meta.get(required_key):
                     raise ValueError(f"manual_report.json meta is missing '{required_key}'")
+            if meta.get("known_mismatches"):
+                raise ValueError("manual_report.json must not contain meta.known_mismatches")
             sheets = data.get("sheets", {})
             missing_sheets = [s for s in REQUIRED_REPORT_SHEETS if s not in sheets or not sheets[s]]
             if missing_sheets:

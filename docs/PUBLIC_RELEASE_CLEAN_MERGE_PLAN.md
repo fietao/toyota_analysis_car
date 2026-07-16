@@ -22,7 +22,7 @@ The site should have three clear modes:
 | Mode | Purpose | Data source |
 |---|---|---|
 | Dashboard | Fast visual overview | `dashboard_summary.json` |
-| Manual Report | Markdown/workbook parity for sheets 1–9 | canonical report export |
+| Manual Report | Public report generated from DLT raw files plus mapping, validated against golden markdown cells | canonical report export |
 | Deep Dive | Interactive exploration beyond the manual workbook | `dashboard_models.json`, `analyst_data.json` |
 
 ## Data Merge Rule
@@ -64,7 +64,7 @@ frontend/public/data/manual_report.json
 Why this is better:
 
 - `/report` becomes simple and fast.
-- Validation can compare one JSON to the markdown.
+- Validation can compare one JSON to markdown golden cells; markdown/workbook files are validation references, not data sources.
 - The UI does not recompute spreadsheet logic in React.
 - Each section can declare its source and filter.
 
@@ -82,7 +82,7 @@ frontend/public/data/manual_report.json
 Rules:
 
 - Sheets 1–6 use `backend/test_fuel_cleaned.parquet`.
-- Sheets 7–8 use `backend/test_model_cleaned.parquet` with model-table `Powertrain == "BEV Major"`.
+- Sheets 7–8 use `backend/test_model_cleaned.parquet` with `include_in_bev_model_report == true`.
 - Sheet 9 uses `backend/test_fuel_cleaned.parquet` grouped by province and brand.
 - Default vehicle types are exactly `รย.1,2,3,6,9,10,11`.
 - Every sheet row includes:
@@ -140,7 +140,7 @@ Apply DLT Terminal design system:
   - vehicle filter
   - source file
   - validation status
-- Add visible mismatch warning for known unresolved cells.
+- Fail the release for Sheet 7-8 mismatches; do not ship known unresolved cells.
 
 Verification:
 
@@ -170,8 +170,8 @@ If the live markdown path is not available in CI, commit a small golden JSON fix
 ## Acceptance Criteria
 
 - `/report` shows all 9 manual sections.
-- Sheets 1–6 match the markdown known totals.
-- Sheets 7–8 use model-table `Powertrain == "BEV Major"`.
+- Sheets 1–9 match the markdown golden cells.
+- Sheets 7–8 use `include_in_bev_model_report == true`, derived from raw_model -> model2 -> report inclusion mapping.
 - Sheet 9 province rows reconcile to child brand rows.
 - UI visibly distinguishes:
   - Manual Report Mode
@@ -185,13 +185,9 @@ Implement `backend/export_manual_report.py` and `frontend/public/data/manual_rep
 
 Do not touch UI yet except if needed for local verification. Once the canonical report export exists, the UI becomes much easier and safer to polish.
 
-## Known Open Issue
+## Resolved Sheet 7-8 Contract
 
-The markdown Sheet 7 BYD 2568 brand total differs from the current fuel-derived brand source by 7 units:
-
-```text
-Markdown Sheet 7 BYD 2568 = 33,077
-Current fuel-derived BEV BYD 2568 = 33,070
-```
-
-This is not a blocker for Phase 1 sheets 1–6, but it must be explained before Sheet 7 is declared fully matching.
+Sheets 7-8 are generated from `test_model_cleaned.parquet` rows where
+`include_in_bev_model_report == true`. That flag is derived from the repo mapping table, not
+from workbook/manual data and not from `Powertrain == "BEV Major"`. Sheet 7-8 mismatches are
+hard release failures.

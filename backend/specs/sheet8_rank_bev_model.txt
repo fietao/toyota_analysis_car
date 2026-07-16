@@ -1,7 +1,8 @@
 SHEET: 8.Rank by BEV Model
 SOURCE FILE: mastercal.xlsx
-PURPOSE: Ranking table of individual BEV Major models by registration volume
-FILTER: ประเภทรถ = รย.1,2,3,6,9,10,11 | Powertrain = "BEV Major" only
+PURPOSE: Ranking table of individual BEV report models by registration volume
+SOURCE: two DLT raw files plus repo mapping tables; model rows use raw_model -> model2 -> include_in_bev_model_report
+FILTER: ประเภทรถ = รย.1,2,3,6,9,10,11 | include_in_bev_model_report = true
 
 ==============================================================
 ROW LAYOUT (header block)
@@ -80,9 +81,9 @@ RANK CALCULATION
 ==============================================================
 PARQUET COLUMNS USED
 ==============================================================
-ปี, เดือน, ประเภทรถ, ยี่ห้อรถ2, รุ่นรถ2, Powertrain, จำนวนรถ
+ปี, เดือน, ประเภทรถ, ยี่ห้อรถ2, รุ่นรถ2, Powertrain, include_in_bev_model_report, จำนวนรถ
 Filter: ประเภทรถ matches รย.(1|2|3|6|9|10|11)
-Filter: Powertrain == "BEV Major"
+Filter: include_in_bev_model_report == true
 
 ==============================================================
 CALCULATION RULES

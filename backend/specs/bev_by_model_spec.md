@@ -7,10 +7,10 @@ This specification defines the requirements for generating the **BEV by Model** 
 ---
 
 ## Goal
-To present registration counts of Battery Electric Vehicles (BEV) classified under the `BEV Major` powertrain category, broken down by year, month, brand, and model series for the last 2 years (2568 and 2569).
+To present registration counts for models explicitly included by the BEV model report mapping (`raw_model -> model2 -> include_in_bev_model_report`), broken down by year, month, brand, and model series for the last 2 years (2568 and 2569).
 
 ## Scope
-* **Source Workbook**: `refer/202605_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - พฤษภาคม 2569 - Model.xlsx`
+* **Source Data**: the two DLT raw files plus repo mapping tables (`backend/config/*`, `backend/refer/*`). Workbook/manual exports are validation references, not data sources.
 * **Output Sheets**: 
   * `BEV by Model` (Hierarchical structure, ~110 rows)
   * `BEV by Model (2)` (Flat structure, ~82 rows)
@@ -28,8 +28,9 @@ To present registration counts of Battery Electric Vehicles (BEV) classified und
      * `ยี่ห้อรถ2` (Normalized Brand name)
      * `รุ่นรถ2` (Normalized Model series)
      * `Powertrain` (Powertrain category)
+     * `include_in_bev_model_report` (Boolean BEV report inclusion flag)
      * `จำนวนรถ` (Registration count)
-   * Only rows where model details exist (`รุ่นรถ` is not null/blank) and `Powertrain` is equal to `BEV Major` are included.
+   * Only rows where model details exist (`รุ่นรถ` is not null/blank) and `include_in_bev_model_report` is true are included.
 
 ---
 
@@ -120,7 +121,7 @@ A flat pivot-like list where model and brand are placed side-by-side in separate
 ### Filters
 * **ประเภทรถ**: `(Multiple Items)` indicates that the sheet data is filtered to include only specific passenger-type/common vehicle types.
 * **จังหวัด**: `(All)` indicating no provincial filter is applied (summed over all provinces).
-* **Powertrain**: Locked to `BEV Major`.
+* **BEV model report inclusion**: Locked to `include_in_bev_model_report == true`. `Powertrain` is retained as an annotation and is not the Sheet 7-8 source-of-truth filter.
 
 ### Transformations
 * **Pivot aggregation**: The `จำนวนรถ` values are grouped and summed by `[ยี่ห้อรถ2, รุ่นรถ2, ปี, เดือน]`.
@@ -157,7 +158,7 @@ To verify the correctness of the generated sheets, the following checks must pas
    * For any row, `2568 Total` + `2569 Total` must equal `Grand Total`.
 5. **Grand Totals Reconciliation**:
    * The sum of all brand parent totals in `BEV by Model` must equal the sum of all model totals in `BEV by Model (2)`.
-   * These totals must reconcile exactly with the sum of `จำนวนรถ` in the `Data` sheet where `Powertrain == "BEV Major"` and `รุ่นรถ` is not null.
+   * These totals must reconcile exactly with the sum of `จำนวนรถ` in the `Data` sheet where `include_in_bev_model_report == true` and `รุ่นรถ` is not null.
 
 ---
 

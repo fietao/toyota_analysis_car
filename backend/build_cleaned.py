@@ -5,8 +5,8 @@ build_cleaned.py — Data Cleaner Agent script.
 Steps:
   1. Read both raw DLT files (fuel + model)
   2. Append raw model names missing from the existing master mapping sheet
-  3. Read reference tables from Model.xlsx (powertrain map, BEV series name table)
-  4. Add derived columns: ยี่ห้อรถ2, รุ่นรถ2, Powertrain
+  3. Read reference tables from Model.xlsx plus repo mapping CSVs
+  4. Add derived columns: ยี่ห้อรถ2, รุ่นรถ2, Powertrain, include_in_bev_model_report
   5. Update Cleaned Data in the existing master workbook in place
   6. Save df_cleaned as parquet for downstream scripts
 
@@ -54,6 +54,7 @@ FINAL_COLS = ["ปี", "เดือน", "ประเภทรถ", "จั�
               "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2",
               "ชนิดเชื้อเพลิง", "Powertrain", "จำนวนรถ"]
 JOIN_KEYS = ["ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ"]
+BEV_MODEL_REPORT_MAP = BASE / "refer" / "bev_series_name_table_template_rows.csv"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -425,6 +426,30 @@ def _load_model2_csv_map():
         df_csv["รุ่นรถ_raw"].astype(str).str.strip().str.upper(),
         df_csv["รุ่นรถ2"].astype(str).str.strip(),
     ))
+
+
+def _parse_bool(value) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _load_bev_model_report_map() -> tuple[dict, dict]:
+    """Return raw-model -> canonical model2 and BEV model report inclusion flag."""
+    if not BEV_MODEL_REPORT_MAP.exists():
+        return {}, {}
+
+    df = pd.read_csv(str(BEV_MODEL_REPORT_MAP), encoding="utf-8-sig")
+    required = {"รุ่นรถ", "รุ่นรถ2", "include_in_bev_model_report"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{BEV_MODEL_REPORT_MAP.relative_to(BASE)} missing required column(s): "
+            + ", ".join(sorted(missing))
+        )
+
+    keys = df["รุ่นรถ"].astype(str).str.strip().str.upper()
+    model2_map = dict(zip(keys, df["รุ่นรถ2"].astype(str).str.strip()))
+    include_map = dict(zip(keys, df["include_in_bev_model_report"].map(_parse_bool)))
+    return model2_map, include_map
 
 
 def _suggest_missing_model_rows(df_model):
@@ -1124,6 +1149,11 @@ def load_reference_maps(model_file: Path) -> dict:
 
     wb_ref.close()
 
+    bev_report_model2_map, include_in_bev_model_report_map = _load_bev_model_report_map()
+    if bev_report_model2_map:
+        model2_map.update(bev_report_model2_map)
+        print(f"      Loaded {len(bev_report_model2_map)} BEV model report mappings")
+
     csv_map_path = BASE / "refer" / "model2_map.csv"
     if csv_map_path.exists():
         df_csv = pd.read_csv(str(csv_map_path), encoding="utf-8-sig")
@@ -1143,6 +1173,7 @@ def load_reference_maps(model_file: Path) -> dict:
         "known_bev_models": known_bev_models,
         "model2_map": model2_map,
         "pt_from_model_map": pt_from_model_map,
+        "include_in_bev_model_report_map": include_in_bev_model_report_map,
         "unknown_fuels": set()
     }
 
@@ -1153,6 +1184,7 @@ def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dic
     merged_brand2_map = maps["merged_brand2_map"]
     model2_map = maps["model2_map"]
     pt_from_model_map = maps["pt_from_model_map"]
+    include_in_bev_model_report_map = maps["include_in_bev_model_report_map"]
     unknown_fuels = maps["unknown_fuels"]
 
     # df_fuel used only for master powertrain summary — not included in cleaned data.
@@ -1170,6 +1202,7 @@ def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dic
         upper = df_model["รุ่นรถ"].astype(str).str.strip().str.upper()
         df_model.insert(df_model.columns.get_loc("รุ่นรถ") + 1, "รุ่นรถ2",
                         upper.map(model2_map).fillna(df_model["รุ่นรถ"]))
+        df_model["include_in_bev_model_report"] = upper.map(include_in_bev_model_report_map).fillna(False).astype(bool)
 
     if "ชนิดเชื้อเพลิง" in df_model.columns:
         model_fuel_values = df_model["ชนิดเชื้อเพลิง"].dropna().astype(str).str.strip()
@@ -1247,8 +1280,12 @@ def reapply_canonical_maps(df: pd.DataFrame, maps: dict, is_fuel: bool = False) 
 
     if not is_fuel:
         model2_map = maps["model2_map"]
+        include_in_bev_model_report_map = maps["include_in_bev_model_report_map"]
         upper_model = df["รุ่นรถ"].astype(str).str.strip().str.upper()
         df["รุ่นรถ2"] = upper_model.map(model2_map).fillna(df["รุ่นรถ"])
+        df["include_in_bev_model_report"] = (
+            upper_model.map(include_in_bev_model_report_map).fillna(False).astype(bool)
+        )
 
     return df
 
