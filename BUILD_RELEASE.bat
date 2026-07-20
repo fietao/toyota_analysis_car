@@ -8,9 +8,9 @@ echo  Public Release Build Pipeline
 echo ============================================================
 echo.
 
-echo ==== Step 1: Run Data Pipeline (Skip Map Rebuild) ====
+echo ==== Step 1: Run Data Pipeline ====
 cd backend
-py -3.12 run_pipeline.py --skip-map
+py -3.12 run_pipeline.py
 if %ERRORLEVEL% neq 0 (
     echo.
     echo ERROR: Step 1 backend data pipeline failed.
@@ -50,10 +50,13 @@ if %ERRORLEVEL% neq 0 (
 echo.
 
 echo ==== Step 5: Validate Manual Report Against Markdown ====
-set "MARKDOWN_REPORT="
-for /f "delims=" %%F in ('dir /b /a:-d /o:-d "%USERPROFILE%\Downloads\*_sheets1-9.md" 2^>nul') do if not defined MARKDOWN_REPORT set "MARKDOWN_REPORT=%USERPROFILE%\Downloads\%%F"
+set "MARKDOWN_REPORT=%MARKDOWN_REPORT_PATH%"
 if not defined MARKDOWN_REPORT (
-    echo ERROR: Markdown report not found in Downloads.
+    for /f "delims=" %%F in ('dir /b /a:-d /o:-d "%USERPROFILE%\Downloads\*_sheets1-9.md" 2^>nul') do if not defined MARKDOWN_REPORT set "MARKDOWN_REPORT=%USERPROFILE%\Downloads\%%F"
+)
+if not defined MARKDOWN_REPORT (
+    echo ERROR: Markdown report not found. Set MARKDOWN_REPORT_PATH or place a
+    echo        *_sheets1-9.md file in %USERPROFILE%\Downloads.
     pause
     exit /b 1
 )
