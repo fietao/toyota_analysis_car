@@ -7,7 +7,8 @@ from pathlib import Path
 import pandas as pd
 
 from aggregate import aggregate, current_period
-from schema import validate
+from schema import validate_model, validate_fuel
+from build_cleaned import load_powertrain_map
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -29,41 +30,8 @@ VEHICLE_TYPE_DICT = {
 }
 
 
-# User's strict mapping for fuel
-FUEL_MAP = {
-    "CNG": "ICE",
-    "CNG-LPG": "ICE",
-    "CNG-ดีเซล": "ICE",
-    "CNG-เบนซิน": "ICE",
-    "LPG-ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก": "PHEV",
-    "LPG-เบนซิน-ไฟฟ้า": "HEV",
-    "LPGและดีเซล": "ICE",
-    "LPGและเบนซิน": "ICE",
-    "ก๊าซ LPG": "ICE",
-    "ดีเซล": "ICE",
-    "ดีเซล-ไฟฟ้า": "HEV",
-    "ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก": "PHEV",
-    "เบนซิน": "ICE",
-    "เบนซิน-ไฟฟ้า": "HEV",
-    "เบนซิน-ไฟฟ้าแบบเสียบปลั๊ก": "PHEV",
-    "ไฟฟ้า": "BEV",
-    "ไม่ใช้เชื้อเพลิง": "N/A",
-    "ไฮโดรเจน": "ICE",
-    "CNG-LPG-ดีเซล": "ICE",
-    "CNG-LPG-เบนซิน": "ICE",
-    "CNG-ดีเซล-ไฟฟ้า": "HEV",
-    "CNG-ดีเซล-ไฟฟ้าแบบเสียบปลั๊ก": "PHEV",
-    "CNG-เบนซิน-ไฟฟ้า": "HEV",
-    "CNG-เบนซิน-ไฟฟ้าแบบเสียบปลั๊ก": "PHEV",
-    "LNG": "ICE",
-    "LNG-ดีเซล": "ICE",
-    "LPG-ดีเซล-ไฟฟ้า": "HEV",
-    "LPG-เบนซิน-ไฟฟ้าแบบเสียบปลั๊ก": "PHEV",
-    "ไม่ใช้เชื้อเพลิง-ไฟฟ้า": "N/A",
-    "เบนซิน-E20": "ICE",
-    "เบนซิน-เอทานอล": "ICE",
-    "ไม่มีข้อมูล": "N/A"
-}
+# Canonical fuel->powertrain mapping, single source of truth (see config/powertrain_map.csv).
+FUEL_MAP = load_powertrain_map(str(BASE / "config" / "powertrain_map.csv"))
 
 MONTH_MAP = {
     "มกราคม": "Jan", "กุมภาพันธ์": "Feb", "มีนาคม": "Mar",
@@ -80,59 +48,41 @@ FULL_MONTH_EN = {
     "Sep": "September", "Oct": "October", "Nov": "November", "Dec": "December",
 }
 
-PT_FUEL_LABEL = {
-    "BEV": "ไฟฟ้า (BEV)", "HEV": "ไฮบริด (HEV)",
-    "PHEV": "ปลั๊กอินไฮบริด (PHEV)", "ICE": "เครื่องยนต์สันดาป (ICE)",
-}
+def build_brand_model_tree(df_model_rows: pd.DataFrame) -> list:
+    """Build model facts as brand -> canonical series -> registry-backed PT segments.
 
-def build_brand_model_tree(df_brand: pd.DataFrame, df_model_rows: pd.DataFrame) -> list:
-    """Brand monthly totals from df_brand (fuel parquet), model rows from df_model_rows (model parquet)."""
-    # Brand-level monthly from fuel parquet
-    brand_grp = aggregate(
-        df_brand,
-        ["ยี่ห้อรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"],
+    Brand and series nodes expose source totals in ``monthly``. Each series also exposes
+    ``segments`` containing ``powertrain`` and ``monthly``; verified segments plus ``N/A``
+    must sum back to the series totals at every vehicle/province/year/month coordinate.
+    """
+    model_grp = aggregate(
+        df_model_rows.assign(Powertrain=df_model_rows["Powertrain"].fillna("N/A")),
+        ["ยี่ห้อรถ2", "รุ่นรถ2", "Powertrain", "v_code", "จังหวัด", "ปี", "เดือน"],
         {"mode": "monthly", "units_col": "จำนวนรถ"},
     )
 
     brand_map: dict = {}
-    for _, row in brand_grp.iterrows():
-        b, pt, vc = row["ยี่ห้อรถ2"], row["PT"], row["v_code"]
-        province = row["จังหวัด"]
-        year, m_idx, u = str(int(row["ปี"])), MONTH_IDX.get(row["เดือน"]), int(row["จำนวนรถ"])
-        if m_idx is None:
-            continue
-        fuel_label = PT_FUEL_LABEL.get(pt, pt)
-        bkey = f"{b}||{pt}"
-        if bkey not in brand_map:
-            brand_map[bkey] = {"brand": b, "powertrain": pt, "fuel": fuel_label, "monthly": {}, "models": {}}
-        bn = brand_map[bkey]
-        bn_p = bn["monthly"].setdefault(vc, {}).setdefault(province, {})
-        bn_p.setdefault(year, [0] * 12)[m_idx] += u
 
-    # Model-level monthly from model parquet
-    model_grp = aggregate(
-        df_model_rows,
-        ["ยี่ห้อรถ2", "รุ่นรถ2", "PT", "Powertrain", "v_code", "จังหวัด", "ปี", "เดือน"],
-        {"mode": "monthly", "units_col": "จำนวนรถ"},
-    )
+    def add_month(monthly: dict, vehicle_type, province, year, month_idx, units):
+        monthly.setdefault(vehicle_type, {}).setdefault(province, {}).setdefault(year, [0] * 12)[month_idx] += units
 
     for _, row in model_grp.iterrows():
-        b, mod, pt, model_powertrain, vc = row["ยี่ห้อรถ2"], row["รุ่นรถ2"], row["PT"], row["Powertrain"], row["v_code"]
+        brand = row["ยี่ห้อรถ2"]
+        series = row["รุ่นรถ2"]
+        powertrain = row["Powertrain"] or "N/A"
+        vehicle_type = row["v_code"]
         province = row["จังหวัด"]
-        year, m_idx, u = str(int(row["ปี"])), MONTH_IDX.get(row["เดือน"]), int(row["จำนวนรถ"])
-        if m_idx is None:
+        year = str(int(row["ปี"]))
+        month_idx = MONTH_IDX.get(row["เดือน"])
+        units = int(row["จำนวนรถ"])
+        if month_idx is None:
             continue
-        fuel_label = PT_FUEL_LABEL.get(pt, pt)
-        bkey = f"{b}||{pt}"
-        if bkey not in brand_map:
-            brand_map[bkey] = {"brand": b, "powertrain": pt, "fuel": fuel_label, "monthly": {}, "models": {}}
-        bn = brand_map[bkey]
-        model_key = f"{mod}||{model_powertrain}"
-        if model_key not in bn["models"]:
-            bn["models"][model_key] = {"name": mod, "powertrain": model_powertrain, "fuel": fuel_label, "monthly": {}}
-        mn = bn["models"][model_key]
-        mn_p = mn["monthly"].setdefault(vc, {}).setdefault(province, {})
-        mn_p.setdefault(year, [0] * 12)[m_idx] += u
+
+        brand_node = brand_map.setdefault(brand, {"brand": brand, "monthly": {}, "models": {}})
+        series_node = brand_node["models"].setdefault(series, {"name": series, "monthly": {}, "segments": {}})
+        segment = series_node["segments"].setdefault(powertrain, {"powertrain": powertrain, "monthly": {}})
+        for node in (brand_node, series_node, segment):
+            add_month(node["monthly"], vehicle_type, province, year, month_idx, units)
 
     def total(node: dict) -> int:
         return sum(
@@ -144,10 +94,17 @@ def build_brand_model_tree(df_brand: pd.DataFrame, df_model_rows: pd.DataFrame) 
 
     result = []
     for bn in sorted(brand_map.values(), key=lambda x: -total(x)):
+        models = []
+        for series in sorted(bn["models"].values(), key=lambda x: -total(x)):
+            models.append({
+                "name": series["name"],
+                "monthly": series["monthly"],
+                "segments": list(series["segments"].values()),
+            })
         result.append({
-            "brand": bn["brand"], "powertrain": bn["powertrain"], "fuel": bn["fuel"],
+            "brand": bn["brand"],
             "monthly": bn["monthly"],
-            "models": sorted(bn["models"].values(), key=lambda x: -total(x)),
+            "models": models,
         })
     return result
 
@@ -156,9 +113,9 @@ def short_code(label: str) -> str:
     import re
     return re.split(r'[\s(]', str(label))[0].strip()
 
-def load_data(parquet: Path) -> pd.DataFrame:
+def load_data(parquet: Path, is_fuel: bool) -> pd.DataFrame:
     df = pd.read_parquet(str(parquet))
-    validate(df)
+    validate_fuel(df) if is_fuel else validate_model(df)
 
     # Strip whitespace from ประเภทรถ to match correctly
     df["ประเภทรถ"] = df["ประเภทรถ"].astype(str).str.strip()
@@ -173,8 +130,11 @@ def load_data(parquet: Path) -> pd.DataFrame:
     # Map to full Thai name if in dictionary, otherwise keep the source label.
     df["v"] = df["v_code"].map(VEHICLE_TYPE_DICT).fillna(df["ประเภทรถ"])
 
-    # Apply exact Powertrain mapping from ชนิดเชื้อเพลิง
-    df["PT"] = df["ชนิดเชื้อเพลิง"].map(FUEL_MAP).fillna("N/A")
+    # Fuel facts derive PT from fuel. Model facts use only registry-backed Powertrain.
+    if is_fuel:
+        df["PT"] = df["ชนิดเชื้อเพลิง"].map(FUEL_MAP).fillna("N/A")
+    else:
+        df["PT"] = df["Powertrain"].fillna("N/A")
 
     df["จำนวนรถ"] = pd.to_numeric(df["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df["ปี"] = pd.to_numeric(df["ปี"], errors="coerce").dropna().astype(int)
@@ -192,12 +152,11 @@ def export_data():
         return
 
     print(f"Reading {MODEL_PARQUET.name} for model data...")
-    df_model_all = load_data(MODEL_PARQUET)
-    df_model_all["ชนิดเชื้อเพลิง"] = df_model_all["ชนิดเชื้อเพลิง"].fillna("")
+    df_model_all = load_data(MODEL_PARQUET, is_fuel=False)
     print(f"  {len(df_model_all):,} model rows loaded")
 
     print(f"Reading {FUEL_PARQUET.name} for brand/powertrain data...")
-    df_fuel_all = load_data(FUEL_PARQUET)
+    df_fuel_all = load_data(FUEL_PARQUET, is_fuel=True)
     df_fuel_all["ชนิดเชื้อเพลิง"] = df_fuel_all["ชนิดเชื้อเพลิง"].fillna("")
     print(f"  {len(df_fuel_all):,} fuel rows loaded")
 
@@ -218,9 +177,9 @@ def export_data():
             "y": int(row["ปี"]), "u": int(row["จำนวนรถ"])
         })
 
-    # 2. Brand/model tree — fuel for brand monthly, model for model rows
+    # 2. Brand/model tree from model facts only
     print("  Building brand_model_tree...")
-    brand_model_tree = build_brand_model_tree(df_fuel, df)
+    brand_model_tree = build_brand_model_tree(df)
     tree_total = sum(
         sum(arr)
         for bn in brand_model_tree
@@ -228,7 +187,7 @@ def export_data():
         for year_buckets in province_buckets.values()
         for arr in year_buckets.values()
     )
-    print(f"  brand_model_tree total units (fuel): {tree_total:,}")
+    print(f"  brand_model_tree total units (model): {tree_total:,}")
 
     # 3. Fuel & Powertrain monthly (from fuel parquet)
     fuel_grp = aggregate(

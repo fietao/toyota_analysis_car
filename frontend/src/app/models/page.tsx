@@ -1,19 +1,55 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import Link from "next/link";
 import { Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { FilterPillPopover } from "../../components/FilterPillPopover";
-import { DashboardData } from "../selectors";
+import {
+  DashboardData,
+  BrandNode,
+  ModelNode,
+  POWERTRAINS,
+  brandTotals,
+  brandMonthlyValues,
+  brandSegmentBreakdown,
+  seriesTotals,
+  seriesMonthlyValues,
+  segmentBreakdown,
+} from "../selectors";
 
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const modelPowertrainMatches = (modelPowertrain: string | undefined, selectedPts: string[]) => {
-  if (selectedPts.length === 0 || !modelPowertrain) return true;
-  return selectedPts.some((pt) => {
-    if (pt === "BEV") return modelPowertrain === "BEV" || modelPowertrain === "BEV Major";
-    return modelPowertrain === pt;
-  });
+const PT_BADGE: Record<string, string> = {
+  ICE: "bg-slate-700/60 text-slate-300 border-slate-600",
+  HEV: "bg-emerald-950/40 text-emerald-400 border-emerald-800/60",
+  PHEV: "bg-sky-950/40 text-sky-400 border-sky-800/60",
+  BEV: "bg-teal-950/40 text-teal-400 border-teal-700/60",
+  "N/A": "bg-amber-950/40 text-amber-400 border-amber-800/60",
+};
+
+// Always shows every verified segment plus N/A, regardless of the active Powertrain filter —
+// the numeric filter narrows totals, it never hides a segment from view.
+function PowertrainBadges({ breakdown }: { breakdown: Record<string, number> }) {
+  const entries = POWERTRAINS.filter((pt) => (breakdown[pt] || 0) > 0);
+  if (entries.length === 0) return <span className="text-slate-600 text-[10px]">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {entries.map((pt) => (
+        <span key={pt} className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${PT_BADGE[pt]}`}>
+          {pt}
+          <span className="font-mono font-normal opacity-80">{breakdown[pt].toLocaleString()}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+type SeriesRow = ModelNode & { totals: { grandTotal: number; ytdTotal: number } };
+type BrandRow = Omit<BrandNode, "models"> & {
+  toggleKey: string;
+  isExpanded: boolean;
+  totals: { grandTotal: number; ytdTotal: number };
+  models: SeriesRow[];
 };
 
 export default function ModelsPage() {
@@ -106,126 +142,42 @@ export default function ModelsPage() {
     };
   }, [data]);
 
-  // Aggregate monthly values for a node (brand or model)
-  const getMonthlyValues = useCallback((node: { monthly: Record<string, unknown> }, year: string) => {
-    const out = Array(12).fill(0);
-    const buckets = node.monthly || {};
-    const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(buckets);
-
-    vcs.forEach((vc) => {
-      const vehicleBucket = buckets[vc] as Record<string, unknown>;
-      if (!vehicleBucket) return;
-
-      // Backward compatibility path
-      if (Array.isArray(vehicleBucket[year])) {
-        for (let i = 0; i < 12; i++) out[i] += vehicleBucket[year][i] || 0;
-        return;
-      }
-
-      const provs = selectedProvinces.length > 0 ? selectedProvinces : Object.keys(vehicleBucket);
-      provs.forEach((province) => {
-        const pBucket = vehicleBucket[province] as Record<string, unknown>;
-        if (pBucket) {
-          const arr = pBucket[year] as number[];
-          if (arr) {
-            for (let i = 0; i < 12; i++) out[i] += arr[i] || 0;
-          }
-        }
-      });
-    });
-    return out;
-  }, [selectedVehicleTypes, selectedProvinces]);
-
-  // Helper to compute node totals
-  const getNodeTotals = useCallback((node: { monthly: Record<string, unknown> }) => {
-    let grandTotal = 0;
-    let ytdTotal = 0;
-    activeYears.forEach((year) => {
-      const monthly = getMonthlyValues(node, year);
-      const yearSum = monthly.reduce((s, v) => s + v, 0);
-      grandTotal += yearSum;
-      if (year === latestYear) {
-        ytdTotal += yearSum; // current year acts as YTD
-      }
-    });
-    return { grandTotal, ytdTotal };
-  }, [activeYears, latestYear, getMonthlyValues]);
-
-  // Unfiltered aggregation (all vehicle types, all provinces) for the "Full" export sheet —
-  // ignores selectedVehicleTypes/selectedProvinces so it reflects the complete dataset.
-  const getMonthlyValuesAll = useCallback((node: { monthly: Record<string, unknown> }, year: string) => {
-    const out = Array(12).fill(0);
-    const buckets = node.monthly || {};
-
-    Object.keys(buckets).forEach((vc) => {
-      const vehicleBucket = buckets[vc] as Record<string, unknown>;
-      if (!vehicleBucket) return;
-
-      if (Array.isArray(vehicleBucket[year])) {
-        for (let i = 0; i < 12; i++) out[i] += vehicleBucket[year][i] || 0;
-        return;
-      }
-
-      Object.keys(vehicleBucket).forEach((province) => {
-        const pBucket = vehicleBucket[province] as Record<string, unknown>;
-        if (pBucket) {
-          const arr = pBucket[year] as number[];
-          if (arr) for (let i = 0; i < 12; i++) out[i] += arr[i] || 0;
-        }
-      });
-    });
-    return out;
-  }, []);
-
-  const getNodeTotalsAll = useCallback((node: { monthly: Record<string, unknown> }) => {
-    let grandTotal = 0;
-    let ytdTotal = 0;
-    activeYears.forEach((year) => {
-      const monthly = getMonthlyValuesAll(node, year);
-      const yearSum = monthly.reduce((s, v) => s + v, 0);
-      grandTotal += yearSum;
-      if (year === latestYear) ytdTotal += yearSum;
-    });
-    return { grandTotal, ytdTotal };
-  }, [activeYears, latestYear, getMonthlyValuesAll]);
-
-  // Filtered Rows Assembly
-  const filteredTree = useMemo(() => {
+  // Filtered Rows Assembly — brand and series totals come only from segments matching the
+  // active Powertrain filter; a brand/series with zero matching units is dropped entirely.
+  const filteredTree: BrandRow[] = useMemo(() => {
     if (!data?.brand_model_tree) return [];
 
     return data.brand_model_tree
-      .map((brandNode) => {
-        if (selectedPts.length > 0 && !selectedPts.includes(brandNode.powertrain)) return null;
+      .map((brandNode): BrandRow | null => {
         if (selectedBrands.length > 0 && !selectedBrands.includes(brandNode.brand)) return null;
 
-        const toggleKey = `${brandNode.brand}||${brandNode.powertrain}`;
+        const toggleKey = brandNode.brand;
         const isExpanded = expandedBrands.has(toggleKey);
 
-        const { grandTotal, ytdTotal } = getNodeTotals(brandNode);
-        if (grandTotal === 0) return null; // skip brand if 0 registrations under filters
+        const bTotals = brandTotals(brandNode, activeYears, latestYear, selectedPts, selectedVehicleTypes, selectedProvinces);
+        if (bTotals.grandTotal === 0) return null;
 
         const filteredModels = (brandNode.models || [])
-          .map((model) => {
+          .map((model): SeriesRow | null => {
             if (selectedModels.length > 0 && !selectedModels.includes(model.name)) return null;
-            if (!modelPowertrainMatches(model.powertrain, selectedPts)) return null;
-            const mTotals = getNodeTotals(model);
+            const mTotals = seriesTotals(model, activeYears, latestYear, selectedPts, selectedVehicleTypes, selectedProvinces);
             if (mTotals.grandTotal === 0) return null;
             return { ...model, totals: mTotals };
           })
-          .filter((m): m is NonNullable<typeof m> => m !== null)
+          .filter((m): m is SeriesRow => m !== null)
           .sort((a, b) => b.totals.grandTotal - a.totals.grandTotal);
 
         return {
           ...brandNode,
           toggleKey,
           isExpanded,
-          totals: { grandTotal, ytdTotal },
-          models: filteredModels
+          totals: bTotals,
+          models: filteredModels,
         };
       })
-      .filter((b): b is NonNullable<typeof b> => b !== null)
+      .filter((b): b is BrandRow => b !== null)
       .sort((a, b) => b.totals.grandTotal - a.totals.grandTotal);
-  }, [data, selectedPts, selectedBrands, selectedModels, expandedBrands, getNodeTotals]);
+  }, [data, selectedPts, selectedBrands, selectedModels, selectedVehicleTypes, selectedProvinces, activeYears, latestYear, expandedBrands]);
 
   // Compute Grand Total of all filtered rows
   const superGrandTotal = useMemo(() => {
@@ -239,19 +191,15 @@ export default function ModelsPage() {
     return filteredTree.slice(start, end);
   }, [filteredTree, currentPage, pageSize]);
 
-  // Calculate Reference Grand Total of ALL data unfiltered
+  // Calculate Reference Grand Total of ALL data unfiltered (source totals, ignores every filter)
   const referenceTotal = useMemo(() => {
     if (!data?.brand_model_tree) return 0;
     let sum = 0;
     data.brand_model_tree.forEach((brandNode) => {
-      Object.values(brandNode.monthly || {}).forEach((vehicleBucket: Record<string, unknown>) => {
-        Object.values(vehicleBucket || {}).forEach((provinceOrYearBucket: unknown) => {
-          if (Array.isArray(provinceOrYearBucket)) {
-            sum += provinceOrYearBucket.reduce((s: number, v: number) => s + (v || 0), 0);
-            return;
-          }
-          Object.values((provinceOrYearBucket as Record<string, unknown>) || {}).forEach((arr: unknown) => {
-            sum += (arr as number[] || []).reduce((s: number, v: number) => s + (v || 0), 0);
+      Object.values(brandNode.monthly || {}).forEach((vehicleBucket) => {
+        Object.values(vehicleBucket || {}).forEach((provinceBucket) => {
+          Object.values(provinceBucket || {}).forEach((arr) => {
+            sum += (arr || []).reduce((s, v) => s + (v || 0), 0);
           });
         });
       });
@@ -273,40 +221,46 @@ export default function ModelsPage() {
     setExporting(true);
     try {
       const XLSX = await import("xlsx");
-      type ExportNode = { monthly: Record<string, unknown>; brand?: string; name?: string; fuel: string; powertrain?: string; models?: ExportNode[] };
 
+      // Shared with the UI: same selectors, same filter args, so displayed and downloaded
+      // totals always match exactly. Powertrain breakdown columns ignore the PT filter so
+      // N/A and every verified segment stay visible/downloadable regardless of selection.
       const buildRows = (
-        tree: ExportNode[],
-        monthlyFn: (node: ExportNode, year: string) => number[],
-        totalsFn: (node: ExportNode) => { grandTotal: number; ytdTotal: number }
+        pts: string[],
+        vehicleTypes: string[],
+        provinces: string[],
+        brandFilter: string[],
+        modelFilter: string[]
       ) => {
         const rows: Record<string, string | number>[] = [];
-        tree.forEach((brandNode) => {
-          const { grandTotal, ytdTotal } = totalsFn(brandNode);
-          if (grandTotal === 0) return;
-          const bRow: Record<string, string | number> = { "Brand / Model": brandNode.brand ?? "", "Fuel Type": brandNode.fuel };
+        (data.brand_model_tree || []).forEach((brandNode) => {
+          if (brandFilter.length > 0 && !brandFilter.includes(brandNode.brand)) return;
+          const bTotals = brandTotals(brandNode, activeYears, latestYear, pts, vehicleTypes, provinces);
+          if (bTotals.grandTotal === 0) return;
+          const bBreakdown = brandSegmentBreakdown(brandNode, activeYears, vehicleTypes, provinces);
 
+          const bRow: Record<string, string | number> = { "Brand / Model": brandNode.brand };
+          POWERTRAINS.forEach((pt) => { bRow[pt] = bBreakdown[pt] || ""; });
           activeYears.forEach((year) => {
-            const monthly = monthlyFn(brandNode, year);
-            monthly.forEach((val, mIdx) => {
-              bRow[`${year} ${MONTHS_EN[mIdx]}`] = val || "";
-            });
+            const monthly = brandMonthlyValues(brandNode, year, pts, vehicleTypes, provinces);
+            monthly.forEach((val, mIdx) => { bRow[`${year} ${MONTHS_EN[mIdx]}`] = val || ""; });
             bRow[`${year} Total`] = monthly.reduce((s, v) => s + v, 0) || "";
           });
-          bRow["YTD"] = ytdTotal || "";
-          bRow["Grand Total"] = grandTotal || "";
+          bRow["YTD"] = bTotals.ytdTotal || "";
+          bRow["Grand Total"] = bTotals.grandTotal || "";
           rows.push(bRow);
 
-          brandNode.models?.forEach((model) => {
-            const mTotals = totalsFn(model);
+          (brandNode.models || []).forEach((model) => {
+            if (modelFilter.length > 0 && !modelFilter.includes(model.name)) return;
+            const mTotals = seriesTotals(model, activeYears, latestYear, pts, vehicleTypes, provinces);
             if (mTotals.grandTotal === 0) return;
-            const mRow: Record<string, string | number> = { "Brand / Model": `  ${model.name}`, "Fuel Type": model.fuel, "Model Powertrain": model.powertrain ?? "" };
+            const mBreakdown = segmentBreakdown(model, activeYears, vehicleTypes, provinces);
 
+            const mRow: Record<string, string | number> = { "Brand / Model": `  ${model.name}` };
+            POWERTRAINS.forEach((pt) => { mRow[pt] = mBreakdown[pt] || ""; });
             activeYears.forEach((year) => {
-              const monthly = monthlyFn(model, year);
-              monthly.forEach((val, mIdx) => {
-                mRow[`${year} ${MONTHS_EN[mIdx]}`] = val || "";
-              });
+              const monthly = seriesMonthlyValues(model, year, pts, vehicleTypes, provinces);
+              monthly.forEach((val, mIdx) => { mRow[`${year} ${MONTHS_EN[mIdx]}`] = val || ""; });
               mRow[`${year} Total`] = monthly.reduce((s, v) => s + v, 0) || "";
             });
             mRow["YTD"] = mTotals.ytdTotal || "";
@@ -317,16 +271,11 @@ export default function ModelsPage() {
         return rows;
       };
 
-      // Full sheet: every brand/model, all vehicle types and provinces — ignores active filters.
-      const fullRows = buildRows(data.brand_model_tree || [], getMonthlyValuesAll, getNodeTotalsAll);
+      // Full sheet: every brand/model, every segment, all vehicle types/provinces — ignores active filters.
+      const fullRows = buildRows([], [], [], [], []);
 
-      // Filtered sheet: respects brand/model/powertrain filters (via filteredTree) plus the
-      // vehicle-type/province/year selections (via getMonthlyValues/getNodeTotals).
-      const filteredRows = buildRows(
-        filteredTree,
-        getMonthlyValues,
-        (node) => (node as unknown as { totals: { grandTotal: number; ytdTotal: number } }).totals
-      );
+      // Filtered sheet: the exact same selectors as the table, with the current filter state.
+      const filteredRows = buildRows(selectedPts, selectedVehicleTypes, selectedProvinces, selectedBrands, selectedModels);
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fullRows), "Full");
@@ -338,10 +287,6 @@ export default function ModelsPage() {
     } finally {
       setExporting(false);
     }
-  };
-
-  const yearSum = (node: { monthly: Record<string, unknown> }, year: string) => {
-    return getMonthlyValues(node, year).reduce((s, v) => s + v, 0);
   };
 
   if (loading) {
@@ -421,9 +366,9 @@ export default function ModelsPage() {
             <FilterPillPopover label="Brand" placeholder="Search brands..." options={allBrands} value={selectedBrands} onChange={setSelectedBrands} />
             <FilterPillPopover label="Model" placeholder="Search models..." options={allModels} value={selectedModels} onChange={setSelectedModels} />
             <FilterPillPopover label="Province" placeholder="Search provinces..." options={meta?.provinces ?? []} value={selectedProvinces} onChange={setSelectedProvinces} />
-            <FilterPillPopover label="Powertrain" placeholder="Search powertrains..." options={["ICE", "BEV", "HEV", "PHEV"]} value={selectedPts} onChange={setSelectedPts} />
+            <FilterPillPopover label="Powertrain" placeholder="Search powertrains..." options={[...POWERTRAINS]} value={selectedPts} onChange={setSelectedPts} />
             <FilterPillPopover label="Vehicle Type" placeholder="Search vehicle types..." options={meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) ?? []} value={selectedVehicleTypes} onChange={setSelectedVehicleTypes} />
-            
+
             {/* Year Checklist */}
             <div className="flex flex-col justify-center">
               <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Active Years (B.E.)</span>
@@ -433,9 +378,9 @@ export default function ModelsPage() {
                   const isChecked = activeYears.includes(yStr);
                   return (
                     <label key={yStr} className={`flex items-center gap-1 cursor-pointer text-xs font-semibold px-2 py-1 rounded border transition-colors ${isChecked ? "bg-teal-650/20 text-teal-400 border-teal-550/40" : "bg-slate-800 border-slate-700 text-slate-400"}`}>
-                      <input 
-                        type="checkbox" 
-                        className="sr-only" 
+                      <input
+                        type="checkbox"
+                        className="sr-only"
                         checked={isChecked}
                         onChange={() => {
                           if (isChecked) setActiveYears(activeYears.filter(x => x !== yStr));
@@ -458,8 +403,8 @@ export default function ModelsPage() {
               <thead>
                 <tr className="bg-slate-800/80 border-b border-slate-700 text-slate-300 font-semibold align-middle">
                   <th scope="col" className="p-3 w-52 sticky top-0 left-0 bg-slate-800 z-40 border-r border-slate-700">Brand / Model</th>
-                  <th scope="col" className="p-3 w-28 text-slate-450 sticky top-0 bg-slate-800 z-30">Fuel Type</th>
-                  
+                  <th scope="col" className="p-3 w-48 text-slate-450 sticky top-0 bg-slate-800 z-30">Powertrain</th>
+
                   {activeYears.map((year) => (
                     <Fragment key={year}>
                       {MONTHS_EN.map((m) => (
@@ -468,7 +413,7 @@ export default function ModelsPage() {
                       <th scope="col" className="p-2 border-l-2 border-slate-600 bg-slate-800 text-center font-bold text-teal-300 min-w-[70px] sticky top-0 z-30">Total {year}</th>
                     </Fragment>
                   ))}
-                  
+
                   <th scope="col" className="p-3 border-l-2 border-slate-600 text-right text-emerald-400 font-bold bg-slate-800 min-w-[75px] sticky top-0 z-30">YTD</th>
                   <th scope="col" className="p-3 border-l border-slate-600 text-right text-amber-400 font-bold bg-slate-800 min-w-[85px] sticky top-0 z-30">Grand Total</th>
                 </tr>
@@ -501,11 +446,13 @@ export default function ModelsPage() {
                             <span className="font-bold text-xs tracking-wide">{brandNode.brand}</span>
                           </button>
                         </td>
-                        <td className="p-3 text-slate-400 text-[10px]">{brandNode.fuel}</td>
-                        
+                        <td className="p-3">
+                          <PowertrainBadges breakdown={brandSegmentBreakdown(brandNode, activeYears, selectedVehicleTypes, selectedProvinces)} />
+                        </td>
+
                         {activeYears.map((year) => {
-                          const monthly = getMonthlyValues(brandNode, year);
-                          const total = yearSum(brandNode, year);
+                          const monthly = brandMonthlyValues(brandNode, year, selectedPts, selectedVehicleTypes, selectedProvinces);
+                          const total = monthly.reduce((s, v) => s + v, 0);
                           return (
                             <Fragment key={year}>
                               {monthly.map((val, idx) => (
@@ -519,7 +466,7 @@ export default function ModelsPage() {
                             </Fragment>
                           );
                         })}
-                        
+
                         <td className="p-3 border-l-2 border-slate-800 text-right font-mono font-bold text-emerald-400 bg-emerald-950/10">
                           {brandNode.totals.ytdTotal ? brandNode.totals.ytdTotal.toLocaleString() : "—"}
                         </td>
@@ -528,10 +475,10 @@ export default function ModelsPage() {
                         </td>
                       </tr>
 
-                      {/* Model Rows */}
-                      {brandNode.isExpanded && brandNode.models.map((model: typeof brandNode.models[0]) => (
-                        <tr 
-                          key={`${brandNode.toggleKey}-${model.name}-${model.powertrain ?? "unknown"}`}
+                      {/* Series (Model) Rows */}
+                      {brandNode.isExpanded && brandNode.models.map((model) => (
+                        <tr
+                          key={`${brandNode.toggleKey}-${model.name}`}
                           className="bg-slate-950/50 hover:bg-slate-900/60 border-b border-slate-900/60 text-slate-300 transition-colors"
                         >
                           <td className="p-2.5 pl-8 sticky left-0 bg-slate-950/90 z-10 border-r border-slate-900/60">
@@ -540,18 +487,17 @@ export default function ModelsPage() {
                               <span className="font-medium text-slate-200 text-xs">{model.name}</span>
                             </div>
                           </td>
-                          <td className="p-2.5 text-slate-500 text-[10px]">
-                            <div>{model.fuel}</div>
-                            {model.powertrain && <div className="text-[9px] text-slate-600">{model.powertrain}</div>}
+                          <td className="p-2.5">
+                            <PowertrainBadges breakdown={segmentBreakdown(model, activeYears, selectedVehicleTypes, selectedProvinces)} />
                           </td>
-                          
+
                           {activeYears.map((year) => {
-                            const monthly = getMonthlyValues(model, year);
-                            const total = yearSum(model, year);
+                            const monthly = seriesMonthlyValues(model, year, selectedPts, selectedVehicleTypes, selectedProvinces);
+                            const total = monthly.reduce((s, v) => s + v, 0);
                             return (
                               <Fragment key={year}>
                                 {monthly.map((val, idx) => (
-                                  <td key={`mod-val-${brandNode.toggleKey}-${model.name}-${model.powertrain ?? "unknown"}-${year}-${idx}`} className="p-1 border-l border-slate-800/30 text-center font-mono text-slate-400/90">
+                                  <td key={`mod-val-${brandNode.toggleKey}-${model.name}-${year}-${idx}`} className="p-1 border-l border-slate-800/30 text-center font-mono text-slate-400/90">
                                     {val ? val.toLocaleString() : "—"}
                                   </td>
                                 ))}

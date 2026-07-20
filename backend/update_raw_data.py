@@ -8,7 +8,8 @@ Usage:
 What it does:
     1. Copies both files into raw data/ as the new masters.
     2. Auto-classifies any new fuel types into the master powertrain sheet.
-    3. Runs the full pipeline (build_cleaned → build_BEV → build_analyst).
+    3. Runs the full pipeline (build_cleaned; canonical names/powertrain come
+       solely from refer/series_registry.csv).
     4. Exports dashboard data (export_dashboard.py).
 """
 
@@ -131,7 +132,7 @@ def main():
     print("\n[3/4] Running pipeline...")
     pipeline = BASE / "run_pipeline.py"
     result = subprocess.run(
-        [sys.executable, str(pipeline), "--skip-map", "--skip-analyst"],
+        [sys.executable, str(pipeline), "--skip-analyst"],
         cwd=str(BASE),
         env={**os.environ, "PYTHONUTF8": "1"},
     )

@@ -36,6 +36,9 @@ import {
   selectProvinceAnalysisData
 } from "./selectors";
 import { FilterPillPopover } from "../components/FilterPillPopover";
+import { AdminReviewPanel } from "../components/AdminReviewPanel";
+
+const SHOW_ADMIN_PANEL = process.env.NODE_ENV !== "production";
 
 /* ── Palette & constants ─────────────────────────────────────────────── */
 
@@ -370,6 +373,9 @@ export default function Dashboard() {
   // -- Dynamic Group By Engine (Charts) --
   const dynamicChartData = useMemo(() => {
     if (activeTab !== "rankings") return [];
+    if (chartGroupBy === "Brands" && rankingProvince.length === 0 && rankingModel.length === 0) {
+      return selectDynamicChartDataFromMonthly(data, rankingPt, rankingBrand, selectedYear, selectedVehicleTypes);
+    }
     if (brandModelTree) {
       return selectDynamicChartData(data, chartGroupBy, rankingPt, rankingBrand, rankingModel, rankingProvince, selectedYear, selectedVehicleTypes, brandModelTree);
     }
@@ -530,6 +536,11 @@ export default function Dashboard() {
                   </p>
                 </div>
               </>
+            )}
+            {SHOW_ADMIN_PANEL && (
+              <div className="ml-auto">
+                <AdminReviewPanel />
+              </div>
             )}
           </div>
         </header>

@@ -13,7 +13,7 @@ from openpyxl import load_workbook
 
 from aggregate import aggregate, current_period
 from xlsx_util import _col, _esc
-from schema import validate
+from schema import validate_model
 
 BASE         = Path(__file__).resolve().parent
 CLEANED_FILE = BASE / "test_model_cleaned.parquet"
@@ -545,7 +545,7 @@ def main():
 
     print("Loading cleaned data...", flush=True)
     df_raw = pd.read_parquet(str(CLEANED_FILE))
-    validate(df_raw)
+    validate_model(df_raw)
     df_raw["จำนวนรถ"] = pd.to_numeric(df_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df_raw["ปี"]      = pd.to_numeric(df_raw["ปี"],      errors="coerce").dropna().astype(int)
     df_raw = df_raw.dropna(subset=["ปี"]).copy()

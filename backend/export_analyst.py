@@ -8,7 +8,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 from aggregate import current_period
 from calculation_builder import build_calculation_table, MONTH_TO_NUM, THAI_MONTHS
-from schema import validate
+from schema import validate_model, validate_fuel
 from export_dashboard import VEHICLE_TYPE_DICT
 
 VEHICLE_TYPE_PRESETS = {
@@ -36,8 +36,8 @@ def export_analyst_data():
 
     print(f"Loading model data from {model_path}...")
     df_model = pd.read_parquet(model_path)
-    validate(df_fuel)
-    validate(df_model)
+    validate_fuel(df_fuel)
+    validate_model(df_model)
 
     # Determine current year and month from fuel data
     if "เดือน" in df_fuel.columns:
