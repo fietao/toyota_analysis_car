@@ -11,19 +11,33 @@ Monthly Thailand new-car registration analysis pipeline (DLT data) and Next.js f
 
 ## Pipeline (Backend)
 
+`backend/refer/series_registry.csv` is the sole canonical-series-name and model-powertrain
+authority (see `plans/reliable-series-powertrain.md`). A raw model series resolves to its
+registry entry if one exists, otherwise it displays as the raw source name — there is no other
+name-mapping fallback.
+
 ```
-build_model2_map.py   ← one-time or when new models appear
 build_cleaned.py      ← every month  →  test_model_cleaned.parquet (Data + master powertrain)
-build_BEV.py          ← every month  →  appends BEV Series Name Table
 build_analyst.py      ← every month  →  YYYYMM_รถใหม่_...(analyst).xlsx
 export_dashboard.py   ← every month  →  frontend/public/data/dashboard_summary.json, dashboard_models.json, cleaned_data_manifest.json
 export_analyst.py     ← every month  →  frontend/public/data/analyst_data.json
+export_manual_report.py ← every month → frontend/public/data/manual_report.json
 ```
 
-## Running Builds
+Unresolved or ambiguous series display `N/A` until a local administrator reviews and verifies
+them through the review panel (see `RUN_ADMIN.bat` below) — nothing infers a series' powertrain
+from aggregate fuel data.
 
-- **Local Development**: Run `RUN_ALL.bat` at the project root to start the local Next.js dev server (runs frontend on `http://localhost:3000` using local static data, skipping the full backend pipeline).
-- **Public Release Build**: Run `BUILD_RELEASE.bat` at the project root. This command runs the full deterministic pipeline (`run_pipeline.py --skip-map`), exports the dashboard and analyst data, runs validation (`validate_public_release.py`), and compiles the Next.js production build.
+## Normal Operation
+
+Four scripts at the project root cover everything day to day:
+
+| Script | When | What it does |
+|---|---|---|
+| `SETUP.bat` | Once, or after pulling dependency changes | Installs backend Python packages (`backend/requirements.txt`) and frontend npm packages. |
+| `RUN_ADMIN.bat` | To review/verify unresolved series | Starts the local-only admin review server (`127.0.0.1:8765`) and the Next.js dev server at `http://localhost:3000`. The admin server never ships in the public release build. |
+| `UPDATE.bat` | Monthly, after dropping the 2 new DLT files into `backend/raw data/` | Runs `update_raw_data.py`: classifies new fuel types, rebuilds the pipeline, and exports dashboard data. |
+| `BUILD_RELEASE.bat` | Before publishing | Runs the full deterministic pipeline, exports dashboard/analyst/manual-report data, validates against a markdown export and the public-release gate, then builds the Next.js production bundle. Set `MARKDOWN_REPORT_PATH` to point at the `*_sheets1-9.md` export directly; otherwise it looks for the newest one in `%USERPROFILE%\Downloads`. |
 
 ## Key files
 
@@ -31,7 +45,9 @@ export_analyst.py     ← every month  →  frontend/public/data/analyst_data.js
 |------|---------|
 | `backend/raw data/รถใหม่_*.xlsx` | Raw DLT registration data |
 | `backend/refer/*- Model.xlsx` | Template workbook (master powertrain, BEV Series Name Table) |
-| `backend/refer/model2_map.csv` | Normalized model name mappings (8,358 rows) |
+| `backend/refer/series_registry.csv` | Canonical series-name and powertrain authority (versioned; reviewed via `RUN_ADMIN.bat`) |
+| `backend/config/brand_map.csv` | Raw brand → canonical brand mapping |
+| `backend/config/powertrain_map.csv` | Raw fuel type → powertrain (ICE/HEV/PHEV/BEV) mapping |
 | `backend/test_model_cleaned.parquet` | Pipeline intermediate output |
 | `frontend/public/data/dashboard_summary.json` | General summary and powertrain data |
 | `frontend/public/data/dashboard_models.json` | Brand and model data tree |

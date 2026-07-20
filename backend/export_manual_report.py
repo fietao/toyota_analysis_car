@@ -172,6 +172,8 @@ def sheet_brand(df_fuel: pd.DataFrame, ly, py, lm, powertrain=None) -> list:
 def sheet_bev_by_model(df_model: pd.DataFrame, ly, py, lm) -> list:
     """Brand header rows + child model rows from the explicit BEV model report mapping."""
     d = bev_model_report_slice(df_model)
+    if d.empty:
+        return []
     brand_mat = month_matrix(d, "ยี่ห้อรถ2")
     brand_rows = build_rows(brand_mat, ly, py, lm, ranked=True)
     grand, brand_details = brand_rows[0], brand_rows[1:]
@@ -200,6 +202,8 @@ def sheet_bev_by_model(df_model: pd.DataFrame, ly, py, lm) -> list:
 def sheet_model_top_rank(df_model: pd.DataFrame, ly, py, lm) -> list:
     """Flat model ranking (brand||model) from the explicit BEV model report mapping."""
     d = bev_model_report_slice(df_model).copy()
+    if d.empty:
+        return []
     d["_mk"] = d["ยี่ห้อรถ2"].astype(str) + " || " + d["รุ่นรถ2"].astype(str)
     label_map = d.drop_duplicates("_mk").set_index("_mk")[["ยี่ห้อรถ2", "รุ่นรถ2"]].to_dict("index")
     mat = month_matrix(d, "_mk")
@@ -219,11 +223,16 @@ def bev_model_report_slice(df_model: pd.DataFrame) -> pd.DataFrame:
             f"{MODEL_PARQUET.name} is missing {BEV_MODEL_REPORT_COL}. "
             "Run build_cleaned.py so raw_model -> model2 -> BEV report inclusion mapping is applied."
         )
-    include = _bool_series(df_model[BEV_MODEL_REPORT_COL])
-    d = df_model[include]
-    if d.empty:
-        raise ValueError(f"{BEV_MODEL_REPORT_COL} selected zero model rows")
-    return d
+    if "Powertrain" not in df_model.columns:
+        raise ValueError(f"{MODEL_PARQUET.name} is missing Powertrain.")
+
+    is_bev = df_model["Powertrain"] == "BEV"
+    is_included = _bool_series(df_model[BEV_MODEL_REPORT_COL])
+
+    if not is_bev.equals(is_included):
+        raise ValueError("include_in_bev_model_report must agree exactly with Powertrain == 'BEV'")
+
+    return df_model[is_included]
 
 
 def sheet_by_province(df_fuel: pd.DataFrame, ly, py, lm) -> list:
@@ -260,9 +269,9 @@ def export():
             sys.exit(1)
 
     print(f"Reading {FUEL_PARQUET.name} ...")
-    fuel = load_data(FUEL_PARQUET)
+    fuel = load_data(FUEL_PARQUET, is_fuel=True)
     print(f"Reading {MODEL_PARQUET.name} ...")
-    model = load_data(MODEL_PARQUET)
+    model = load_data(MODEL_PARQUET, is_fuel=False)
 
     # Vehicle-type filter (default markdown set)
     fuel = fuel[fuel["v_code"].isin(DEFAULT_VEHICLE_TYPES)].copy()

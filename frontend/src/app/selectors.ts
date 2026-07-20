@@ -13,17 +13,26 @@ export type FuelRow = { y: number; m: string; pt: string; f: string; v: string; 
 export type BrandMonthlyRow = { y: number; m: string; pt: string; b: string; v: string; u: number };
 export type TreeMonthly = Record<string, Record<string, Record<string, number[]>>>;
 
+// Registry-backed classification only; ICE/HEV/PHEV/BEV are verified, N/A covers missing,
+// unreviewed, ambiguous, or conflicting mappings. Never derived from fuel facts.
+export const POWERTRAINS = ["ICE", "HEV", "PHEV", "BEV", "N/A"] as const;
+export type Powertrain = typeof POWERTRAINS[number];
+
+export type SeriesSegment = {
+  powertrain: string;
+  monthly: TreeMonthly;
+};
+
+// A canonical series (Step 6A). Source totals live in `monthly`; `segments` partitions
+// those same units by registry-backed Powertrain and must sum back to `monthly`.
 export type ModelNode = {
   name: string;
-  powertrain?: string;
-  fuel: string;
   monthly: TreeMonthly;
+  segments: SeriesSegment[];
 };
 
 export type BrandNode = {
   brand: string;
-  powertrain: string;
-  fuel: string;
   monthly: TreeMonthly;
   models: ModelNode[];
 };
@@ -85,6 +94,116 @@ export function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number
     });
   });
 
+  return { timeVals, grandTotal };
+}
+
+// --- Deep Dive selectors: segments only, never fuel facts. UI table and Excel export share
+// these so displayed and downloaded totals are identical by construction. ---
+
+export function sumMonthlyArrays(monthly: TreeMonthly, year: string, selectedVehicleTypes: string[], selectedProvinces: string[]): number[] {
+  const out = Array(12).fill(0);
+  const buckets = monthly || {};
+  const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(buckets);
+  vcs.forEach((vc) => {
+    const vehicleBucket = buckets[vc];
+    if (!vehicleBucket) return;
+    const provs = selectedProvinces.length > 0 ? selectedProvinces : Object.keys(vehicleBucket);
+    provs.forEach((province) => {
+      const arr = vehicleBucket[province]?.[year];
+      if (arr) for (let i = 0; i < 12; i++) out[i] += arr[i] || 0;
+    });
+  });
+  return out;
+}
+
+export function filterSegments(segments: SeriesSegment[], selectedPts: string[]): SeriesSegment[] {
+  return selectedPts.length > 0 ? segments.filter((s) => selectedPts.includes(s.powertrain)) : segments;
+}
+
+export function seriesMonthlyValues(model: ModelNode, year: string, selectedPts: string[], selectedVehicleTypes: string[], selectedProvinces: string[]): number[] {
+  const out = Array(12).fill(0);
+  filterSegments(model.segments, selectedPts).forEach((seg) => {
+    const arr = sumMonthlyArrays(seg.monthly, year, selectedVehicleTypes, selectedProvinces);
+    for (let i = 0; i < 12; i++) out[i] += arr[i];
+  });
+  return out;
+}
+
+export function seriesTotals(model: ModelNode, activeYears: string[], latestYear: string | null, selectedPts: string[], selectedVehicleTypes: string[], selectedProvinces: string[]) {
+  let grandTotal = 0;
+  let ytdTotal = 0;
+  activeYears.forEach((year) => {
+    const yearSum = seriesMonthlyValues(model, year, selectedPts, selectedVehicleTypes, selectedProvinces).reduce((s, v) => s + v, 0);
+    grandTotal += yearSum;
+    if (year === latestYear) ytdTotal += yearSum;
+  });
+  return { grandTotal, ytdTotal };
+}
+
+export function brandMonthlyValues(brand: BrandNode, year: string, selectedPts: string[], selectedVehicleTypes: string[], selectedProvinces: string[]): number[] {
+  const out = Array(12).fill(0);
+  (brand.models || []).forEach((model) => {
+    const arr = seriesMonthlyValues(model, year, selectedPts, selectedVehicleTypes, selectedProvinces);
+    for (let i = 0; i < 12; i++) out[i] += arr[i];
+  });
+  return out;
+}
+
+export function brandTotals(brand: BrandNode, activeYears: string[], latestYear: string | null, selectedPts: string[], selectedVehicleTypes: string[], selectedProvinces: string[]) {
+  let grandTotal = 0;
+  let ytdTotal = 0;
+  activeYears.forEach((year) => {
+    const yearSum = brandMonthlyValues(brand, year, selectedPts, selectedVehicleTypes, selectedProvinces).reduce((s, v) => s + v, 0);
+    grandTotal += yearSum;
+    if (year === latestYear) ytdTotal += yearSum;
+  });
+  return { grandTotal, ytdTotal };
+}
+
+// Unfiltered-by-Powertrain breakdown (still respects vehicle-type/province/year) so N/A and
+// every verified segment stay visible regardless of the active Powertrain filter.
+export function segmentBreakdown(model: ModelNode, activeYears: string[], selectedVehicleTypes: string[], selectedProvinces: string[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  model.segments.forEach((seg) => {
+    let total = 0;
+    activeYears.forEach((year) => {
+      total += sumMonthlyArrays(seg.monthly, year, selectedVehicleTypes, selectedProvinces).reduce((s, v) => s + v, 0);
+    });
+    totals[seg.powertrain] = (totals[seg.powertrain] || 0) + total;
+  });
+  return totals;
+}
+
+export function brandSegmentBreakdown(brand: BrandNode, activeYears: string[], selectedVehicleTypes: string[], selectedProvinces: string[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  (brand.models || []).forEach((model) => {
+    const mb = segmentBreakdown(model, activeYears, selectedVehicleTypes, selectedProvinces);
+    Object.entries(mb).forEach(([pt, v]) => { totals[pt] = (totals[pt] || 0) + v; });
+  });
+  return totals;
+}
+
+// Segment-aware equivalents of getNodeSums, for callers using the (year: number | "All")
+// convention (the main dashboard's Rankings/Charts, which also consume brand_model_tree).
+export function getModelSegmentSums(model: ModelNode, selectedPts: string[], selectedYear: number | "All", selectedVehicleTypes: string[], selectedProvinces: string[]) {
+  let grandTotal = 0;
+  const timeVals: Record<string, number> = {};
+  filterSegments(model.segments, selectedPts).forEach((seg) => {
+    const sums = getNodeSums(seg, selectedYear, selectedVehicleTypes, selectedProvinces);
+    grandTotal += sums.grandTotal;
+    Object.entries(sums.timeVals).forEach(([k, v]) => { timeVals[k] = (timeVals[k] || 0) + v; });
+  });
+  return { timeVals, grandTotal };
+}
+
+export function getBrandSegmentSums(brand: BrandNode, selectedPts: string[], selectedYear: number | "All", selectedVehicleTypes: string[], selectedProvinces: string[]) {
+  let grandTotal = 0;
+  const timeVals: Record<string, number> = {};
+  (brand.models || []).forEach((model) => {
+    const sums = getModelSegmentSums(model, selectedPts, selectedYear, selectedVehicleTypes, selectedProvinces);
+    grandTotal += sums.grandTotal;
+    Object.entries(sums.timeVals).forEach(([k, v]) => { timeVals[k] = (timeVals[k] || 0) + v; });
+  });
   return { timeVals, grandTotal };
 }
 
@@ -282,6 +401,36 @@ export function selectRankingsData(
   const tree = brandModelTree || data?.brand_model_tree;
   if (!tree) return { rows: [], totalUnits: 0, bevUnits: 0, ptMix: [] };
 
+  // Brand Powertrain is observed in the fuel grain. Keep those parent rankings stable after
+  // the model tree loads; canonical-series children remain registry-segment facts. Province or
+  // explicit model filters require the model tree because brand_monthly has neither dimension.
+  if (rankingProvince.length === 0 && rankingModel.length === 0 && data?.brand_monthly) {
+    const fuelRankings = selectBrandRankingsFromMonthly(
+      data, rankingPt, rankingBrand, expandedBrands, selectedYear, selectedVehicleTypes, timeKeys,
+    );
+    const rows: Rec[] = [];
+    fuelRankings.rows.forEach(brandRow => {
+      rows.push(brandRow);
+      if (!expandedBrands.has(String(brandRow.id))) return;
+      const brandNode = tree.find(node => node.brand === brandRow.name);
+      const modelRows = (brandNode?.models ?? []).map(model => {
+        const sums = getModelSegmentSums(model, rankingPt, selectedYear, selectedVehicleTypes, []);
+        const row: Rec = {
+          id: `${brandRow.id}|${model.name}`,
+          parentId: brandRow.id,
+          name: model.name,
+          YTD: sums.grandTotal,
+          isSubRow: true,
+        };
+        timeKeys.forEach(t => row[t] = sums.timeVals[t] || 0);
+        return row;
+      }).filter(row => Number(row.YTD) > 0)
+        .sort((a, b) => Number(b.YTD) - Number(a.YTD));
+      rows.push(...modelRows);
+    });
+    return { ...fuelRankings, rows };
+  }
+
   const map = new Map<string, Rec>();
   const modelsMap = new Map<string, Rec[]>(); // parentId -> array of model rows
 
@@ -290,16 +439,15 @@ export function selectRankingsData(
   const ptMixMap: Record<string, number> = { ICE: 0, BEV: 0, HEV: 0, PHEV: 0 };
 
   tree.forEach(brandNode => {
-    if (rankingPt.length > 0 && !rankingPt.includes(brandNode.powertrain)) return;
     const cleanBrand = brandNode.brand;
     if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
 
     const key = cleanBrand;
     if (!map.has(key)) {
-       const row: Rec = { 
-          id: key, name: cleanBrand, YTD: 0, 
-          hasChildren: (brandNode.models?.length ?? 0) > 0, 
-          isExpanded: expandedBrands.has(key) 
+       const row: Rec = {
+          id: key, name: cleanBrand, YTD: 0,
+          hasChildren: (brandNode.models?.length ?? 0) > 0,
+          isExpanded: expandedBrands.has(key)
        };
        timeKeys.forEach(t => row[t] = 0);
        map.set(key, row);
@@ -310,14 +458,20 @@ export function selectRankingsData(
     if ((brandNode.models?.length ?? 0) > 0) row.hasChildren = true;
     row.isExpanded = expandedBrands.has(key);
 
-    const { timeVals, grandTotal } = getNodeSums(brandNode, selectedYear, selectedVehicleTypes, rankingProvince);
-    
+    // Registry-backed segment sums, not a fuel-derived brand classification.
+    const { timeVals, grandTotal } = getBrandSegmentSums(brandNode, rankingPt, selectedYear, selectedVehicleTypes, rankingProvince);
+
     timeKeys.forEach(t => { row[t] = Number(row[t]) + (timeVals[t] || 0); });
     row.YTD = Number(row.YTD) + grandTotal;
 
     totalUnits += grandTotal;
-    if (brandNode.powertrain === "BEV") bevUnits += grandTotal;
-    if (brandNode.powertrain in ptMixMap) ptMixMap[brandNode.powertrain] += grandTotal;
+    (brandNode.models || []).forEach(model => {
+      filterSegments(model.segments, rankingPt).forEach(seg => {
+        const segTotal = getNodeSums(seg, selectedYear, selectedVehicleTypes, rankingProvince).grandTotal;
+        if (seg.powertrain === "BEV") bevUnits += segTotal;
+        if (seg.powertrain in ptMixMap) ptMixMap[seg.powertrain] += segTotal;
+      });
+    });
 
     // Calculate models if expanded
     if (expandedBrands.has(key)) {
@@ -331,7 +485,7 @@ export function selectRankingsData(
              timeKeys.forEach(t => mRow![t] = 0);
              mList.push(mRow);
           }
-          const mSums = getNodeSums(model, selectedYear, selectedVehicleTypes, rankingProvince);
+          const mSums = getModelSegmentSums(model, rankingPt, selectedYear, selectedVehicleTypes, rankingProvince);
           timeKeys.forEach(t => { mRow![t] = Number(mRow![t]) + (mSums.timeVals[t] || 0); });
           mRow!.YTD = Number(mRow!.YTD) + mSums.grandTotal;
        });
@@ -376,38 +530,48 @@ export function selectDynamicChartData(
   if (!tree) return [];
   const cMap = new Map<string, number>();
 
+  const addProvinceTotals = (monthly: TreeMonthly) => {
+    const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(monthly || {});
+    vcs.forEach(vc => {
+       const vcBucket = monthly?.[vc];
+       if (!vcBucket) return;
+       Object.keys(vcBucket).forEach(prov => {
+          if (rankingProvince.length > 0 && !rankingProvince.includes(prov)) return;
+          const pBucket = vcBucket[prov];
+          let pTotal = 0;
+          Object.keys(pBucket).forEach(yStr => {
+             if (selectedYear !== "All" && yStr !== String(selectedYear)) return;
+             const arr = pBucket[yStr];
+             if (Array.isArray(arr)) for (let i=0; i<12; i++) pTotal += arr[i] || 0;
+          });
+          cMap.set(prov, (cMap.get(prov) || 0) + pTotal);
+       });
+    });
+  };
+
   tree.forEach(brandNode => {
-    if (rankingPt.length > 0 && !rankingPt.includes(brandNode.powertrain)) return;
     const cleanBrand = brandNode.brand;
     if (rankingBrand.length > 0 && !rankingBrand.includes(cleanBrand)) return;
 
     if (chartGroupBy === "Brands") {
-       const { grandTotal } = getNodeSums(brandNode, selectedYear, selectedVehicleTypes, rankingProvince);
+       // Registry-backed segment sums, not a fuel-derived brand classification.
+       const { grandTotal } = getBrandSegmentSums(brandNode, rankingPt, selectedYear, selectedVehicleTypes, rankingProvince);
        cMap.set(cleanBrand, (cMap.get(cleanBrand) || 0) + grandTotal);
     } else if (chartGroupBy === "Models") {
        brandNode.models?.forEach(model => {
           if (rankingModel.length > 0 && !rankingModel.includes(model.name)) return;
-          const { grandTotal } = getNodeSums(model, selectedYear, selectedVehicleTypes, rankingProvince);
+          const { grandTotal } = getModelSegmentSums(model, rankingPt, selectedYear, selectedVehicleTypes, rankingProvince);
           const label = `${cleanBrand} ${model.name}`;
           cMap.set(label, (cMap.get(label) || 0) + grandTotal);
        });
     } else if (chartGroupBy === "Provinces") {
-       const vcs = selectedVehicleTypes.length > 0 ? selectedVehicleTypes : Object.keys(brandNode.monthly || {});
-       vcs.forEach(vc => {
-          const vcBucket = brandNode.monthly?.[vc];
-          if (!vcBucket) return;
-          Object.keys(vcBucket).forEach(prov => {
-             if (rankingProvince.length > 0 && !rankingProvince.includes(prov)) return;
-             const pBucket = vcBucket[prov];
-             let pTotal = 0;
-             Object.keys(pBucket).forEach(yStr => {
-                if (selectedYear !== "All" && yStr !== String(selectedYear)) return;
-                const arr = pBucket[yStr];
-                if (Array.isArray(arr)) for (let i=0; i<12; i++) pTotal += arr[i] || 0;
-             });
-             cMap.set(prov, (cMap.get(prov) || 0) + pTotal);
+       if (rankingPt.length === 0) {
+          addProvinceTotals(brandNode.monthly);
+       } else {
+          (brandNode.models || []).forEach(model => {
+             filterSegments(model.segments, rankingPt).forEach(seg => addProvinceTotals(seg.monthly));
           });
-       });
+       }
     }
   });
 

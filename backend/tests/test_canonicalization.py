@@ -1,8 +1,11 @@
 """Focused regression tests for historical canonicalization in build_cleaned.py.
 
 Loads the real, production-configured mapping files (config/brand_map.csv,
-refer/model2_map.csv) — not a duplicated dummy map — so this test fails if the
-authoritative CSVs ever drift from the aliases they're supposed to encode.
+refer/series_registry.csv) — not a duplicated dummy map — so this test fails
+if the authoritative registry ever drifts from the aliases it's supposed to
+encode. series_registry.csv is the sole canonical-name authority (final
+maintenance pass, plans/reliable-series-powertrain.md Step 7C); the legacy
+refer/model2_map.csv path was removed.
 
 Runs from any directory. Exits 0 on PASS, 1 on FAIL.
 """
@@ -17,21 +20,17 @@ BACKEND = TESTS.parent
 sys.path.insert(0, str(BACKEND))
 
 from build_cleaned import reapply_canonical_maps, load_powertrain_map
+from series_registry import canonical_series_map
 
 # Load the real, production-configured mapping files (same loading logic as
 # load_reference_maps in build_cleaned.py) instead of a duplicated dummy map.
 brand_csv_map = load_powertrain_map(str(BACKEND / "config" / "brand_map.csv"), "brand", "brand2")
 merged_brand2_map = {k.upper(): v for k, v in brand_csv_map.items()}
 
-df_csv = pd.read_csv(str(BACKEND / "refer" / "model2_map.csv"), encoding="utf-8-sig")
-model2_map = dict(zip(
-    df_csv["รุ่นรถ_raw"].astype(str).str.strip().str.upper(),
-    df_csv["รุ่นรถ2"].astype(str).str.strip()
-))
-
 real_maps = {
     "merged_brand2_map": merged_brand2_map,
-    "model2_map": model2_map,
+    "series_powertrain_map": {},
+    "series_name_map": canonical_series_map(),
 }
 
 failures = []
@@ -77,16 +76,19 @@ def run_tests():
     assert_equal(list(df_model_res["รุ่นรถ2"]), ["WAVE 125i"] * 5, "WAVE 125i normalization")
 
     # 2b. Confirmed WAVE 110i / STEPWGN SPADA / CLICK 150i / PCX 150 aliases
+    # (registry-migrated, data-driven set only — "CLICK 150I" with an internal
+    # space has no current-data occurrence to derive a brand from, so it is not
+    # in the registry and is intentionally excluded here.)
     df_model2_test = pd.DataFrame({
-        "ยี่ห้อรถ": ["HONDA"] * 6,
-        "ยี่ห้อรถ2": ["Honda"] * 6,
-        "รุ่นรถ": ["WAVE 110 I", "WAVE110I", "STEPWGN SPADA", "CLICK150I", "CLICK 150I", "PCX150"],
-        "รุ่นรถ2": ["WAVE 110 I", "WAVE110I", "STEPWGN SPADA", "CLICK150I", "CLICK 150I", "PCX150"]
+        "ยี่ห้อรถ": ["HONDA"] * 5,
+        "ยี่ห้อรถ2": ["Honda"] * 5,
+        "รุ่นรถ": ["WAVE 110 I", "WAVE110I", "STEPWGN SPADA", "CLICK150I", "PCX150"],
+        "รุ่นรถ2": ["WAVE 110 I", "WAVE110I", "STEPWGN SPADA", "CLICK150I", "PCX150"]
     })
     df_model2_res = reapply_canonical_maps(df_model2_test.copy(), real_maps, is_fuel=False)
     assert_equal(
         list(df_model2_res["รุ่นรถ2"]),
-        ["WAVE 110i", "WAVE 110i", "STEP WGN SPADA", "CLICK 150i", "CLICK 150i", "PCX 150"],
+        ["WAVE 110i", "WAVE 110i", "STEP WGN SPADA", "CLICK 150i", "PCX 150"],
         "WAVE 110i/STEPWGN SPADA/CLICK 150i/PCX 150 normalization",
     )
 
@@ -119,10 +121,16 @@ def run_tests():
         "ยี่ห้อรถ": ["DEEPAL", "HONDA"],
         "ยี่ห้อรถ2": ["Deepal + Changan", "HONDA"],
         "รุ่นรถ": ["S7", "WAVE 125i"],
-        "รุ่นรถ2": ["S7", "WAVE 125i"]
+        "รุ่นรถ2": ["S7", "WAVE 125i"],
+        # reapply_canonical_maps always derives these from series_powertrain_map (empty here).
+        "Powertrain": ["N/A", "N/A"],
+        "include_in_bev_model_report": [False, False],
     })
     df_canonical_res = reapply_canonical_maps(df_canonical.copy(), real_maps, is_fuel=False)
-    assert_equal(df_canonical_res, df_canonical, "Canonical rows unchanged")
+    try:
+        pd.testing.assert_frame_equal(df_canonical_res, df_canonical, check_dtype=False)
+    except AssertionError as e:
+        failures.append(f"Canonical rows unchanged: {e}")
 
     # 6. Reapplying canonicalization is idempotent
     df_once = reapply_canonical_maps(df_brand_test.copy(), real_maps, is_fuel=False)

@@ -16,12 +16,12 @@ Output:
 """
 
 import csv, glob, sys, os, zipfile, re
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 from openpyxl import load_workbook
-from schema import validate
+from schema import validate_model, validate_fuel
+from series_registry import canonical_series_map, normalize_key, verified_powertrain_map
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -33,10 +33,9 @@ def read_dlt_file(path: Path) -> pd.DataFrame:
     return df
 
 BASE = Path(__file__).resolve().parent
+OUTPUT_BASE = Path(os.environ["BUILD_CLEANED_OUTPUT_DIR"]) if os.environ.get("BUILD_CLEANED_OUTPUT_DIR") else BASE
 RAW1_PATTERN  = str(BASE / "raw data" / "**" / "รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564*.xlsx")
 RAW2_PATTERN  = str(BASE / "raw data" / "**" / "รถใหม่_ยี่ห้อรถ-รุ่นรถ-จังหวัด ปี 2564*.xlsx")
-REVIEW_DIR = BASE / "output"
-REVIEW_GLOB = "new_bev_models_review_*.xlsx"
 
 
 
@@ -53,8 +52,6 @@ MONTH_ORDER = [THAI_MONTHS[i] for i in range(1, 13)]
 FINAL_COLS = ["ปี", "เดือน", "ประเภทรถ", "จังหวัด",
               "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2",
               "ชนิดเชื้อเพลิง", "Powertrain", "จำนวนรถ"]
-JOIN_KEYS = ["ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ"]
-BEV_MODEL_REPORT_MAP = BASE / "refer" / "bev_series_name_table_template_rows.csv"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -67,9 +64,11 @@ def find_file(pattern, label):
             print(f"ERROR: {label} override not found: {path}"); sys.exit(1)
         return path
 
+    raw_root = (BASE / "raw data").resolve()
     matches = [m for m in glob.glob(pattern, recursive=True)
-               if not any(kw in Path(m).name.lower()
-                          for kw in ["~$", "(cleaned data)", "analyst", "test_model", "output", "fake test"])]
+               if Path(m).parent.resolve() == raw_root
+               and not any(kw in Path(m).name.lower()
+                           for kw in ["~$", "(cleaned data)", "analyst", "test_model", "output", "fake test"])]
     if not matches:
         print(f"ERROR: No {label} found: {pattern}"); sys.exit(1)
     return Path(max(matches, key=os.path.getmtime))
@@ -112,31 +111,6 @@ def add_brand2(df, brand_map):
               upper.map(brand_map).fillna(df["ยี่ห้อรถ"]))
 
 
-def enrich_fuel_type(df_model, df_fuel):
-    """Add ชนิดเชื้อเพลิง to model rows from the dominant matching fuel row."""
-    if "ชนิดเชื้อเพลิง" in df_model.columns:
-        return df_model
-
-    lookup = (
-        df_fuel.groupby(JOIN_KEYS + ["ชนิดเชื้อเพลิง"])["จำนวนรถ"]
-        .sum()
-        .reset_index()
-        .sort_values("จำนวนรถ", ascending=False)
-        .drop_duplicates(subset=JOIN_KEYS)
-        .set_index(JOIN_KEYS)["ชนิดเชื้อเพลิง"]
-    )
-    df_model = df_model.copy()
-    insert_at = df_model.columns.get_loc("ยี่ห้อรถ") + 1
-    df_model.insert(
-        insert_at,
-        "ชนิดเชื้อเพลิง",
-        df_model[JOIN_KEYS].apply(lambda r: lookup.get(tuple(r)), axis=1),
-    )
-    filled = df_model["ชนิดเชื้อเพลิง"].notna().sum()
-    print(f"      ชนิดเชื้อเพลิง filled: {filled:,} / {len(df_model):,} rows")
-    return df_model
-
-
 def ordered_cols(df):
     cols  = [c for c in FINAL_COLS if c in df.columns]
     extra = [c for c in df.columns if c not in FINAL_COLS]
@@ -174,162 +148,6 @@ def load_powertrain_map(path: str, key_field="fuel", value_field="powertrain") -
             value = row[value_field].strip()
             powertrain_map[key] = value
     return powertrain_map
-
-
-def _normalise_key(value):
-    return str(value).strip().upper() if pd.notna(value) else ""
-
-
-def _cell_text(value):
-    return str(value).strip() if pd.notna(value) else ""
-
-
-def _review_paths():
-    return sorted(REVIEW_DIR.glob(REVIEW_GLOB), key=lambda p: p.stat().st_mtime, reverse=True)
-
-
-def _read_review_rows():
-    review_paths = _review_paths()
-    if not review_paths:
-        return None, {}
-
-    rows = {}
-    used_path = None
-    for review_path in review_paths:
-        df_review = pd.read_excel(str(review_path), engine="calamine")
-        if "approved" not in df_review.columns and len(df_review.columns) > 0:
-            first_col = str(df_review.columns[0]).strip().lower()
-            if first_col in {"yes", "y", "no", "n"}:
-                df_review = df_review.rename(columns={df_review.columns[0]: "approved"})
-                df_review["approved"] = first_col
-
-        if "approved" not in df_review.columns:
-            continue
-
-        for _, row in df_review.iterrows():
-            key = (_normalise_key(row.get("Brand")), _normalise_key(row.get("รุ่นรถ")))
-            if not key[0] or not key[1] or key in rows:
-                continue
-            approved = _cell_text(row.get("approved", "")).lower()
-            powertrain = _cell_text(row.get("Powertrain", "")).upper()
-            if approved or powertrain == "OTH":
-                rows[key] = row
-                used_path = used_path or review_path
-    return used_path, rows
-
-
-def _write_bev_review_workbook(records):
-    REVIEW_DIR.mkdir(exist_ok=True)
-    review_path = REVIEW_DIR / f"new_bev_models_review_{datetime.now():%Y%m%d}.xlsx"
-    suffix = 1
-    while review_path.exists():
-        review_path = REVIEW_DIR / f"new_bev_models_review_{datetime.now():%Y%m%d}_{suffix}.xlsx"
-        suffix += 1
-
-    df_review = pd.DataFrame(
-        records,
-        columns=["approved", "Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain"],
-    )
-    df_review.to_excel(str(review_path), index=False)
-    return review_path
-
-
-def resolve_bev_review(df_cleaned, known_bev_models, scope_mask=None):
-    """Return approved BEV rows, optionally scanning only rows in scope_mask."""
-    required = {"ชนิดเชื้อเพลิง", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2"}
-    if not required.issubset(df_cleaned.columns):
-        missing = ", ".join(sorted(required - set(df_cleaned.columns)))
-        print(f"\nERROR: Cannot run BEV preflight; missing column(s): {missing}")
-        sys.exit(1)
-
-    if scope_mask is None:
-        update_scope = pd.Series(True, index=df_cleaned.index)
-    else:
-        update_scope = scope_mask.reindex(df_cleaned.index, fill_value=False)
-    scan_df = df_cleaned.loc[update_scope]
-    electric_rows = scan_df[
-        (scan_df["ชนิดเชื้อเพลิง"].astype(str).str.strip() == "ไฟฟ้า") &
-        scan_df["รุ่นรถ"].notna() &
-        (scan_df["รุ่นรถ"].astype(str).str.strip() != "")
-    ][["ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2"]].drop_duplicates()
-
-    unknown = electric_rows[
-        ~electric_rows["รุ่นรถ"].map(_normalise_key).isin(known_bev_models)
-    ].copy()
-    if unknown.empty:
-        return []
-
-    review_path, reviewed = _read_review_rows()
-    approved_rows = []
-    blocking_rows = []
-    resolved_rows = []
-
-    for _, row in unknown.sort_values(["ยี่ห้อรถ2", "รุ่นรถ"]).iterrows():
-        brand = str(row["ยี่ห้อรถ2"]).strip()
-        model = str(row["รุ่นรถ"]).strip()
-        default_model2 = str(row["รุ่นรถ2"]).strip()
-        review = reviewed.get((_normalise_key(brand), _normalise_key(model)))
-
-        if review is None:
-            blocking_rows.append({
-                "approved": "",
-                "Brand": brand,
-                "รุ่นรถ": model,
-                "รุ่นรถ2": default_model2,
-                "Powertrain": "BEV Major",
-            })
-            continue
-
-        approved = _cell_text(review.get("approved", "")).lower()
-        powertrain = _cell_text(review.get("Powertrain", "")) or "BEV Major"
-        model2 = _cell_text(review.get("รุ่นรถ2", "")) or default_model2
-
-        if powertrain.upper() == "OTH":
-            resolved_rows.append({"รุ่นรถ": model, "รุ่นรถ2": model2, "Powertrain": "OTH"})
-            continue
-        if approved in {"yes", "y"}:
-            approved_rows.append({
-                "Brand": str(review.get("Brand", brand)).strip() or brand,
-                "รุ่นรถ": model,
-                "รุ่นรถ2": model2,
-                "Powertrain": powertrain,
-            })
-            resolved_rows.append({"รุ่นรถ": model, "รุ่นรถ2": model2, "Powertrain": powertrain})
-        else:
-            blocking_rows.append({
-                "approved": approved,
-                "Brand": brand,
-                "รุ่นรถ": model,
-                "รุ่นรถ2": model2,
-                "Powertrain": powertrain,
-            })
-
-    if blocking_rows:
-        print(f"\n  Auto-approving {len(blocking_rows)} new BEV model(s) as 'BEV Major':")
-        for row in blocking_rows:
-            print(f"    {row['Brand']:<20}  {row['รุ่นรถ']}")
-            approved_rows.append({
-                "Brand": row["Brand"],
-                "รุ่นรถ": row["รุ่นรถ"],
-                "รุ่นรถ2": row["รุ่นรถ2"],
-                "Powertrain": "BEV Major",
-            })
-            resolved_rows.append({
-                "รุ่นรถ": row["รุ่นรถ"],
-                "รุ่นรถ2": row["รุ่นรถ2"],
-                "Powertrain": "BEV Major",
-            })
-
-    for row in resolved_rows:
-        mask = (
-            update_scope &
-            (df_cleaned["ชนิดเชื้อเพลิง"].astype(str).str.strip() == "ไฟฟ้า") &
-            (df_cleaned["รุ่นรถ"].map(_normalise_key) == _normalise_key(row["รุ่นรถ"]))
-        )
-        df_cleaned.loc[mask, "รุ่นรถ2"] = row["รุ่นรถ2"]
-        df_cleaned.loc[mask, "Powertrain"] = row["Powertrain"]
-
-    return approved_rows
 
 
 def sort_cleaned_data(df, brand2_order=None):
@@ -415,48 +233,11 @@ def _normalise_model_key(value):
     return str(value).strip().upper() if pd.notna(value) else ""
 
 
-def _load_model2_csv_map():
-    csv_map_path = BASE / "refer" / "model2_map.csv"
-    if not csv_map_path.exists():
-        return {}
-    df_csv = pd.read_csv(str(csv_map_path), encoding="utf-8-sig")
-    if not {"รุ่นรถ_raw", "รุ่นรถ2"}.issubset(df_csv.columns):
-        return {}
-    return dict(zip(
-        df_csv["รุ่นรถ_raw"].astype(str).str.strip().str.upper(),
-        df_csv["รุ่นรถ2"].astype(str).str.strip(),
-    ))
-
-
-def _parse_bool(value) -> bool:
-    return str(value).strip().lower() in {"1", "true", "yes", "y"}
-
-
-def _load_bev_model_report_map() -> tuple[dict, dict]:
-    """Return raw-model -> canonical model2 and BEV model report inclusion flag."""
-    if not BEV_MODEL_REPORT_MAP.exists():
-        return {}, {}
-
-    df = pd.read_csv(str(BEV_MODEL_REPORT_MAP), encoding="utf-8-sig")
-    required = {"รุ่นรถ", "รุ่นรถ2", "include_in_bev_model_report"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(
-            f"{BEV_MODEL_REPORT_MAP.relative_to(BASE)} missing required column(s): "
-            + ", ".join(sorted(missing))
-        )
-
-    keys = df["รุ่นรถ"].astype(str).str.strip().str.upper()
-    model2_map = dict(zip(keys, df["รุ่นรถ2"].astype(str).str.strip()))
-    include_map = dict(zip(keys, df["include_in_bev_model_report"].map(_parse_bool)))
-    return model2_map, include_map
-
-
 def _suggest_missing_model_rows(df_model):
     brand_map = load_powertrain_map(str(BASE / "config" / "brand_map.csv"), "brand", "brand2")
     brand_map = {str(k).strip().upper(): str(v).strip() for k, v in brand_map.items()}
     powertrain_map = load_powertrain_map(str(BASE / "config" / "powertrain_map.csv"))
-    model2_csv_map = _load_model2_csv_map()
+    series_name_map = canonical_series_map()
 
     required = {"ยี่ห้อรถ", "รุ่นรถ"}
     if not required.issubset(df_model.columns):
@@ -497,11 +278,12 @@ def _suggest_missing_model_rows(df_model):
     rows = []
     for _, row in ranked.iterrows():
         raw_model = str(row["_raw_model"]).strip()
-        model_key = str(row["_model_key"]).strip().upper()
+        brand = str(row["_brand"]).strip() or "N/A"
+        registry_key = normalize_key(brand, raw_model)
         rows.append({
-            "Brand": str(row["_brand"]).strip() or "N/A",
+            "Brand": brand,
             "รุ่นรถ": raw_model,
-            "รุ่นรถ2": model2_csv_map.get(model_key, raw_model),
+            "รุ่นรถ2": series_name_map.get(registry_key, raw_model),
             "Powertrain": clean_powertrain_value(row["_powertrain"]),
         })
     return rows
@@ -621,64 +403,114 @@ def append_missing_master_model_rows(workbook_path: Path, df_model: pd.DataFrame
     return len(suggestions)
 
 
-def _patch_pivot_table_def1(xml):
-    """pivotTable1/2/3 (cache def1): ชนิดเชื้อเพลิง inserted at field FINAL_COLS.index("ชนิดเชื้อเพลิง"), so
-    subsequent fields shift. Insert blank pivotField at that pos
-    and increment all fld/x refs >= that pos by 1."""
-    insert_pos = FINAL_COLS.index("ชนิดเชื้อเพลิง")
-    # Insert blank pivotField before the insert_pos-th <pivotField element (0-indexed)
-    pos, count = 0, 0
-    while True:
-        idx = xml.find("<pivotField", pos)
-        if idx == -1:
-            break
-        if count == insert_pos:
-            xml = xml[:idx] + "<pivotField/>" + xml[idx:]
-            break
-        pos = idx + 1
-        count += 1
-
-    xml = re.sub(
-        r'(<pivotFields\s+count=")(\d+)(")',
-        lambda m: m.group(1) + str(int(m.group(2)) + 1) + m.group(3),
-        xml, count=1,
-    )
-
-    def _inc(val): return str(int(val) + 1) if int(val) >= insert_pos else val
-    xml = re.sub(r'(\bfld=")(-?\d+)(")', lambda m: m.group(1) + _inc(m.group(2)) + m.group(3), xml)
-    xml = re.sub(r'(<field\s+x=")(\d+)(")',  lambda m: m.group(1) + _inc(m.group(2)) + m.group(3), xml)
-    return xml
+def _field_indices(xml, tag, index_attr):
+    m = re.search(rf'<{tag}\s+count="\d+">(.*?)</{tag}>', xml, re.S)
+    if not m:
+        return set()
+    return {int(v) for v in re.findall(rf'{index_attr}="(\d+)"', m.group(1))}
 
 
-def _patch_pivot_table_def2(xml):
-    """pivotTable4 (cache def2, master powertrain): replace pivotFields block entirely
-    so it aligns with the new layout in FINAL_COLS.
-    Also fix rowField x refs and dataField fld ref."""
-    idx_fuel = FINAL_COLS.index("ชนิดเชื้อเพลิง")
-    idx_powertrain = FINAL_COLS.index("Powertrain")
-    idx_count = FINAL_COLS.index("จำนวนรถ")
+def _remap_pivot_field_list(xml, tag, index_attr, remap):
+    """Remap a rowFields|colFields|pageFields|dataFields block's index attribute
+    (x= or fld=) through `remap` (old cache-field index -> new index, or None
+    to drop). Any element referencing a dropped index — a stale ชนิดเชื้อเพลิง
+    field, possibly duplicated many times by a prior non-idempotent writer run
+    — is pruned and the block's count attribute is adjusted to match."""
+    m = re.search(rf'<{tag}\s+count="\d+">(.*?)</{tag}>', xml, re.S)
+    if not m:
+        return xml
+    elements = re.findall(r'<[^>]+/>', m.group(1))
+    kept = []
+    for el in elements:
+        idx_m = re.search(rf'\b{index_attr}="(\d+)"', el)
+        if not idx_m:
+            kept.append(el)
+            continue
+        new_idx = remap.get(int(idx_m.group(1)))
+        if new_idx is None:
+            continue
+        kept.append(re.sub(rf'\b{index_attr}="\d+"', f'{index_attr}="{new_idx}"', el, count=1))
+    new_block = f'<{tag} count="{len(kept)}">{"".join(kept)}</{tag}>' if kept else ""
+    return xml[:m.start()] + new_block + xml[m.end():]
+
+
+def _patch_pivot_table_def1(xml, remap, new_count):
+    """Rebuild a model-grain pivot table (pivotTable1/2/3, cache def1) so its
+    pivotFields match the current (ชนิดเชื้อเพลิง-free) model schema.
+
+    Row/col/page/data field lists are remapped and pruned first via `remap`;
+    pivotFields is then rebuilt from scratch sized to `new_count`, assigning
+    each field's axis from where it landed in the remapped field lists. No
+    cached <items> are carried over — refreshOnLoad (set by the caller)
+    repopulates them from live data.
+    """
+    xml = _remap_pivot_field_list(xml, "rowFields", "x", remap)
+    xml = _remap_pivot_field_list(xml, "colFields", "x", remap)
+    xml = _remap_pivot_field_list(xml, "pageFields", "fld", remap)
+    xml = _remap_pivot_field_list(xml, "dataFields", "fld", remap)
+
+    row_idx = _field_indices(xml, "rowFields", "x")
+    col_idx = _field_indices(xml, "colFields", "x")
+    page_idx = _field_indices(xml, "pageFields", "fld")
+    data_idx = _field_indices(xml, "dataFields", "fld")
 
     fields = []
-    for i in range(len(FINAL_COLS)):
-        if i in (idx_fuel, idx_powertrain):
+    for i in range(new_count):
+        if i in data_idx:
+            fields.append('<pivotField dataField="1" compact="0" outline="0" numFmtId="3" showAll="0"/>')
+        elif i in row_idx:
             fields.append('<pivotField axis="axisRow" compact="0" outline="0" showAll="0"/>')
-        elif i == idx_count:
-            fields.append('<pivotField dataField="1" compact="0" numFmtId="3" outline="0" showAll="0"/>')
+        elif i in col_idx:
+            fields.append('<pivotField axis="axisCol" compact="0" outline="0" showAll="0"/>')
+        elif i in page_idx:
+            fields.append('<pivotField axis="axisPage" compact="0" outline="0" showAll="0"/>')
         else:
             fields.append('<pivotField compact="0" outline="0" showAll="0"/>')
-
-    new_pf = f'<pivotFields count="{len(FINAL_COLS)}">' + "".join(fields) + '</pivotFields>'
+    new_pf = f'<pivotFields count="{new_count}">' + "".join(fields) + '</pivotFields>'
 
     start = xml.find("<pivotFields")
     end   = xml.find("</pivotFields>") + len("</pivotFields>")
     if start >= 0 and end > start:
         xml = xml[:start] + new_pf + xml[end:]
-
-    # ชนิดเชื้อเพลิง: old def2 row field x=7 → new pos
-    xml = re.sub(r'(<field\s+x=")7(")', rf'\g<1>{idx_fuel}\2', xml)
-    # จำนวนรถ: old def2 data field fld=8 → new pos
-    xml = re.sub(r'(<dataField\b[^>]*\bfld=")8(")', rf'\g<1>{idx_count}\2', xml)
     return xml
+
+
+def _rebuild_table_columns(raw, new_cols, header_row, n_data_rows):
+    """Regenerate <tableColumns> to exactly match new_cols.
+
+    Drops any <calculatedColumnFormula> (ยี่ห้อรถ2/รุ่นรถ2/Powertrain previously
+    recomputed live via XLOOKUP against the untrusted legacy BEV Series Name
+    Table / brand-map helper range). The pipeline now writes each row's
+    literal registry-derived value directly, so the Table must carry those
+    literals rather than recompute over them on every open.
+    """
+    cols_xml = "".join(
+        f'<tableColumn id="{i}" name="{_esc(name)}"/>'
+        for i, name in enumerate(new_cols, 1)
+    )
+    new_block = f'<tableColumns count="{len(new_cols)}">{cols_xml}</tableColumns>'
+    raw = re.sub(r'<tableColumns\s+count="\d+">.*?</tableColumns>', new_block, raw, count=1, flags=re.S)
+
+    last_col = _col(len(new_cols))
+    last_row = header_row + n_data_rows
+    raw = re.sub(
+        r'(ref=")([^"]+)(")',
+        rf'\g<1>A{header_row}:{last_col}{last_row}\g<3>',
+        raw,
+    )
+    return raw
+
+
+def _rebuild_cache_fields(raw, new_cols):
+    """Regenerate <cacheFields> (pivotCacheDefinition1, model-grain) to exactly
+    match new_cols — self-heals any number of stale duplicate fields left by
+    a prior non-idempotent insertion."""
+    fields_xml = "".join(
+        f'<cacheField name="{_esc(name)}" numFmtId="0"><sharedItems/></cacheField>'
+        for name in new_cols
+    )
+    new_block = f'<cacheFields count="{len(new_cols)}">{fields_xml}</cacheFields>'
+    return re.sub(r'<cacheFields\s+count="\d+">.*?</cacheFields>', new_block, raw, count=1, flags=re.S)
 
 
 def rewrite_data_rows(workbook_path, dataframe, data_start_row):
@@ -739,7 +571,11 @@ def rewrite_data_rows(workbook_path, dataframe, data_start_row):
 
     new_xml = (prefix + "".join(rows_xml) + suffix).encode("utf-8")
 
-    # Build pivot-table → cache-definition mapping so we can apply the right patch.
+    # Build pivot-table → cache-definition mapping. Only cache def1 and its
+    # pivot tables are model-grain (bound to the Data sheet we just rewrote);
+    # cache def2 / pivotTable4 ("master powertrain") is a fuel-grain view —
+    # ชนิดเชื้อเพลิง is legitimately still part of its premise, and rebuilding it
+    # from fuel-source data is a separate, later slice. It is left untouched.
     pt_to_cache: dict[str, int] = {}
     with zipfile.ZipFile(str(path), "r") as _zr:
         for _name in _zr.namelist():
@@ -750,6 +586,20 @@ def rewrite_data_rows(workbook_path, dataframe, data_start_row):
                     _rd = _zr.read(_rels).decode("utf-8")
                     _cm = re.search(r"pivotCacheDefinition(\d+)\.xml", _rd)
                     pt_to_cache[_name] = int(_cm.group(1)) if _cm else 1
+
+    # Model-schema cache field remap: old cacheField NAME order -> new column
+    # position. Any old field no longer present in the new schema (ชนิดเชื้อเพลิง,
+    # dropped from model facts — and possibly duplicated many times over by a
+    # prior non-idempotent writer run) maps to None and is pruned everywhere
+    # it's referenced (pivotFields, row/col/page/dataFields).
+    new_cols = list(dataframe.columns)
+    with zipfile.ZipFile(str(path), "r") as _zr:
+        old_cache1_xml = _zr.read("xl/pivotCache/pivotCacheDefinition1.xml").decode("utf-8")
+    old_names = re.findall(r'<cacheField\s+name="([^"]*)"', old_cache1_xml)
+    remap: dict[int, int | None] = {
+        old_idx: (new_cols.index(name) if name in new_cols else None)
+        for old_idx, name in enumerate(old_names)
+    }
 
     tmp = path.with_suffix(".tmp.xlsx")
     with zipfile.ZipFile(str(path), "r") as zin, \
@@ -771,23 +621,11 @@ def rewrite_data_rows(workbook_path, dataframe, data_start_row):
             elif item.filename.startswith("xl/tables/") and item.filename.endswith(".xml"):
                 raw = zin.read(item.filename).decode("utf-8")
                 if re.search(r'\bref="A' + str(header_row) + r':', raw):
-                    # Table now has 11 columns: cols A-K include ชนิดเชื้อเพลิง at col I.
-                    last_col = _col(len(dataframe.columns))
-                    last_row = header_row + len(dataframe)
-                    raw = re.sub(
-                        r'(ref=")([^"]+)(")',
-                        rf'\g<1>A{header_row}:{last_col}{last_row}\g<3>',
-                        raw,
-                    )
-                    # Extend tableColumns count 10 → 11
-                    raw = raw.replace('tableColumns count="10"', 'tableColumns count="11"', 1)
-                    # Insert ชนิดเชื้อเพลิง column before Powertrain (id=9)
-                    new_tc = '<tableColumn id="11" name="ชนิดเชื้อเพลิง"/>'
-                    raw = raw.replace('<tableColumn id="9" ', new_tc + '<tableColumn id="9" ', 1)
+                    raw = _rebuild_table_columns(raw, new_cols, header_row, len(dataframe))
                 zout.writestr(item.filename, raw.encode("utf-8"))
-            elif "pivotCacheDefinition" in item.filename and item.filename.endswith(".xml"):
-                raw = zin.read(item.filename).decode("utf-8")
-                patched = re.sub(
+            elif item.filename == "xl/pivotCache/pivotCacheDefinition1.xml":
+                raw = _rebuild_cache_fields(old_cache1_xml, new_cols)
+                raw = re.sub(
                     r'(<pivotCacheDefinition\b)([^>]*?)(/?>)',
                     lambda m: (
                         m.group(1) + m.group(2)
@@ -796,131 +634,17 @@ def rewrite_data_rows(workbook_path, dataframe, data_start_row):
                     ),
                     raw, count=1,
                 )
-                # For cache def1: insert ชนิดเชื้อเพลิง field at position 8 and update count.
-                if "pivotCacheDefinition1.xml" in item.filename:
-                    patched = re.sub(
-                        r'(<cacheFields\s+count=")(\d+)(")',
-                        lambda m: m.group(1) + str(int(m.group(2)) + 1) + m.group(3),
-                        patched, count=1,
-                    )
-                    new_cf = ('<cacheField name="ชนิดเชื้อเพลิง" numFmtId="49">'
-                              '<sharedItems/></cacheField>')
-                    _pos, _cnt = 0, 0
-                    while True:
-                        _idx = patched.find("<cacheField", _pos)
-                        if _idx == -1: break
-                        if _cnt == 8:
-                            patched = patched[:_idx] + new_cf + patched[_idx:]
-                            break
-                        _pos = _idx + 1; _cnt += 1
-                zout.writestr(item.filename, patched.encode("utf-8"))
+                zout.writestr(item.filename, raw.encode("utf-8"))
             elif (item.filename.startswith("xl/pivotTables/") and item.filename.endswith(".xml")
-                  and "_rels" not in item.filename):
+                  and "_rels" not in item.filename
+                  and pt_to_cache.get(item.filename, 1) == 1):
                 raw = zin.read(item.filename).decode("utf-8")
-                cache_num = pt_to_cache.get(item.filename, 1)
-                raw = _patch_pivot_table_def2(raw) if cache_num == 2 else _patch_pivot_table_def1(raw)
+                raw = _patch_pivot_table_def1(raw, remap, len(new_cols))
                 zout.writestr(item.filename, raw.encode("utf-8"))
             else:
                 zout.writestr(item, zin.read(item.filename))
     tmp.replace(path)
     print(f"      Saved: {path.name} ({len(dataframe):,} rows from row {data_start_row})")
-
-
-def _rewrite_bev_series_table(workbook_path, df_cleaned):
-    """Replace the 'BEV Series Name Table' sheet with a clean mapping table
-    built from df_cleaned (electric rows only).
-    Columns: Brand (A) | รุ่นรถ (B) | รุ่นรถ2 (C) | Powertrain (D)
-    Column B is the XLOOKUP key used by the Data sheet formulas.
-    """
-    path = Path(workbook_path)
-
-    bev_mask = df_cleaned["ชนิดเชื้อเพลิง"].astype(str).str.strip() == "ไฟฟ้า"
-    # Sort so the most common brand for each model comes first, then dedup by รุ่นรถ.
-    # This guarantees one row per XLOOKUP key (column B), preventing first-match ambiguity.
-    freq = (
-        df_cleaned[bev_mask]
-        .groupby(["ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain"])["จำนวนรถ"]
-        .sum()
-        .reset_index()
-        .sort_values(["ยี่ห้อรถ2", "รุ่นรถ2", "รุ่นรถ", "จำนวนรถ"],
-                     ascending=[True, True, True, False])
-    )
-    tbl = (
-        freq
-        .drop_duplicates(subset=["รุ่นรถ"], keep="first")
-        [["ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]]
-        .reset_index(drop=True)
-    )
-
-    HEADERS = ["Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]
-    last_data_row = len(tbl) + 1
-
-    def _cell_s(col_idx, row_idx, value):
-        try:
-            if pd.isna(value):
-                return ""
-        except (TypeError, ValueError):
-            pass
-        s = str(value).strip()
-        if not s or s.lower() in ("nan", "none", "<na>"):
-            return ""
-        col = _col(col_idx)
-        return f'<c r="{col}{row_idx}" t="inlineStr"><is><t>{_esc(s)}</t></is></c>'
-
-    rows_xml = []
-    hdr = "".join(_cell_s(i + 1, 1, h) for i, h in enumerate(HEADERS))
-    rows_xml.append(f'<row r="1">{hdr}</row>')
-    for idx, row in tbl.iterrows():
-        r = idx + 2
-        cells = "".join([
-            _cell_s(1, r, row["ยี่ห้อรถ2"]),
-            _cell_s(2, r, row["รุ่นรถ"]),
-            _cell_s(3, r, row["รุ่นรถ2"]),
-            _cell_s(4, r, row["Powertrain"]),
-        ])
-        if cells:
-            rows_xml.append(f'<row r="{r}">{cells}</row>')
-
-    sheet_xml = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
-        ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        '<sheetData>' + "".join(rows_xml) + "</sheetData>"
-        f'<autoFilter ref="A1:D{last_data_row}"/>'
-        "</worksheet>"
-    ).encode("utf-8")
-
-    with zipfile.ZipFile(str(path), "r") as z:
-        wb_xml   = z.read("xl/workbook.xml").decode("utf-8")
-        rels_xml = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
-
-    rid_m = (
-        re.search(r'<sheet name="BEV Series Name Table"[^>]*r:id="([^"]+)"', wb_xml)
-        or re.search(r'<sheet[^>]*r:id="([^"]+)"[^>]*name="BEV Series Name Table"', wb_xml)
-    )
-    if not rid_m:
-        print("      Warning: 'BEV Series Name Table' sheet not found in workbook — skipping")
-        return
-
-    rid = rid_m.group(1)
-    rel_m = re.search(rf'<Relationship\b(?=[^>]*\bId="{re.escape(rid)}")[^>]*/?>', rels_xml)
-    target_m = re.search(r'Target="([^"]+)"', rel_m.group(0)) if rel_m else None
-    if not target_m:
-        print("      Warning: Could not resolve BEV Series Name Table part — skipping")
-        return
-    target = target_m.group(1).lstrip("/")
-    sheet_part = f"xl/{target}" if not target.startswith("xl/") else target
-
-    tmp = path.with_suffix(".tmp3.xlsx")
-    with zipfile.ZipFile(str(path), "r") as zin, \
-         zipfile.ZipFile(str(tmp), "w", compression=zipfile.ZIP_DEFLATED) as zout:
-        for item in zin.infolist():
-            if item.filename == sheet_part:
-                zout.writestr(item.filename, sheet_xml)
-            else:
-                zout.writestr(item, zin.read(item.filename))
-    tmp.replace(path)
-    print(f"      Rebuilt BEV Series Name Table: {len(tbl):,} unique model rows")
 
 
 def _add_summary_sheet(workbook_path, sheet_name, df_cleaned):
@@ -1083,6 +807,13 @@ def _add_summary_sheet(workbook_path, sheet_name, df_cleaned):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def find_master_model_file() -> Path:
+    override = os.environ.get("MASTER_MODEL_PATH")
+    if override:
+        path = Path(override)
+        if not path.exists():
+            print(f"ERROR: master model override not found: {path}"); sys.exit(1)
+        return path
+
     # Find master Model template. Prefer refer/ when the operator keeps masters there.
     model_matches = [
         p for pattern in [
@@ -1101,11 +832,11 @@ def find_master_model_file() -> Path:
         print("ERROR: No masterModel.xlsx found in project root."); sys.exit(1)
     return Path(max(model_matches, key=os.path.getmtime))
 
-def load_existing_parquet(pq_path: Path) -> pd.DataFrame | None:
+def load_existing_parquet(pq_path: Path, is_fuel: bool = False) -> pd.DataFrame | None:
     if pq_path.exists():
         print(f"\n[Rolling rebuild] Loading existing: {pq_path.name}")
         df_existing = pd.read_parquet(str(pq_path))
-        required_existing_cols = {"ปี", "เดือน", "ชนิดเชื้อเพลิง"}
+        required_existing_cols = {"ปี", "เดือน", "ชนิดเชื้อเพลิง"} if is_fuel else {"ปี", "เดือน"}
         missing_existing_cols = required_existing_cols - set(df_existing.columns)
         if missing_existing_cols:
             print(
@@ -1122,9 +853,8 @@ def load_existing_parquet(pq_path: Path) -> pd.DataFrame | None:
         print("\n[Full build] No existing parquet — rebuilding from scratch.")
         return None
 
-def load_reference_maps(model_file: Path) -> dict:
+def load_reference_maps() -> dict:
     print("\n[1/4] Reading reference tables...", flush=True)
-    wb_ref = load_workbook(str(model_file), read_only=True, data_only=True)
 
     powertrain_map = load_powertrain_map(str(BASE / "config" / "powertrain_map.csv"))
     print(f"      {len(powertrain_map)} powertrain mappings")
@@ -1136,44 +866,18 @@ def load_reference_maps(model_file: Path) -> dict:
     merged_brand2_map = ref_brand2_map
     print(f"      {len(brand_rows)} ยี่ห้อรถ2 entries from brand_map.csv")
 
-    # Read BEV Series Name Table
-    bev_rows = []
-    ws_bev = wb_ref["BEV Series Name Table"]
-    for row in ws_bev.iter_rows(values_only=True):
-        bev_rows.append(row)
-    df_bev_tbl = pd.DataFrame(bev_rows)
-    _bev       = df_bev_tbl.iloc[1:, [1, 2, 3]].dropna(subset=[1])
-    known_bev_models = set(_bev.iloc[:, 0].astype(str).str.strip().str.upper())
-    model2_map        = {str(k).strip().upper(): str(v).strip() for k, v in zip(_bev.iloc[:, 0], _bev.iloc[:, 1])}
-    pt_from_model_map = {str(k).strip().upper(): str(v).strip() for k, v in zip(_bev.iloc[:, 0], _bev.iloc[:, 2])}
+    series_pt_map = verified_powertrain_map()
+    print(f"      {len(series_pt_map)} verified series_registry powertrain mappings")
 
-    wb_ref.close()
-
-    bev_report_model2_map, include_in_bev_model_report_map = _load_bev_model_report_map()
-    if bev_report_model2_map:
-        model2_map.update(bev_report_model2_map)
-        print(f"      Loaded {len(bev_report_model2_map)} BEV model report mappings")
-
-    csv_map_path = BASE / "refer" / "model2_map.csv"
-    if csv_map_path.exists():
-        df_csv = pd.read_csv(str(csv_map_path), encoding="utf-8-sig")
-        csv_model2_map = dict(zip(
-            df_csv["รุ่นรถ_raw"].astype(str).str.strip().str.upper(),
-            df_csv["รุ่นรถ2"].astype(str).str.strip()
-        ))
-        model2_map.update(csv_model2_map)
-        print(f"      Loaded {len(csv_model2_map)} mappings from model2_map.csv")
-
-    print(f"      {len(model2_map)} รุ่นรถ2 mappings")
+    series_name_map = canonical_series_map()
+    print(f"      {len(series_name_map)} series_registry canonical-name mappings")
 
     return {
         "powertrain_map": powertrain_map,
         "brand2_order": brand2_order,
         "merged_brand2_map": merged_brand2_map,
-        "known_bev_models": known_bev_models,
-        "model2_map": model2_map,
-        "pt_from_model_map": pt_from_model_map,
-        "include_in_bev_model_report_map": include_in_bev_model_report_map,
+        "series_powertrain_map": series_pt_map,
+        "series_name_map": series_name_map,
         "unknown_fuels": set()
     }
 
@@ -1182,9 +886,8 @@ def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dic
 
     powertrain_map = maps["powertrain_map"]
     merged_brand2_map = maps["merged_brand2_map"]
-    model2_map = maps["model2_map"]
-    pt_from_model_map = maps["pt_from_model_map"]
-    include_in_bev_model_report_map = maps["include_in_bev_model_report_map"]
+    series_powertrain_map = maps["series_powertrain_map"]
+    series_name_map = maps["series_name_map"]
     unknown_fuels = maps["unknown_fuels"]
 
     # df_fuel used only for master powertrain summary — not included in cleaned data.
@@ -1196,34 +899,34 @@ def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dic
     df_fuel["Powertrain"] = df_fuel["ชนิดเชื้อเพลิง"].apply(
         lambda f: powertrain_map.get(str(f).strip(), "OTH") if pd.notna(f) else None)
 
-    # Model rows: brand2, model2, powertrain (fuel first, model fallback)
+    # Model rows: brand2, model2, and powertrain from the verified series_registry only.
+    # The model source carries no fuel type of its own, so nothing here may fall back
+    # to fuel-derived or dominant-fuel guesses — missing/unreviewed/conflicting series
+    # default to N/A until a human verifies them in series_registry.csv.
     add_brand2(df_model, merged_brand2_map)
-    if "รุ่นรถ" in df_model.columns:
-        upper = df_model["รุ่นรถ"].astype(str).str.strip().str.upper()
-        df_model.insert(df_model.columns.get_loc("รุ่นรถ") + 1, "รุ่นรถ2",
-                        upper.map(model2_map).fillna(df_model["รุ่นรถ"]))
-        df_model["include_in_bev_model_report"] = upper.map(include_in_bev_model_report_map).fillna(False).astype(bool)
+    model_key = None
+    if {"ยี่ห้อรถ2", "รุ่นรถ"}.issubset(df_model.columns):
+        model_key = df_model.apply(lambda r: normalize_key(r["ยี่ห้อรถ2"], r["รุ่นรถ"]), axis=1)
 
-    if "ชนิดเชื้อเพลิง" in df_model.columns:
-        model_fuel_values = df_model["ชนิดเชื้อเพลิง"].dropna().astype(str).str.strip()
-        unknown_fuels.update(f for f in model_fuel_values.unique() if f not in powertrain_map)
-        pt_fuel = df_model["ชนิดเชื้อเพลิง"].astype(str).str.strip().map(powertrain_map)
+    if "รุ่นรถ" in df_model.columns:
+        # series_registry canonical-name (any review_status) is the sole naming
+        # authority; unmapped raw series display as-is (name only, never powertrain
+        # — registry powertrain resolution below is untouched).
+        registry_name = model_key.map(series_name_map) if model_key is not None else pd.Series(index=df_model.index, dtype=object)
+        df_model.insert(df_model.columns.get_loc("รุ่นรถ") + 1, "รุ่นรถ2",
+                        registry_name.fillna(df_model["รุ่นรถ"]))
+
+    if model_key is not None:
+        powertrain_col = model_key.map(series_powertrain_map).fillna("N/A")
     else:
-        pt_fuel = pd.Series(dtype=object, index=df_model.index)
-    pt_model = (df_model["รุ่นรถ"].astype(str).str.strip().str.upper().map(pt_from_model_map)
-                if "รุ่นรถ" in df_model.columns
-                else pd.Series(dtype=object, index=df_model.index))
-    if "ชนิดเชื้อเพลิง" in df_model.columns:
-        is_electric = df_model["ชนิดเชื้อเพลิง"].astype(str).str.strip() == "ไฟฟ้า"
-        pt_model = pt_model.where(is_electric)
-    # Model-level lookup wins over generic fuel-level lookup.
-    # pt_model is NaN for non-electric rows (gated by where(is_electric)),
-    # so ICE/HEV/PHEV always fall back to pt_fuel correctly.
-    powertrain_col = pt_model.combine_first(pt_fuel).fillna("OTH")
+        powertrain_col = pd.Series("N/A", index=df_model.index)
     if "Powertrain" in df_model.columns:
         df_model["Powertrain"] = powertrain_col
     else:
         df_model.insert(df_model.columns.get_loc("รุ่นรถ2") + 1, "Powertrain", powertrain_col)
+    # include_in_bev_model_report is derived solely from the verified registry —
+    # a legacy CSV/Excel inclusion flag can never override it.
+    df_model["include_in_bev_model_report"] = powertrain_col == "BEV"
 
     return df_model, df_fuel
 
@@ -1279,20 +982,18 @@ def reapply_canonical_maps(df: pd.DataFrame, maps: dict, is_fuel: bool = False) 
     df["ยี่ห้อรถ2"] = upper_brand.map(brand_map).fillna(df["ยี่ห้อรถ"])
 
     if not is_fuel:
-        model2_map = maps["model2_map"]
-        include_in_bev_model_report_map = maps["include_in_bev_model_report_map"]
-        upper_model = df["รุ่นรถ"].astype(str).str.strip().str.upper()
-        df["รุ่นรถ2"] = upper_model.map(model2_map).fillna(df["รุ่นรถ"])
-        df["include_in_bev_model_report"] = (
-            upper_model.map(include_in_bev_model_report_map).fillna(False).astype(bool)
-        )
+        series_powertrain_map = maps["series_powertrain_map"]
+        series_name_map = maps.get("series_name_map", {})
+        # Reclassify every retained row (not just the freshly rebuilt months) so a
+        # powertrain guessed by the old dominant-fuel enrichment cannot survive.
+        model_key = df.apply(lambda r: normalize_key(r["ยี่ห้อรถ2"], r["รุ่นรถ"]), axis=1)
+        registry_name = model_key.map(series_name_map)
+        df["รุ่นรถ2"] = registry_name.fillna(df["รุ่นรถ"])
+        df["Powertrain"] = model_key.map(series_powertrain_map).fillna("N/A")
+        df["include_in_bev_model_report"] = df["Powertrain"] == "BEV"
+        df.drop(columns=["ชนิดเชื้อเพลิง"], errors="ignore", inplace=True)
 
     return df
-
-def resolve_bev_review_records(df_cleaned: pd.DataFrame, maps: dict, rebuild_years: set[int]) -> list[dict]:
-    bev_scope_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
-    bev_scope_mask = bev_scope_year.isin(rebuild_years)
-    return resolve_bev_review(df_cleaned, maps["known_bev_models"], bev_scope_mask)
 
 def write_pipeline_state(base_dir: Path, out_file: Path, new_keys: set, corrected_keys: set, new_bev_records: list[dict], df_existing: pd.DataFrame | None) -> None:
     import json, datetime
@@ -1350,25 +1051,24 @@ def main():
     print(f"Raw 2 (Model): {raw2_file.name}")
     print(f"Master Model : {model_file.name}")
 
-    pq_path = BASE / "test_model_cleaned.parquet"
-    df_existing = load_existing_parquet(pq_path)
+    pq_path = OUTPUT_BASE / "test_model_cleaned.parquet"
+    df_existing = load_existing_parquet(pq_path, is_fuel=False)
 
     print("\n[2/4] Reading raw data...", flush=True)
     df_fuel = read_dlt_file(raw1_file)
     df_model = read_dlt_file(raw2_file)
-    df_model = enrich_fuel_type(df_model, df_fuel)
     print(f"      {len(df_fuel):,} fuel rows | {len(df_model):,} model rows")
 
     print("\n[Mapping update] Checking master model mapping...", flush=True)
     append_missing_master_model_rows(model_file, df_model)
 
-    maps = load_reference_maps(model_file)
+    maps = load_reference_maps()
 
     df_model, df_fuel = add_derived_columns(df_model, df_fuel, maps)
 
     df_cleaned = ordered_cols(df_model)
     df_cleaned = sort_cleaned_data(df_cleaned, maps["brand2_order"])
-    validate(df_cleaned)
+    validate_model(df_cleaned)
     print(f"      {len(df_cleaned):,} raw rows processed | cols: {list(df_cleaned.columns)}")
 
     raw_year = pd.to_numeric(df_cleaned["ปี"], errors="coerce")
@@ -1380,8 +1080,6 @@ def main():
     new_keys = merge_info.get("new_keys", set())
     corrected_keys = merge_info.get("corrected_keys", set())
 
-    new_bev_records = resolve_bev_review_records(df_cleaned, maps, rebuild_years)
-
     # Save intermediate for pivot builder (parquet: safe, fast, preserves dtypes)
     for col in df_cleaned.select_dtypes(include=["object", "str"]).columns:
         df_cleaned[col] = df_cleaned[col].astype(str).replace("nan", pd.NA)
@@ -1389,15 +1087,15 @@ def main():
     print(f"      Saved intermediate: {pq_path.name}")
 
     # Save fuel parquet
-    fuel_pq_path = BASE / "test_fuel_cleaned.parquet"
+    fuel_pq_path = OUTPUT_BASE / "test_fuel_cleaned.parquet"
     df_fuel_save = ordered_cols(df_fuel).copy()
     for col in df_fuel_save.select_dtypes(include=["object", "str"]).columns:
         df_fuel_save[col] = df_fuel_save[col].astype(str).replace("nan", pd.NA)
 
-    df_fuel_existing = load_existing_parquet(fuel_pq_path)
+    df_fuel_existing = load_existing_parquet(fuel_pq_path, is_fuel=True)
     df_fuel_save, _ = rolling_merge(df_fuel_save, df_fuel_existing, rebuild_years, maps, is_fuel=True)
     df_fuel_save = reapply_canonical_maps(df_fuel_save, maps, is_fuel=True)
-    validate(df_fuel_save)
+    validate_fuel(df_fuel_save)
     df_fuel_save.to_parquet(str(fuel_pq_path), index=False)
     print(f"      Saved fuel intermediate: {fuel_pq_path.name}")
 
@@ -1406,8 +1104,8 @@ def main():
 
     rewrite_data_rows(out_file, df_cleaned, data_start_row=8)
 
-    write_pipeline_state(BASE, out_file, new_keys, corrected_keys, new_bev_records, df_existing)
-    update_known_models(BASE, df_cleaned)
+    write_pipeline_state(OUTPUT_BASE, out_file, new_keys, corrected_keys, [], df_existing)
+    update_known_models(OUTPUT_BASE, df_cleaned)
 
     print(f"\n  Rows : {len(df_cleaned):,}")
     print(f"  → {out_file.name}")
