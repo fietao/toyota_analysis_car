@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-16T09:44:24.880349",
+  "generated_at": "2026-07-21T10:00:22.526339",
   "latest_year": 2569,
   "latest_month": "Jun",
   "reporting_period": "June 2569",
@@ -42,7 +42,6 @@
     "ยี่ห้อรถ2",
     "รุ่นรถ",
     "รุ่นรถ2",
-    "ชนิดเชื้อเพลิง",
     "Powertrain",
     "จำนวนรถ",
     "include_in_bev_model_report"

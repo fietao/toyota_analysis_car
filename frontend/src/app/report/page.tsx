@@ -7,6 +7,8 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 // Canonical manual report: /report renders this JSON directly and never recomputes
 // spreadsheet logic. Produced by backend/export_manual_report.py.
 
+const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 type ReportRow = {
   key: string;
   label: string;
@@ -95,7 +97,7 @@ export default function ManualReportPage() {
   const load = () => {
     setLoading(true);
     setError(null);
-    fetch("/data/manual_report.json")
+    fetch(`${DATA_BASE}/data/manual_report.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -113,7 +115,7 @@ export default function ManualReportPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/data/manual_report.json")
+    fetch(`${DATA_BASE}/data/manual_report.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

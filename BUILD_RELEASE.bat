@@ -81,6 +81,7 @@ echo.
 
 echo ==== Step 7: Frontend Linting ====
 cd ../frontend
+set "NEXT_PUBLIC_BASE_PATH=/toyota_analysis_car"
 if not exist node_modules (
     echo Installing npm dependencies...
     call npm install

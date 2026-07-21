@@ -38,6 +38,7 @@ import {
 import { FilterPillPopover } from "../components/FilterPillPopover";
 import { AdminReviewPanel } from "../components/AdminReviewPanel";
 
+const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const SHOW_ADMIN_PANEL = process.env.NODE_ENV !== "production";
 
 /* ── Palette & constants ─────────────────────────────────────────────── */
@@ -283,7 +284,7 @@ export default function Dashboard() {
     if (modelsStatus.current !== "idle") return;
     modelsStatus.current = "loading";
     setModelsError(null);
-    fetch("/data/dashboard_models.json")
+    fetch(`${DATA_BASE}/data/dashboard_models.json`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load models data");
         return r.json();
@@ -300,7 +301,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    fetch("/data/dashboard_summary.json")
+    fetch(`${DATA_BASE}/data/dashboard_summary.json`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load summary data");
         return r.json();

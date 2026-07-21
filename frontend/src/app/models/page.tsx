@@ -17,6 +17,7 @@ import {
   segmentBreakdown,
 } from "../selectors";
 
+const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const PT_BADGE: Record<string, string> = {
@@ -83,7 +84,7 @@ export default function ModelsPage() {
   const loadData = () => {
     setLoading(true);
     setError(null);
-    fetch("/data/dashboard_models.json")
+    fetch(`${DATA_BASE}/data/dashboard_models.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
         return r.json();
@@ -103,7 +104,7 @@ export default function ModelsPage() {
   };
 
   useEffect(() => {
-    fetch("/data/dashboard_models.json")
+    fetch(`${DATA_BASE}/data/dashboard_models.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
         return r.json();

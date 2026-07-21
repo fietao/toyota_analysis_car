@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Download, RefreshCw, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
+const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MISSING = "—";
 
@@ -77,7 +78,7 @@ export default function AnalystPage() {
   const loadData = () => {
     setLoading(true);
     setError(null);
-    fetch("/data/analyst_data.json")
+    fetch(`${DATA_BASE}/data/analyst_data.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
         return r.json();
@@ -94,7 +95,7 @@ export default function AnalystPage() {
   };
 
   useEffect(() => {
-    fetch("/data/analyst_data.json")
+    fetch(`${DATA_BASE}/data/analyst_data.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
         return r.json();
@@ -280,7 +281,7 @@ export default function AnalystPage() {
     try {
       const XLSX = await import("xlsx");
       // Fetch models data dynamically for Sheet 3 of the export
-      const modelsRes = await fetch("/data/dashboard_models.json");
+      const modelsRes = await fetch(`${DATA_BASE}/data/dashboard_models.json`);
       const modelsJson = await modelsRes.json();
       const tree = modelsJson.brand_model_tree || [];
       const treeYears = modelsJson.meta.years || [];
