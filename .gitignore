@@ -30,3 +30,7 @@ backend/output/
 frontend/.next/
 frontend/node_modules/
 dashboard/.next/
+_archive/raw-data/
+_archive/backend-output/
+backend/review/
+backend/review/~$*.xlsx

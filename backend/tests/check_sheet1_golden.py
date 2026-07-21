@@ -19,7 +19,10 @@ TESTS = Path(__file__).resolve().parent
 BACKEND = TESTS.parent
 sys.path.insert(0, str(BACKEND))
 
-from build_analyst import _build_sheet1_data, write_sheet1_standalone, filter_ry
+from build_analyst import (
+    _build_sheet1_data, write_sheet1_standalone, filter_ry,
+    _get_year_info, THAI_MONTHS, check_nonzero_recognized_total,
+)
 
 failures = []
 
@@ -468,26 +471,42 @@ chk_cell("W12", None)
 
 
 # ── Goal 3: Live Real-Data Smoke Check ───────────────────────────────────────
+# Sheet 1 is fuel-derived (build_analyst.py), so its real-data checks read the
+# fuel parquet; model data is only used for model-grain checks (no fuel column).
 def run_real_data_smoke_check():
-    pq_path = BACKEND / "test_model_cleaned.parquet"
+    fuel_path = BACKEND / "test_fuel_cleaned.parquet"
+    model_path = BACKEND / "test_model_cleaned.parquet"
     manifest_path = BACKEND / ".." / "frontend" / "public" / "data" / "cleaned_data_manifest.json"
 
-    if not pq_path.exists():
-        fail(f"Real data parquet {pq_path} not found.")
+    if not fuel_path.exists():
+        fail(f"Real data parquet {fuel_path} not found.")
+        return
+    if not model_path.exists():
+        fail(f"Real data parquet {model_path} not found.")
         return
 
-    df_real = pd.read_parquet(str(pq_path))
+    df_fuel = pd.read_parquet(str(fuel_path))
+    df_model = pd.read_parquet(str(model_path))
 
-    # 1. Required schema exists
-    expected_cols = {"ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "ชนิดเชื้อเพลิง", "Powertrain", "จำนวนรถ"}
-    missing_cols = expected_cols - set(df_real.columns)
-    if missing_cols:
-        fail(f"Real data missing columns: {missing_cols}")
+    # 1. Required schema — fuel-grain (includes ชนิดเชื้อเพลิง)
+    fuel_expected_cols = {"ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "ชนิดเชื้อเพลิง", "Powertrain", "จำนวนรถ"}
+    missing_fuel_cols = fuel_expected_cols - set(df_fuel.columns)
+    if missing_fuel_cols:
+        fail(f"Real fuel data missing columns: {missing_fuel_cols}")
 
-    # 2. No invalid negative units
-    negative_units = (df_real["จำนวนรถ"] < 0).sum()
-    if negative_units > 0:
-        fail(f"Real data contains {negative_units} rows with negative registration counts.")
+    # 1b. Required schema — model-grain (never inherits ชนิดเชื้อเพลิง)
+    model_expected_cols = {"ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain", "จำนวนรถ"}
+    missing_model_cols = model_expected_cols - set(df_model.columns)
+    if missing_model_cols:
+        fail(f"Real model data missing columns: {missing_model_cols}")
+    if "ชนิดเชื้อเพลิง" in df_model.columns:
+        fail("Real model data unexpectedly carries an inherited ชนิดเชื้อเพลิง column")
+
+    # 2. No invalid negative units, either grain
+    for label, df in (("fuel", df_fuel), ("model", df_model)):
+        negative_units = (df["จำนวนรถ"] < 0).sum()
+        if negative_units > 0:
+            fail(f"Real {label} data contains {negative_units} rows with negative registration counts.")
 
     # 3. Model and fuel manifest totals agree (if manifest exists)
     if manifest_path.exists():
@@ -498,14 +517,24 @@ def run_real_data_smoke_check():
         if model_units != fuel_units:
             fail(f"Manifest totals disagree: model_total_units={model_units}, fuel_total_units={fuel_units}")
 
-    # 4. Current reporting period can be detected (max year and max month)
+    # 4. Current reporting period, detected the same dynamic way build_analyst.main() does —
+    # from the fuel data's own รย-filtered rows. Never hardcoded.
     try:
-        max_year = df_real["ปี"].max()
-        max_month = df_real[df_real["ปี"] == max_year]["เดือน"].unique()
-        if pd.isna(max_year) or len(max_month) == 0:
-            fail("Could not detect current reporting period from real data.")
+        df_fuel_ry = filter_ry(df_fuel)
+        prev_year, curr_year, prev_prev_year, curr_months = _get_year_info(df_fuel_ry)
+        thai_month = curr_months[-1]
+        month_num = {v: k for k, v in THAI_MONTHS.items()}[thai_month]
     except Exception as e:
-        fail(f"Error checking reporting period: {e}")
+        fail(f"Error detecting reporting period from real fuel data: {e}")
+        return
+
+    # 5. Fuel-derived ICE/BEV/HEV/PHEV grand total for the detected period must be nonzero —
+    # the exact condition build_analyst.py's fail-fast guard enforces before writing Sheet 1.
+    sheet1_data = _build_sheet1_data(df_fuel_ry, curr_year, prev_year, month_num)
+    try:
+        check_nonzero_recognized_total(sheet1_data, thai_month, curr_year)
+    except ValueError as e:
+        fail(f"Real fuel data: {e}")
 
 run_real_data_smoke_check()
 

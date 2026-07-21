@@ -24,7 +24,7 @@ COLUMNS = [
     "review_status", "evidence", "reviewer", "reviewed_at",
 ]
 ALLOWED_POWERTRAIN = {"ICE", "HEV", "PHEV", "BEV", "N/A"}
-ALLOWED_STATUS = {"verified", "unreviewed", "conflicting"}
+ALLOWED_STATUS = {"verified", "unreviewed", "conflicting", "not_applicable"}
 
 
 class RegistryError(Exception):
@@ -97,6 +97,21 @@ def _validate_rows(rows):
             reviewed_at = (row["reviewed_at"] or "").strip()
             if not reviewed_at:
                 issues.append(f"{tag}: verified row requires reviewed_at")
+            else:
+                try:
+                    datetime.fromisoformat(reviewed_at)
+                except ValueError:
+                    issues.append(f"{tag}: reviewed_at {reviewed_at!r} is not a valid ISO timestamp")
+        elif status == "not_applicable":
+            if powertrain is not None and powertrain != "N/A":
+                issues.append(f"{tag}: not_applicable row must have powertrain N/A, got {powertrain!r}")
+            if not (row["evidence"] or "").strip():
+                issues.append(f"{tag}: not_applicable row requires evidence")
+            if not (row["reviewer"] or "").strip():
+                issues.append(f"{tag}: not_applicable row requires reviewer")
+            reviewed_at = (row["reviewed_at"] or "").strip()
+            if not reviewed_at:
+                issues.append(f"{tag}: not_applicable row requires reviewed_at")
             else:
                 try:
                     datetime.fromisoformat(reviewed_at)

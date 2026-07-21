@@ -20,7 +20,7 @@ BACKEND = TESTS.parent
 sys.path.insert(0, str(BACKEND))
 
 from series_admin import ReviewValidationError, list_unresolved, save_review
-from series_registry import load_registry
+from series_registry import load_registry, write_registry
 
 REAL_REGISTRY = BACKEND / "refer" / "series_registry.csv"
 
@@ -119,6 +119,19 @@ def run_tests():
         rows_final = load_registry(registry_path)
         if len(rows_final) != 1:
             failures.append(f"No partial write on rejected save: expected 1 row, got {len(rows_final)}")
+
+        # 9a. not_applicable rows are excluded from the unresolved queue, same as verified
+        write_registry(rows_final + [{
+            "canonical_brand": "TOYOTA", "raw_series": "COROLLA", "canonical_series": "Corolla",
+            "powertrain": "N/A", "review_status": "not_applicable",
+            "evidence": "reviewed, unclear", "reviewer": "jet", "reviewed_at": "2026-07-21T10:00:00",
+        }], registry_path)
+        queue_na = list_unresolved(parquet_path, registry_path)
+        keys_na = {(q["canonical_brand"], q["raw_series"]) for q in queue_na}
+        if ("TOYOTA", "COROLLA") in keys_na:
+            failures.append("not_applicable rows excluded from queue: COROLLA still present")
+        if ("MITSUBISHI", "TRITON") in keys_na:
+            failures.append("not_applicable rows excluded from queue: verified TRITON reappeared")
 
     # 10. Production series_registry.csv remains hash-identical
     real_hash_after = hashlib.sha256(REAL_REGISTRY.read_bytes()).hexdigest()

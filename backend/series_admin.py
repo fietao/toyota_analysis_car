@@ -55,7 +55,7 @@ def list_unresolved(model_parquet_path=DEFAULT_MODEL_PARQUET, registry_path=None
     for _, r in grouped.sort_values(["_bk", "_sk"]).iterrows():
         key = (r["_bk"], r["_sk"])
         existing = registry_by_key.get(key)
-        if existing is not None and existing["review_status"] == "verified":
+        if existing is not None and existing["review_status"] in ("verified", "not_applicable"):
             continue
         queue.append({
             "canonical_brand": existing["canonical_brand"] if existing else str(r["canonical_brand"]).strip(),

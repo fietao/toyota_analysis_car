@@ -12,14 +12,17 @@ follow this file.
 
 At the start of every conversation:
 1. Read this file (`CLAUDE.md`) fully.
-2. Invoke `/qwenchance` before taking action on the user's request.
-3. Decide whether a skill, subagent, tool, plugin, or connector is a better fit than doing the
-   work directly.
+2. For simple conversational questions, answer directly without invoking skills, subagents, or
+   tools unless they are required for correctness.
+3. For implementation work, decide whether a skill, subagent, tool, plugin, connector, or direct
+   implementation is the smallest capable option.
+4. Invoke `/qwenchance` only for long-running work, detected looping, context pressure, or when
+   the user explicitly requests it.
 
 ## Pick The Right Capability
 
 For every request, decide whether the work needs:
-- A global skill from `.agents/skills`.
+- A project skill from `.agents/skills` or an installed global skill.
 - A local subagent skill.
 - A built-in tool.
 - A plugin or connector.
@@ -68,6 +71,17 @@ Before writing code or editing files for non-trivial requests:
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## Lean Execution
+
+- Default to minimal-token mode: keep updates and answers concise and avoid rereading known context.
+- Do not inspect the repository merely to answer advice, status, or prompt-writing questions when
+  the conversation already contains enough information.
+- Default to a 15,000-token budget per implementation slice unless the user requests otherwise.
+- Use the smallest correct implementation: reuse existing code, avoid new abstractions, and touch the fewest files.
+- Search before reading; open only relevant file sections and keep command output focused on errors or summaries.
+- Run focused tests first. Do not run broad suites, use subagents, or expand scope unless the focused result requires it.
+- When a slice is complete or the budget is becoming tight, write a compact handoff and stop instead of carrying a large conversation forward.
 
 ## Surgical Changes
 

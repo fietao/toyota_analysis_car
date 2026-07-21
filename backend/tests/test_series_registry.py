@@ -98,6 +98,35 @@ def run_tests():
             "Verified row without reviewed_at fails",
         )
 
+        # 6a. not_applicable row with N/A + evidence/reviewer/reviewed_at succeeds
+        try:
+            write_registry([row(raw_series="NOTAPPL", review_status="not_applicable", powertrain="N/A",
+                                 evidence="reviewed, no clear reading", reviewer="jet",
+                                 reviewed_at="2026-07-21T10:00:00")], tmp_path)
+        except RegistryError as e:
+            failures.append(f"not_applicable row accepted: unexpected RegistryError: {e}")
+
+        # 6b. not_applicable row without evidence fails
+        expect_error(
+            lambda: write_registry([row(review_status="not_applicable", powertrain="N/A", evidence="",
+                                         reviewer="jet", reviewed_at="2026-07-16T10:00:00")], tmp_path),
+            "not_applicable row without evidence fails",
+        )
+
+        # 6c. not_applicable row with a real powertrain fails
+        expect_error(
+            lambda: write_registry([row(review_status="not_applicable", powertrain="ICE",
+                                         evidence="x", reviewer="jet", reviewed_at="2026-07-16T10:00:00")], tmp_path),
+            "not_applicable row with real powertrain fails",
+        )
+
+        # 6d. verified row with N/A powertrain fails
+        expect_error(
+            lambda: write_registry([row(review_status="verified", powertrain="N/A",
+                                         evidence="x", reviewer="jet", reviewed_at="2026-07-16T10:00:00")], tmp_path),
+            "verified row with N/A powertrain fails",
+        )
+
         # 7a. Empty canonical_series fails
         expect_error(
             lambda: write_registry([row(canonical_series="")], tmp_path),

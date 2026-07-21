@@ -1,9 +1,10 @@
 """
-Builds the monthly analyst report from the cleaned parquet.
+Builds the monthly analyst report from the cleaned parquets.
 
-Input:  test_model_cleaned.parquet
+Input:  test_model_cleaned.parquet (Data sheet)
+        test_fuel_cleaned.parquet  (Sheet 1 — fuel-derived Powertrain)
         *(master cal).xlsx  (root) or *(master*cal)*.xlsx / *(calculation)*.xlsx (refer/)
-Output: Refreshes the Data sheet in a copy of the master cal template.
+Output: Refreshes the Data sheet and Sheet 1 in a copy of the master cal template.
 """
 
 import glob, sys, os, shutil, zipfile, re
@@ -13,10 +14,11 @@ from openpyxl import load_workbook
 
 from aggregate import aggregate, current_period
 from xlsx_util import _col, _esc
-from schema import validate_model
+from schema import validate_model, validate_fuel
 
-BASE         = Path(__file__).resolve().parent
-CLEANED_FILE = BASE / "test_model_cleaned.parquet"
+BASE          = Path(__file__).resolve().parent
+FUEL_PARQUET  = BASE / "test_fuel_cleaned.parquet"
+MODEL_PARQUET = BASE / "test_model_cleaned.parquet"
 
 _calc_matches = [
     p for p in glob.glob(str(BASE / "*cal*.xlsx"))
@@ -50,6 +52,15 @@ def filter_ry(df):
     """Keep only ประเภทรถ รย.1,2,3,6,9,10,11."""
     codes = df["ประเภทรถ"].str.extract(r"รย\.(\d+)")[0]
     return df[codes.isin(INCLUDE_RY)].copy()
+
+def _prepare(df):
+    """Coerce จำนวนรถ/ปี to numeric and drop rows with an unparseable year."""
+    df = df.copy()
+    df["จำนวนรถ"] = pd.to_numeric(df["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
+    df["ปี"] = pd.to_numeric(df["ปี"], errors="coerce")
+    df = df.dropna(subset=["ปี"]).copy()
+    df["ปี"] = df["ปี"].astype(int)
+    return df
 
 def _get_year_info(df):
     years = sorted(df["ปี"].unique())
@@ -532,64 +543,88 @@ def _verify_sheet1(df_ry, curr_year, prev_year, curr_month_num):
         print(f"  {pt:4s} curr month            : {n:,}")
     print("---------------------------------------------------")
 
+def check_period_match(fuel_year, fuel_month, model_year, model_month):
+    """Raise if the fuel and model sources disagree on the latest reporting period."""
+    if (fuel_year, fuel_month) != (model_year, model_month):
+        raise ValueError(
+            f"Fuel/model period mismatch: fuel latest={fuel_year}-{fuel_month:02d}, "
+            f"model latest={model_year}-{model_month:02d}. Refusing to build a mixed-period workbook."
+        )
+
+def check_nonzero_recognized_total(sheet1_data, thai_month, curr_year):
+    """Raise if the recognized ICE/BEV/HEV/PHEV grand total for the current month is zero."""
+    if not sheet1_data.get(("grand", "W")):
+        raise ValueError(
+            f"Recognized ICE/BEV/HEV/PHEV total for {thai_month} {curr_year} is zero — "
+            "refusing to generate an all-zero Sheet 1."
+        )
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
-    if not CLEANED_FILE.exists():
-        print(f"ERROR: {CLEANED_FILE.name} not found — run build_cleaned.py first")
+    if not FUEL_PARQUET.exists():
+        print(f"ERROR: {FUEL_PARQUET.name} not found — run build_cleaned.py first")
+        sys.exit(1)
+    if not MODEL_PARQUET.exists():
+        print(f"ERROR: {MODEL_PARQUET.name} not found — run build_cleaned.py first")
         sys.exit(1)
     if not CALC_FILE.exists():
         print(f"ERROR: {CALC_FILE.name} not found")
         sys.exit(1)
-    print(f"Cleaned : {CLEANED_FILE.name}")
+    print(f"Fuel    : {FUEL_PARQUET.name}")
+    print(f"Model   : {MODEL_PARQUET.name}")
     print(f"Calc    : {CALC_FILE.name}")
 
     print("Loading cleaned data...", flush=True)
-    df_raw = pd.read_parquet(str(CLEANED_FILE))
-    validate_model(df_raw)
-    df_raw["จำนวนรถ"] = pd.to_numeric(df_raw["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
-    df_raw["ปี"]      = pd.to_numeric(df_raw["ปี"],      errors="coerce").dropna().astype(int)
-    df_raw = df_raw.dropna(subset=["ปี"]).copy()
-    df_raw["ปี"] = df_raw["ปี"].astype(int)
+    df_fuel_raw = _prepare(pd.read_parquet(str(FUEL_PARQUET)))
+    validate_fuel(df_fuel_raw)
+    df_model_raw = _prepare(pd.read_parquet(str(MODEL_PARQUET)))
+    validate_model(df_model_raw)
 
-    KNOWN_PT = {"ICE", "BEV", "HEV", "PHEV"}
-    df_file1 = (
-        df_raw[df_raw["ชนิดเชื้อเพลิง"].notna() & df_raw["Powertrain"].isin(KNOWN_PT)].copy()
-        if "ชนิดเชื้อเพลิง" in df_raw.columns
-        else df_raw.copy()
-    )
-    df = filter_ry(df_file1)
-    print(f"      {len(df_raw):,} total rows → {len(df_file1):,} File1/mapped → {len(df):,} after รย filter")
+    df_fuel_ry = filter_ry(df_fuel_raw)   # includes BEV Major rows needed for sheet 1
+    df_model_ry = filter_ry(df_model_raw)
+    print(f"      Fuel : {len(df_fuel_raw):,} total rows → {len(df_fuel_ry):,} after รย filter")
+    print(f"      Model: {len(df_model_raw):,} total rows → {len(df_model_ry):,} after รย filter")
 
-    prev_year, curr_year, prev_prev_year, curr_months = _get_year_info(df)
+    # Detect the latest reporting period independently from each source; a mismatch
+    # would silently mix a fuel-derived Sheet 1 with a model-derived Data sheet/filename.
+    fuel_year, fuel_month = current_period(df_fuel_ry, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
+    model_year, model_month = current_period(df_model_ry, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
+    check_period_match(fuel_year, fuel_month, model_year, model_month)
+
+    prev_year, curr_year, prev_prev_year, curr_months = _get_year_info(df_fuel_ry)
     print(f"      Years: prev={prev_year}, curr={curr_year}, curr_months={curr_months}")
 
-    import datetime
     thai_month = curr_months[-1]
     month_num  = {v: k for k, v in THAI_MONTHS.items()}[thai_month]
     greg_year  = curr_year - 543
     prefix     = f"{greg_year}{month_num:02d}"
     out_file   = BASE / f"{prefix}_รถใหม่_ยี่ห้อรถ-ชนิดเชื้อเพลิง-จังหวัด ปี 2564 - {thai_month} {curr_year}(test analyst).xlsx"
 
+    # Fail-fast guard: recognized ICE/BEV/HEV/PHEV total for the current period must be
+    # nonzero before the output workbook is even copied — reuses the same aggregation
+    # write_sheet1 uses, so the check can't drift from what actually gets written.
+    guard_data = _build_sheet1_data(df_fuel_ry, curr_year, prev_year, month_num)
+    check_nonzero_recognized_total(guard_data, thai_month, curr_year)
+
     print(f"\nCopying template → {out_file.name}...", flush=True)
     shutil.copy2(str(CALC_FILE), str(out_file))
 
     print("Refreshing Data sheet...", flush=True)
-    write_calculation_data_sheet(out_file, df_raw)
+    write_calculation_data_sheet(out_file, df_model_raw)
     print("      Data sheet updated; calculation sheets preserved.")
 
     print("Writing sheet 1 (1.Reg by Powertrain)...", flush=True)
-    df_ry_all = filter_ry(df_raw)  # includes BEV Major rows needed for sheet 1
-    write_sheet1(out_file, df_ry_all, curr_year=curr_year, prev_year=prev_year,
+    write_sheet1(out_file, df_fuel_ry, curr_year=curr_year, prev_year=prev_year,
                  curr_month_num=month_num)
 
     # Verification: independent totals from parquet
-    _verify_sheet1(df_ry_all, curr_year=curr_year, prev_year=prev_year,
+    _verify_sheet1(df_fuel_ry, curr_year=curr_year, prev_year=prev_year,
                    curr_month_num=month_num)
 
     # Standalone: prove Sheet 1 can be written without the template
     standalone_file = BASE / f"{prefix}_sheet1_standalone.xlsx"
     print("Writing standalone Sheet 1...", flush=True)
-    write_sheet1_standalone(standalone_file, df_ry_all, curr_year=curr_year,
+    write_sheet1_standalone(standalone_file, df_fuel_ry, curr_year=curr_year,
                             prev_year=prev_year, curr_month_num=month_num)
 
     print(f"\nOutput: {out_file.name}")
