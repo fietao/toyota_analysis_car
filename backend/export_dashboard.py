@@ -49,15 +49,15 @@ FULL_MONTH_EN = {
 }
 
 def build_brand_model_tree(df_model_rows: pd.DataFrame) -> list:
-    """Build model facts as brand -> canonical series -> registry-backed PT segments.
+    """Build model facts as brand -> canonical series -> unclassified PT segments.
 
     Brand and series nodes expose source totals in ``monthly``. Each series also exposes
-    ``segments`` containing ``powertrain`` and ``monthly``; verified segments plus ``N/A``
-    must sum back to the series totals at every vehicle/province/year/month coordinate.
+    one ``N/A`` segment because model-grain rows do not prove Powertrain. The segment
+    must sum back to the series total at every vehicle/province/year/month coordinate.
     """
     model_grp = aggregate(
-        df_model_rows.assign(Powertrain=df_model_rows["Powertrain"].fillna("N/A")),
-        ["ยี่ห้อรถ2", "รุ่นรถ2", "Powertrain", "v_code", "จังหวัด", "ปี", "เดือน"],
+        df_model_rows,
+        ["ยี่ห้อรถ2", "รุ่นรถ2", "PT", "v_code", "จังหวัด", "ปี", "เดือน"],
         {"mode": "monthly", "units_col": "จำนวนรถ"},
     )
 
@@ -69,7 +69,7 @@ def build_brand_model_tree(df_model_rows: pd.DataFrame) -> list:
     for _, row in model_grp.iterrows():
         brand = row["ยี่ห้อรถ2"]
         series = row["รุ่นรถ2"]
-        powertrain = row["Powertrain"] or "N/A"
+        powertrain = row["PT"] or "N/A"
         vehicle_type = row["v_code"]
         province = row["จังหวัด"]
         year = str(int(row["ปี"]))
@@ -130,11 +130,12 @@ def load_data(parquet: Path, is_fuel: bool) -> pd.DataFrame:
     # Map to full Thai name if in dictionary, otherwise keep the source label.
     df["v"] = df["v_code"].map(VEHICLE_TYPE_DICT).fillna(df["ประเภทรถ"])
 
-    # Fuel facts derive PT from fuel. Model facts use only registry-backed Powertrain.
+    # Fuel facts derive PT from fuel. Model grain never carries Powertrain (source-of-truth
+    # lives in the fuel grain only), so model PT is always N/A.
     if is_fuel:
         df["PT"] = df["ชนิดเชื้อเพลิง"].map(FUEL_MAP).fillna("N/A")
     else:
-        df["PT"] = df["Powertrain"].fillna("N/A")
+        df["PT"] = "N/A"
 
     df["จำนวนรถ"] = pd.to_numeric(df["จำนวนรถ"], errors="coerce").fillna(0).astype(int)
     df["ปี"] = pd.to_numeric(df["ปี"], errors="coerce").dropna().astype(int)

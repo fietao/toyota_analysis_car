@@ -9,7 +9,7 @@ What it does:
     1. Copies both files into raw data/ as the new masters.
     2. Auto-classifies any new fuel types into the master powertrain sheet.
     3. Runs the full pipeline (build_cleaned; canonical names/powertrain come
-       solely from refer/series_registry.csv).
+       from config/model_map.csv; model grain never receives Powertrain).
     4. Exports dashboard data (export_dashboard.py).
 """
 

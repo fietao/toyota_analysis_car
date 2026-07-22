@@ -71,6 +71,8 @@ def build_calculation_table(
         df = df[df["Powertrain"].notna() & (df["Powertrain"] != "OTH")]
         if powertrain != "ALL":
             df = df[df["Powertrain"] == powertrain]
+    elif powertrain != "ALL":
+        raise ValueError("Powertrain filters require fuel-grain data")
 
     # Map month numbers
     if "เดือน" in df.columns:

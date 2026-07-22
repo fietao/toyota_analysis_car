@@ -3,9 +3,11 @@
 From PowerShell:
 
 ```powershell
-cd C:\dev\ai-reading-car-analysis\dashboard
+cd C:\dev\ai-reading-car-analysis\frontend
 npm run dev -- --port 3001
 ```
+
+On Windows, `RUN.bat` performs the same startup and opens the browser.
 
 Open:
 
@@ -16,10 +18,12 @@ http://localhost:3001
 ## Production Check
 
 ```powershell
-cd C:\dev\ai-reading-car-analysis\dashboard
+cd C:\dev\ai-reading-car-analysis\frontend
 npm run build
-npm run start -- --port 3001
 ```
+
+The production build is a static export in `frontend/out/` and is deployed by the
+GitHub Pages workflow.
 
 ## Useful Checks
 

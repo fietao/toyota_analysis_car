@@ -6,12 +6,12 @@ Usage:
     python run_pipeline.py --skip-analyst         # master Model only (no analyst report)
 
 Steps:
-  1. build_cleaned.py    → master Model + master Cal Data sheet (canonical names and
-                            powertrain come solely from refer/series_registry.csv)
+  1. build_cleaned.py    → cleaned model/fuel parquets (model names from model_map.csv;
+                            fuel Powertrain from powertrain_map.csv; model grain has no Powertrain)
   2. build_analyst.py    → YYYYMM analyst report     (skippable with --skip-analyst)
 
-build_model2_map.py and build_BEV.py were removed once series_registry.csv became
-the sole canonical-name and model-Powertrain authority.
+New model rows are appended as pending to config/model_powertrain_review.csv for
+human review. Approved BEV rows from that file control Sheets 7-8 only.
 """
 
 import subprocess, sys, os

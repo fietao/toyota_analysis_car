@@ -5,7 +5,7 @@ registration data, classifies brand/powertrain, and builds analyst/dashboard rep
 
 The permanent book of this project. Only write here when something is **confirmed done and understood**.
 
-- **HANDOFF.md** = what we're working on right now, what's pending
+- **handoffs/** = current operator runbooks and release handoffs
 - **LIBRARY.md** = what we've solved, what we've learned, what we've built
 
 Three sections:

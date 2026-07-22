@@ -159,6 +159,11 @@ export default function AnalystPage() {
   const prevYear = currYear ? currYear - 1 : "";
   const monthLabel = MONTHS_EN[(meta?.current_month_num ?? 0) - 1] || "";
 
+  const handleViewByChange = (viewBy: "brand" | "model") => {
+    setCurrentViewBy(viewBy);
+    if (viewBy === "model") setCurrentPowertrain("ALL");
+  };
+
   // Unique Brand Options for Filter dropdown
   const brandOptions = useMemo(() => {
     const brandsSet = new Set<string>();
@@ -522,7 +527,7 @@ export default function AnalystPage() {
                 id="filter-viewby"
                 className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
                 value={currentViewBy}
-                onChange={(e) => setCurrentViewBy(e.target.value as "brand" | "model")}
+                onChange={(e) => handleViewByChange(e.target.value as "brand" | "model")}
               >
                 <option value="brand">Brand</option>
                 <option value="model">Model</option>
@@ -532,9 +537,11 @@ export default function AnalystPage() {
               <label htmlFor="filter-powertrain" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Powertrain</label>
               <select 
                 id="filter-powertrain"
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs disabled:cursor-not-allowed disabled:text-slate-500"
                 value={currentPowertrain}
                 onChange={(e) => setCurrentPowertrain(e.target.value)}
+                disabled={currentViewBy === "model"}
+                title={currentViewBy === "model" ? "Powertrain filters require fuel-grain data" : undefined}
               >
                 <option value="ALL">ALL</option>
                 <option value="ICE">ICE</option>

@@ -36,10 +36,8 @@ import {
   selectProvinceAnalysisData
 } from "./selectors";
 import { FilterPillPopover } from "../components/FilterPillPopover";
-import { AdminReviewPanel } from "../components/AdminReviewPanel";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const SHOW_ADMIN_PANEL = process.env.NODE_ENV !== "production";
 
 /* ── Palette & constants ─────────────────────────────────────────────── */
 
@@ -537,11 +535,6 @@ export default function Dashboard() {
                   </p>
                 </div>
               </>
-            )}
-            {SHOW_ADMIN_PANEL && (
-              <div className="ml-auto">
-                <AdminReviewPanel />
-              </div>
             )}
           </div>
         </header>

@@ -54,10 +54,11 @@ def export_analyst_data():
 
     for vb in view_bys:
         # brand views use fuel parquet (accurate powertrain from ชนิดเชื้อเพลิง)
-        # model views use model parquet (has รุ่นรถ2)
+        # model views use model parquet (has รุ่นรถ2, never Powertrain)
         df = df_fuel if vb == "brand" else df_model
         results[vb] = {}
-        for pt in powertrains:
+        view_powertrains = powertrains if vb == "brand" else ["ALL"]
+        for pt in view_powertrains:
             results[vb][pt] = {}
             for vt_code, vt_set in VEHICLE_TYPE_PRESETS.items():
                 print(f"Processing view_by={vb}, powertrain={pt}, vehicle_type={vt_code}...")

@@ -33,6 +33,6 @@ cd ..
 echo.
 
 echo ============================================================
-echo  Setup complete. Next: RUN_ADMIN.bat, UPDATE.bat, or BUILD_RELEASE.bat
+echo  Setup complete. Next: UPDATE.bat or BUILD_RELEASE.bat
 echo ============================================================
 pause

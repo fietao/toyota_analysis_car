@@ -495,12 +495,14 @@ def run_real_data_smoke_check():
         fail(f"Real fuel data missing columns: {missing_fuel_cols}")
 
     # 1b. Required schema — model-grain (never inherits ชนิดเชื้อเพลิง)
-    model_expected_cols = {"ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain", "จำนวนรถ"}
+    model_expected_cols = {"ปี", "เดือน", "ประเภทรถ", "จังหวัด", "ยี่ห้อรถ", "ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "จำนวนรถ"}
     missing_model_cols = model_expected_cols - set(df_model.columns)
     if missing_model_cols:
         fail(f"Real model data missing columns: {missing_model_cols}")
     if "ชนิดเชื้อเพลิง" in df_model.columns:
         fail("Real model data unexpectedly carries an inherited ชนิดเชื้อเพลิง column")
+    if "Powertrain" in df_model.columns:
+        fail("Real model data unexpectedly carries a Powertrain column")
 
     # 2. No invalid negative units, either grain
     for label, df in (("fuel", df_fuel), ("model", df_model)):

@@ -5,8 +5,8 @@ description: Repair or extend this repository's series and powertrain pipeline w
 
 # Reliable Series and Powertrain
 
-Use this workflow whenever changing model normalization, powertrain classification, the local
-series-review UI, Deep Dive, or BEV model reports.
+Use this workflow whenever changing model normalization, powertrain classification, Deep Dive,
+or BEV model reports.
 
 ## Non-negotiable data boundary
 
@@ -19,23 +19,22 @@ series-review UI, Deep Dive, or BEV model reports.
 ## Canonical approach
 
 1. Preserve each source at its own grain.
-2. Resolve raw series through `backend/refer/series_registry.csv`, keyed by canonical brand plus
-   normalized raw series.
-3. Treat missing, ambiguous, conflicting, or unreviewed mappings as `N/A`.
-4. Mark a powertrain verified only when the raw variant unambiguously identifies one powertrain
+2. Resolve raw model names through `backend/config/model_map.csv`, keyed by canonical brand plus
+   normalized raw model.
+3. Keep model-grain output free of `Powertrain`; unresolved names fall back to the raw model name.
+4. Append newly observed models as `pending` in `backend/config/model_powertrain_review.csv`.
+5. Approve a classification only when the raw variant unambiguously identifies one powertrain
    and evidence, reviewer, and review time are recorded.
-5. Allow one canonical series to contain several verified powertrains through distinct raw
-   variants. Never split an ambiguous raw row.
-6. Compute the review queue from source rows minus verified registry rows; do not create another
-   persistent queue file.
+6. Use approved BEV review rows only for Sheets 7-8. Never split an ambiguous model count or
+   enrich the general model grain.
 
 ## Execution order
 
 1. Add or run a red-capable regression check for the reported misclassification.
-2. Trace source row -> registry -> cleaned data -> export -> UI before editing.
-3. Validate registry schema, enum values, composite-key uniqueness, and evidence requirements.
+2. Trace source row -> mapping/review CSV -> cleaned data -> export -> UI before editing.
+3. Validate both CSV schemas, enum values, composite-key uniqueness, and evidence requirements.
 4. Change one pipeline boundary at a time and immediately run its reconciliation check.
-5. Update local admin behavior separately from public static behavior.
+5. Keep the human-edited review CSV out of the public static write path.
 6. Update Deep Dive, Excel export, and Sheets 7-8 only after backend facts validate.
 7. Remove obsolete maps and dead paths only after all consumers have migrated.
 8. Run the complete release gate and manually inspect public output.
@@ -44,20 +43,16 @@ series-review UI, Deep Dive, or BEV model reports.
 
 - Model totals equal the raw model source.
 - Brand/powertrain totals equal the raw fuel source.
-- For each brand and canonical series:
-
-  `ICE + HEV + PHEV + BEV + N/A = source series total`
-
 - Unverified values are never displayed as verified.
 - Sheets 7-8 include only explicitly verified BEV raw variants.
 - Public output contains no admin writer or write endpoint.
-- Local registry writes are schema-validated, atomic, and conflict-safe.
+- Review CSV updates never overwrite existing human decisions.
 
 ## Deep Dive rules
 
 - Keep one brand -> canonical-series hierarchy.
-- Show source-derived series total plus verified PT and `N/A` segments.
-- Filter on verified classifications and `N/A`; never use brand fuel to filter children.
+- Show source-derived model totals without Powertrain segmentation.
+- Never use brand fuel to filter model children.
 - Excel download and UI must use the same selector and totals.
 
 ## Common failure modes
@@ -74,6 +69,5 @@ series-review UI, Deep Dive, or BEV model reports.
 ## Done criteria
 
 Work is complete only when every required invariant passes, the original misclassification no
-longer reproduces, local review persists correctly, the public site remains read-only, the Deep
-Dive and Excel export agree, and obsolete mapping paths are removed without disturbing unrelated
-working-tree changes.
+longer reproduces, CSV review persists correctly, the public site remains read-only, model totals
+reconcile, and obsolete mapping paths are removed without disturbing unrelated working-tree changes.

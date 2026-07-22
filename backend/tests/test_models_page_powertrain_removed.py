@@ -1,8 +1,8 @@
 """
 Focused test: the Series/Model page must not display, filter, or export
 Powertrain in any form — no column, no badges, no filter pill/state, no
-per-powertrain export columns. Powertrain stays in backend payloads/parquet/
-registry and in the separate Powertrain report; this only checks the
+per-powertrain export columns. Powertrain stays in fuel-derived backend payloads
+and the separate Powertrain report; this only checks the
 frontend table + filters + Excel export in frontend/src/app/models/page.tsx.
 
 No pytest — matches the existing test_*.py convention. Runs from any

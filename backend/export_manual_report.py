@@ -6,7 +6,12 @@ spreadsheet logic.
 
 Source rules (from specs/public_dashboard_markdown_parity_spec.md):
   * Sheets 1-6 and 9 -> test_fuel_cleaned.parquet, fuel-derived powertrain (PT).
-  * Sheets 7-8      -> test_model_cleaned.parquet, include_in_bev_model_report == true.
+  * Sheets 7-8      -> test_model_cleaned.parquet, filtered to (Brand2, raw model) pairs
+                       explicitly approved as BEV in config/model_powertrain_review.csv
+                       (model_map.approved_bev_keys(): review_status=approved AND
+                       candidate_powertrain=BEV). No inference from brand fuel totals,
+                       dominant fuel, or model-name guessing. An empty/unreviewed table
+                       yields empty sheet7/8 sections, not a crash.
   * Vehicle types default to รย.1,2,3,6,9,10,11.
   * Current period is auto-detected from the fuel parquet (never hardcoded).
 """
@@ -19,6 +24,7 @@ import pandas as pd
 
 from export_dashboard import load_data, MONTH_MAP, FULL_MONTH_EN
 from aggregate import current_period
+import model_map
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -30,17 +36,10 @@ OUT = BASE.parent / "frontend" / "public" / "data" / "manual_report.json"
 DEFAULT_VEHICLE_TYPES = ["รย.1", "รย.2", "รย.3", "รย.6", "รย.9", "รย.10", "รย.11"]
 MONTHS = list(MONTH_MAP.values())  # Jan .. Dec
 POWERTRAIN_ROWS = ["ICE", "BEV", "HEV", "PHEV"]
-BEV_MODEL_REPORT_COL = "include_in_bev_model_report"
 
 
 def _safe_div(num, den):
     return (num / den) if den else None
-
-
-def _bool_series(series: pd.Series) -> pd.Series:
-    if pd.api.types.is_bool_dtype(series):
-        return series.fillna(False)
-    return series.astype(str).str.strip().str.lower().isin({"1", "true", "yes", "y"})
 
 
 def month_matrix(df: pd.DataFrame, key_col: str) -> dict:
@@ -218,21 +217,17 @@ def sheet_model_top_rank(df_model: pd.DataFrame, ly, py, lm) -> list:
 
 
 def bev_model_report_slice(df_model: pd.DataFrame) -> pd.DataFrame:
-    if BEV_MODEL_REPORT_COL not in df_model.columns:
-        raise ValueError(
-            f"{MODEL_PARQUET.name} is missing {BEV_MODEL_REPORT_COL}. "
-            "Run build_cleaned.py so raw_model -> model2 -> BEV report inclusion mapping is applied."
-        )
-    if "Powertrain" not in df_model.columns:
-        raise ValueError(f"{MODEL_PARQUET.name} is missing Powertrain.")
+    """Rows explicitly approved as BEV for Sheets 7-8 via config/model_powertrain_review.csv.
 
-    is_bev = df_model["Powertrain"] == "BEV"
-    is_included = _bool_series(df_model[BEV_MODEL_REPORT_COL])
-
-    if not is_bev.equals(is_included):
-        raise ValueError("include_in_bev_model_report must agree exactly with Powertrain == 'BEV'")
-
-    return df_model[is_included]
+    Inclusion is a maintainer-reviewed CSV lookup only — never inferred from brand
+    fuel totals, dominant fuel, or model-name guessing. No approved BEV rows yields an
+    empty (but valid) slice rather than raising.
+    """
+    approved = model_map.approved_bev_keys()
+    if not approved:
+        return df_model.iloc[0:0]
+    keys = df_model.apply(lambda r: model_map.normalize_key(r["ยี่ห้อรถ2"], r["รุ่นรถ"]), axis=1)
+    return df_model[keys.isin(approved)]
 
 
 def sheet_by_province(df_fuel: pd.DataFrame, ly, py, lm) -> list:
@@ -304,8 +299,8 @@ def export():
         "sheet4_brand_bev": {"title": "4.BEV by Brand", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "BEV (fuel-derived)"},
         "sheet5_brand_hev": {"title": "5.HEV by Brand", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "HEV (fuel-derived)"},
         "sheet6_brand_phev": {"title": "6.PHEV by Brand", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "PHEV (fuel-derived)"},
-        "sheet7_bev_by_model": {"title": "7.BEV by Model", "source": "test_model_cleaned.parquet", "filter": vt_label, "model_report_filter": f"{BEV_MODEL_REPORT_COL} == true"},
-        "sheet8_model_top_rank": {"title": "8.Model Top Rank", "source": "test_model_cleaned.parquet", "filter": vt_label, "model_report_filter": f"{BEV_MODEL_REPORT_COL} == true"},
+        "sheet7_bev_by_model": {"title": "7.BEV by Model", "source": "test_model_cleaned.parquet", "filter": vt_label, "model_report_filter": "review_status=approved, candidate_powertrain=BEV in config/model_powertrain_review.csv"},
+        "sheet8_model_top_rank": {"title": "8.Model Top Rank", "source": "test_model_cleaned.parquet", "filter": vt_label, "model_report_filter": "review_status=approved, candidate_powertrain=BEV in config/model_powertrain_review.csv"},
         "sheet9_by_province": {"title": "9.by Province", "source": "test_fuel_cleaned.parquet", "filter": vt_label, "powertrain": "All"},
     }
 

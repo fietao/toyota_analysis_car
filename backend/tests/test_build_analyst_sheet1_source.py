@@ -1,6 +1,6 @@
 """
 Focused tests: build_analyst.py Sheet 1 must be sourced from fuel-derived
-Powertrain data, not the unresolved model Powertrain field.
+Powertrain data. Model grain has no Powertrain field.
 
 No pytest — matches the existing test_*.py convention. Runs from any
 directory. Exits 0 on PASS, 1 on FAIL.
@@ -20,6 +20,7 @@ from build_analyst import (
     check_period_match, check_nonzero_recognized_total,
 )
 from aggregate import current_period
+from calculation_builder import build_calculation_table
 
 failures = []
 
@@ -36,26 +37,32 @@ def _row(year, month, pt, units, fuel=None):
     return row
 
 
-def test_sheet1_uses_fuel_when_model_powertrain_is_na():
-    # Model rows: registry unresolved -> Powertrain is N/A, which would zero
-    # out Sheet 1 if it were used as the source.
-    df_model = pd.DataFrame([
-        _row(2568, "มกราคม", "N/A", 10),
-        _row(2569, "มกราคม", "N/A", 12),
-    ])
-    # Fuel rows: same registrations, but Powertrain resolved from ชนิดเชื้อเพลิง.
+def _model_row(year, month, units):
+    row = _row(year, month, "", units)
+    row.pop("Powertrain")
+    return row
+
+
+def test_sheet1_uses_fuel_powertrain():
     df_fuel = pd.DataFrame([
         _row(2568, "มกราคม", "ICE", 10, fuel="เบนซิน"),
         _row(2569, "มกราคม", "ICE", 12, fuel="เบนซิน"),
     ])
 
-    model_data = _build_sheet1_data(filter_ry(df_model), 2569, 2568, 1)
     fuel_data = _build_sheet1_data(filter_ry(df_fuel), 2569, 2568, 1)
 
-    if model_data.get(("grand", "W")):
-        failures.append("expected model-sourced Sheet 1 (all N/A Powertrain) to total zero/None")
     if fuel_data.get(("grand", "W")) != 12:
         failures.append(f"expected fuel-sourced Sheet 1 curr-month total 12, got {fuel_data.get(('grand', 'W'))}")
+
+
+def test_model_grain_rejects_powertrain_filter():
+    df_model = pd.DataFrame([_model_row(2569, "มกราคม", 12)])
+    try:
+        build_calculation_table(df_model, "model", "BEV", 2569, 1)
+        failures.append("model grain accepted a Powertrain filter")
+    except ValueError as exc:
+        if "fuel-grain" not in str(exc):
+            failures.append(f"model Powertrain filter raised the wrong error: {exc}")
 
 
 def test_fuel_ice_bev_hev_phev_produces_nonzero_totals():
@@ -96,7 +103,7 @@ def test_nonzero_recognized_total_guard_passes():
 
 def test_period_mismatch_guard_raises():
     df_fuel_ry = filter_ry(pd.DataFrame([_row(2569, "มกราคม", "ICE", 10, fuel="เบนซิน")]))
-    df_model_ry = filter_ry(pd.DataFrame([_row(2569, "กุมภาพันธ์", "ICE", 10)]))
+    df_model_ry = filter_ry(pd.DataFrame([_model_row(2569, "กุมภาพันธ์", 10)]))
 
     fuel_year, fuel_month = current_period(df_fuel_ry, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
     model_year, model_month = current_period(df_model_ry, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
@@ -110,7 +117,7 @@ def test_period_mismatch_guard_raises():
 
 def test_period_match_guard_passes():
     df_fuel_ry = filter_ry(pd.DataFrame([_row(2569, "มกราคม", "ICE", 10, fuel="เบนซิน")]))
-    df_model_ry = filter_ry(pd.DataFrame([_row(2569, "มกราคม", "N/A", 10)]))
+    df_model_ry = filter_ry(pd.DataFrame([_model_row(2569, "มกราคม", 10)]))
 
     fuel_year, fuel_month = current_period(df_fuel_ry, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
     model_year, model_month = current_period(df_model_ry, year_col="ปี", month_col="เดือน", month_order=MONTH_ORDER)
@@ -122,7 +129,8 @@ def test_period_match_guard_passes():
 
 
 if __name__ == "__main__":
-    test_sheet1_uses_fuel_when_model_powertrain_is_na()
+    test_sheet1_uses_fuel_powertrain()
+    test_model_grain_rejects_powertrain_filter()
     test_fuel_ice_bev_hev_phev_produces_nonzero_totals()
     test_zero_recognized_total_guard_raises()
     test_nonzero_recognized_total_guard_passes()

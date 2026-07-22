@@ -1,11 +1,7 @@
 """Focused regression tests for historical canonicalization in build_cleaned.py.
 
-Loads the real, production-configured mapping files (config/brand_map.csv,
-refer/series_registry.csv) — not a duplicated dummy map — so this test fails
-if the authoritative registry ever drifts from the aliases it's supposed to
-encode. series_registry.csv is the sole canonical-name authority (final
-maintenance pass, plans/reliable-series-powertrain.md Step 7C); the legacy
-refer/model2_map.csv path was removed.
+Loads the real, production-configured mapping files (config/brand_map.csv and
+config/model_map.csv), so this test fails if canonical model aliases drift.
 
 Runs from any directory. Exits 0 on PASS, 1 on FAIL.
 """
@@ -20,7 +16,7 @@ BACKEND = TESTS.parent
 sys.path.insert(0, str(BACKEND))
 
 from build_cleaned import reapply_canonical_maps, load_powertrain_map
-from series_registry import canonical_series_map
+from model_map import model2_map
 
 # Load the real, production-configured mapping files (same loading logic as
 # load_reference_maps in build_cleaned.py) instead of a duplicated dummy map.
@@ -29,8 +25,7 @@ merged_brand2_map = {k.upper(): v for k, v in brand_csv_map.items()}
 
 real_maps = {
     "merged_brand2_map": merged_brand2_map,
-    "series_powertrain_map": {},
-    "series_name_map": canonical_series_map(),
+    "model_name_map": model2_map(),
 }
 
 failures = []
@@ -122,9 +117,6 @@ def run_tests():
         "ยี่ห้อรถ2": ["Deepal + Changan", "HONDA"],
         "รุ่นรถ": ["S7", "WAVE 125i"],
         "รุ่นรถ2": ["S7", "WAVE 125i"],
-        # reapply_canonical_maps always derives these from series_powertrain_map (empty here).
-        "Powertrain": ["N/A", "N/A"],
-        "include_in_bev_model_report": [False, False],
     })
     df_canonical_res = reapply_canonical_maps(df_canonical.copy(), real_maps, is_fuel=False)
     try:

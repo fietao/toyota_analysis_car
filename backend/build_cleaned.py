@@ -4,9 +4,9 @@ build_cleaned.py — Data Cleaner Agent script.
 
 Steps:
   1. Read both raw DLT files (fuel + model)
-  2. Append raw model names missing from the existing master mapping sheet
-  3. Read reference tables from Model.xlsx plus repo mapping CSVs
-  4. Add derived columns: ยี่ห้อรถ2, รุ่นรถ2, Powertrain, include_in_bev_model_report
+  2. Read reference tables from repo mapping CSVs (model_map.csv, powertrain_map.csv, brand_map.csv)
+  3. Add derived columns to model grain: ยี่ห้อรถ2, รุ่นรถ2
+  4. Add derived columns to fuel grain: Powertrain (from ชนิดเชื้อเพลิง)
   5. Update Cleaned Data in the existing master workbook in place
   6. Save df_cleaned as parquet for downstream scripts
 
@@ -19,9 +19,12 @@ import csv, glob, sys, os, zipfile, re
 from pathlib import Path
 
 import pandas as pd
-from openpyxl import load_workbook
 from schema import validate_model, validate_fuel
-from series_registry import canonical_series_map, normalize_key, verified_powertrain_map
+from model_map import (
+    model2_map as model_map_model2_map,
+    normalize_key,
+    sync_model_powertrain_review,
+)
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -195,212 +198,6 @@ def _col(n):
 def _esc(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;")
                  .replace(">", "&gt;").replace('"', "&quot;"))
-
-
-def _header_key(value):
-    return re.sub(r"[\s_\-().]+", "", str(value or "").strip().lower())
-
-
-def _find_header(headers, aliases):
-    wanted = {_header_key(alias) for alias in aliases}
-    for idx, header in enumerate(headers, start=1):
-        if _header_key(header) in wanted:
-            return idx
-    return None
-
-
-def _sheet_xml_path(workbook_path, sheet_name):
-    with zipfile.ZipFile(str(workbook_path), "r") as z:
-        wb_xml = z.read("xl/workbook.xml").decode("utf-8")
-        rels_xml = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
-
-    rid_m = (
-        re.search(rf'<sheet\b[^>]*\bname="{re.escape(sheet_name)}"[^>]*\br:id="([^"]+)"', wb_xml)
-        or re.search(rf'<sheet\b[^>]*\br:id="([^"]+)"[^>]*\bname="{re.escape(sheet_name)}"', wb_xml)
-    )
-    if not rid_m:
-        return None
-
-    rel_m = re.search(rf'<Relationship\b(?=[^>]*\bId="{re.escape(rid_m.group(1))}")[^>]*/?>', rels_xml)
-    target_m = re.search(r'\bTarget="([^"]+)"', rel_m.group(0)) if rel_m else None
-    if not target_m:
-        return None
-    target = target_m.group(1).lstrip("/")
-    return f"xl/{target}" if not target.startswith("xl/") else target
-
-
-def _normalise_model_key(value):
-    return str(value).strip().upper() if pd.notna(value) else ""
-
-
-def _suggest_missing_model_rows(df_model):
-    brand_map = load_powertrain_map(str(BASE / "config" / "brand_map.csv"), "brand", "brand2")
-    brand_map = {str(k).strip().upper(): str(v).strip() for k, v in brand_map.items()}
-    powertrain_map = load_powertrain_map(str(BASE / "config" / "powertrain_map.csv"))
-    series_name_map = canonical_series_map()
-
-    required = {"ยี่ห้อรถ", "รุ่นรถ"}
-    if not required.issubset(df_model.columns):
-        return []
-
-    work = df_model.copy()
-    work["_raw_model"] = work["รุ่นรถ"].astype(str).str.strip()
-    work["_model_key"] = work["_raw_model"].str.upper()
-    work = work[work["_raw_model"] != ""]
-    if work.empty:
-        return []
-
-    work["_brand"] = (
-        work["ยี่ห้อรถ"].astype(str).str.strip().str.upper()
-        .map(brand_map)
-        .fillna(work["ยี่ห้อรถ"].astype(str).str.strip())
-    )
-    if "ชนิดเชื้อเพลิง" in work.columns:
-        work["_powertrain"] = work["ชนิดเชื้อเพลิง"].map(powertrain_map).map(clean_powertrain_value)
-    else:
-        work["_powertrain"] = "OTH"
-    work["_units"] = pd.to_numeric(work.get("จำนวนรถ", 1), errors="coerce").fillna(1)
-    work["_order"] = range(len(work))
-
-    # Keep the first-seen model order for append order, but choose suggestions from
-    # the highest-volume brand/powertrain tuple for that raw model.
-    ranked = (
-        work.groupby(["_model_key", "_raw_model", "_brand", "_powertrain"], dropna=False)
-        .agg(_units=("_units", "sum"), _order=("_order", "min"))
-        .reset_index()
-        .sort_values(["_model_key", "_units", "_order"], ascending=[True, False, True])
-        .drop_duplicates(subset=["_model_key"], keep="first")
-    )
-    first_order = work.groupby("_model_key")["_order"].min().to_dict()
-    ranked["_first_order"] = ranked["_model_key"].map(first_order)
-    ranked = ranked.sort_values("_first_order", kind="mergesort")
-
-    rows = []
-    for _, row in ranked.iterrows():
-        raw_model = str(row["_raw_model"]).strip()
-        brand = str(row["_brand"]).strip() or "N/A"
-        registry_key = normalize_key(brand, raw_model)
-        rows.append({
-            "Brand": brand,
-            "รุ่นรถ": raw_model,
-            "รุ่นรถ2": series_name_map.get(registry_key, raw_model),
-            "Powertrain": clean_powertrain_value(row["_powertrain"]),
-        })
-    return rows
-
-
-def append_missing_master_model_rows(workbook_path: Path, df_model: pd.DataFrame) -> int:
-    """Append raw models missing from the workbook mapping sheet, without rewriting it.
-
-    The current workbook uses "BEV Series Name Table" as the raw model mapping sheet.
-    Future templates may add optional Index/Status columns; when present, they are
-    populated, but existing rows/cells are never edited.
-    """
-    sheet_name = "BEV Series Name Table"
-    path = Path(workbook_path)
-    wb = load_workbook(str(path), read_only=True, data_only=False)
-    try:
-        if sheet_name not in wb.sheetnames:
-            print(f"      {sheet_name}: not found — skipping missing-model append")
-            return 0
-        ws = wb[sheet_name]
-        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-        cols = {
-            "index": _find_header(headers, ["Index", "Idx", "#", "No", "No.", "ลำดับ"]),
-            "brand": _find_header(headers, ["Brand", "ยี่ห้อรถ2", "ยี่ห้อรถ"]),
-            "raw_model": _find_header(headers, ["รุ่นรถ", "raw model", "model", "รุ่นรถ_raw"]),
-            "canonical": _find_header(headers, ["รุ่นรถ2", "canonical model", "model2"]),
-            "powertrain": _find_header(headers, ["Powertrain", "powertrain suggestion"]),
-            "status": _find_header(headers, ["Status", "สถานะ", "Review Status"]),
-        }
-        required_cols = ["brand", "raw_model", "canonical", "powertrain"]
-        missing_cols = [name for name in required_cols if not cols[name]]
-        if missing_cols:
-            print(f"      {sheet_name}: missing column(s) {', '.join(missing_cols)} — skipping")
-            return 0
-
-        existing_models = set()
-        last_data_row = 1
-        max_index = 0
-        for row in ws.iter_rows(min_row=2, max_col=len(headers), values_only=False):
-            raw_value = row[cols["raw_model"] - 1].value
-            raw_key = _normalise_model_key(raw_value)
-            if raw_key:
-                existing_models.add(raw_key)
-                last_data_row = max(last_data_row, row[0].row)
-            if cols["index"]:
-                idx_value = row[cols["index"] - 1].value
-                try:
-                    max_index = max(max_index, int(idx_value))
-                except (TypeError, ValueError):
-                    pass
-    finally:
-        wb.close()
-
-    suggestions = [
-        row for row in _suggest_missing_model_rows(df_model)
-        if _normalise_model_key(row["รุ่นรถ"]) not in existing_models
-    ]
-    if not suggestions:
-        print(f"      {sheet_name}: no new raw model names")
-        return 0
-
-    sheet_path = _sheet_xml_path(path, sheet_name)
-    if not sheet_path:
-        print(f"      {sheet_name}: could not resolve sheet XML — skipping")
-        return 0
-
-    with zipfile.ZipFile(str(path), "r") as z:
-        old_xml = z.read(sheet_path).decode("utf-8")
-
-    style_by_col = {}
-    last_row_m = re.search(rf'<row\b[^>]*\br="{last_data_row}"[^>]*>(.*?)</row>', old_xml, flags=re.S)
-    if last_row_m:
-        for cell_m in re.finditer(r'<c\b([^>]*)\br="([A-Z]+)\d+"([^>]*)>', last_row_m.group(1)):
-            attrs = cell_m.group(1) + cell_m.group(3)
-            style_m = re.search(r'\bs="([^"]+)"', attrs)
-            if style_m:
-                style_by_col[cell_m.group(2)] = style_m.group(1)
-
-    def cell_xml(col_idx, row_idx, value):
-        col = _col(col_idx)
-        style = f' s="{style_by_col[col]}"' if col in style_by_col else ""
-        value = "" if value is None else str(value).strip()
-        return f'<c r="{col}{row_idx}"{style} t="inlineStr"><is><t>{_esc(value)}</t></is></c>'
-
-    rows_xml = []
-    for offset, row in enumerate(suggestions, start=1):
-        row_idx = last_data_row + offset
-        values = {}
-        if cols["index"]:
-            values[cols["index"]] = max_index + offset
-        values[cols["brand"]] = row["Brand"]
-        values[cols["raw_model"]] = row["รุ่นรถ"]
-        values[cols["canonical"]] = row["รุ่นรถ2"]
-        values[cols["powertrain"]] = row["Powertrain"]
-        if cols["status"]:
-            values[cols["status"]] = "NEW"
-
-        cells = "".join(cell_xml(col_idx, row_idx, values[col_idx]) for col_idx in sorted(values))
-        rows_xml.append(f'<row r="{row_idx}">{cells}</row>')
-
-    new_last_row = last_data_row + len(suggestions)
-    new_xml = old_xml.replace("</sheetData>", "".join(rows_xml) + "</sheetData>", 1)
-    last_col = _col(len(headers))
-    if re.search(r'<dimension\b[^>]*\bref="[^"]+"', new_xml):
-        new_xml = re.sub(r'(<dimension\b[^>]*\bref=")[^"]+"', rf'\g<1>A1:{last_col}{new_last_row}"', new_xml, count=1)
-    if re.search(r'<autoFilter\b[^>]*\bref="[^"]+"', new_xml):
-        new_xml = re.sub(r'(<autoFilter\b[^>]*\bref=")[^"]+"', rf'\g<1>A1:{last_col}{new_last_row}"', new_xml, count=1)
-
-    tmp = path.with_suffix(".tmp-model-map.xlsx")
-    with zipfile.ZipFile(str(path), "r") as zin, \
-         zipfile.ZipFile(str(tmp), "w", compression=zipfile.ZIP_DEFLATED) as zout:
-        for item in zin.infolist():
-            data = new_xml.encode("utf-8") if item.filename == sheet_path else zin.read(item.filename)
-            zout.writestr(item, data)
-    tmp.replace(path)
-    print(f"      {sheet_name}: appended {len(suggestions)} new raw model row(s)")
-    return len(suggestions)
 
 
 def _field_indices(xml, tag, index_attr):
@@ -866,18 +663,14 @@ def load_reference_maps() -> dict:
     merged_brand2_map = ref_brand2_map
     print(f"      {len(brand_rows)} ยี่ห้อรถ2 entries from brand_map.csv")
 
-    series_pt_map = verified_powertrain_map()
-    print(f"      {len(series_pt_map)} verified series_registry powertrain mappings")
-
-    series_name_map = canonical_series_map()
-    print(f"      {len(series_name_map)} series_registry canonical-name mappings")
+    model_name_map = model_map_model2_map()
+    print(f"      {len(model_name_map)} model canonical-name aliases from model_map.csv")
 
     return {
         "powertrain_map": powertrain_map,
         "brand2_order": brand2_order,
         "merged_brand2_map": merged_brand2_map,
-        "series_powertrain_map": series_pt_map,
-        "series_name_map": series_name_map,
+        "model_name_map": model_name_map,
         "unknown_fuels": set()
     }
 
@@ -886,47 +679,30 @@ def add_derived_columns(df_model: pd.DataFrame, df_fuel: pd.DataFrame, maps: dic
 
     powertrain_map = maps["powertrain_map"]
     merged_brand2_map = maps["merged_brand2_map"]
-    series_powertrain_map = maps["series_powertrain_map"]
-    series_name_map = maps["series_name_map"]
+    model_name_map = maps["model_name_map"]
     unknown_fuels = maps["unknown_fuels"]
 
-    # df_fuel used only for master powertrain summary — not included in cleaned data.
+    # Fuel grain: add brand2 and powertrain from fuel type.
     add_brand2(df_fuel, merged_brand2_map)
     df_fuel.insert(df_fuel.columns.get_loc("ยี่ห้อรถ2") + 1, "รุ่นรถ",  None)
     df_fuel.insert(df_fuel.columns.get_loc("รุ่นรถ")    + 1, "รุ่นรถ2", None)
     fuel_values = df_fuel["ชนิดเชื้อเพลิง"].dropna().astype(str).str.strip()
     unknown_fuels.update(f for f in fuel_values.unique() if f not in powertrain_map)
     df_fuel["Powertrain"] = df_fuel["ชนิดเชื้อเพลิง"].apply(
-        lambda f: powertrain_map.get(str(f).strip(), "OTH") if pd.notna(f) else None)
+        lambda f: powertrain_map.get(str(f).strip(), "Unmapped") if pd.notna(f) else None)
 
-    # Model rows: brand2, model2, and powertrain from the verified series_registry only.
-    # The model source carries no fuel type of its own, so nothing here may fall back
-    # to fuel-derived or dominant-fuel guesses — missing/unreviewed/conflicting series
-    # default to N/A until a human verifies them in series_registry.csv.
+    # Model grain: add brand2 and model2 (canonical name from model_map, no powertrain).
     add_brand2(df_model, merged_brand2_map)
     model_key = None
     if {"ยี่ห้อรถ2", "รุ่นรถ"}.issubset(df_model.columns):
         model_key = df_model.apply(lambda r: normalize_key(r["ยี่ห้อรถ2"], r["รุ่นรถ"]), axis=1)
 
     if "รุ่นรถ" in df_model.columns:
-        # series_registry canonical-name (any review_status) is the sole naming
-        # authority; unmapped raw series display as-is (name only, never powertrain
-        # — registry powertrain resolution below is untouched).
-        registry_name = model_key.map(series_name_map) if model_key is not None else pd.Series(index=df_model.index, dtype=object)
+        # model_map provides canonical model names for known aliases; unmapped raw
+        # models display as-is (name only, no powertrain — that comes from fuel grain only).
+        model_name = model_key.map(model_name_map) if model_key is not None else pd.Series(index=df_model.index, dtype=object)
         df_model.insert(df_model.columns.get_loc("รุ่นรถ") + 1, "รุ่นรถ2",
-                        registry_name.fillna(df_model["รุ่นรถ"]))
-
-    if model_key is not None:
-        powertrain_col = model_key.map(series_powertrain_map).fillna("N/A")
-    else:
-        powertrain_col = pd.Series("N/A", index=df_model.index)
-    if "Powertrain" in df_model.columns:
-        df_model["Powertrain"] = powertrain_col
-    else:
-        df_model.insert(df_model.columns.get_loc("รุ่นรถ2") + 1, "Powertrain", powertrain_col)
-    # include_in_bev_model_report is derived solely from the verified registry —
-    # a legacy CSV/Excel inclusion flag can never override it.
-    df_model["include_in_bev_model_report"] = powertrain_col == "BEV"
+                        model_name.fillna(df_model["รุ่นรถ"]))
 
     return df_model, df_fuel
 
@@ -940,20 +716,22 @@ def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, re
 
         df_keep = df_existing[~existing_rebuild_mask]
         df_add = df_cleaned[raw_rebuild_mask]
-        merged = pd.concat([df_keep, df_add], ignore_index=True)
-        if not is_fuel:
-            merged = sort_cleaned_data(merged, maps["brand2_order"])
-        df_cleaned = ordered_cols(merged)
 
         if not is_fuel:
-            raw_key = df_cleaned["ปี"].astype(str) + "_" + df_cleaned["เดือน"].astype(str)
-            rebuilt_keys = set(raw_key[raw_rebuild_mask].unique())
+            raw_key = df_add["ปี"].astype(str) + "_" + df_add["เดือน"].astype(str)
+            rebuilt_keys = set(raw_key.unique())
             ex_key_col = df_existing["ปี"].astype(str) + "_" + df_existing["เดือน"].astype(str)
             existing_rebuild_key = ex_key_col[existing_rebuild_mask]
             existing_rebuild_keys = set(existing_rebuild_key.unique())
             new_keys = rebuilt_keys - existing_rebuild_keys
             corrected_keys = rebuilt_keys & existing_rebuild_keys
 
+        merged = pd.concat([df_keep, df_add], ignore_index=True)
+        if not is_fuel:
+            merged = sort_cleaned_data(merged, maps["brand2_order"])
+        df_cleaned = ordered_cols(merged)
+
+        if not is_fuel:
             rebuild_year_labels = sorted(str(y) for y in rebuild_years)
             print(f"  Rolling rebuild: BE years {rebuild_year_labels} | {len(rebuilt_keys)} month(s) from raw data")
             print(f"  Kept rows before {min(rebuild_years)}: {len(df_keep):,}")
@@ -976,21 +754,21 @@ def rolling_merge(df_cleaned: pd.DataFrame, df_existing: pd.DataFrame | None, re
         return ordered_cols(df_cleaned), {}
 
 def reapply_canonical_maps(df: pd.DataFrame, maps: dict, is_fuel: bool = False) -> pd.DataFrame:
-    """Narrowly reapplies canonical brand and model identity fields to final dataset."""
+    """Reapplies canonical brand and model identity fields to final dataset.
+
+    Model grain: brand2 and model2 (from model_map, no powertrain).
+    Fuel grain: brand2 only.
+    """
     brand_map = maps["merged_brand2_map"]
     upper_brand = df["ยี่ห้อรถ"].astype(str).str.strip().str.upper()
     df["ยี่ห้อรถ2"] = upper_brand.map(brand_map).fillna(df["ยี่ห้อรถ"])
 
     if not is_fuel:
-        series_powertrain_map = maps["series_powertrain_map"]
-        series_name_map = maps.get("series_name_map", {})
-        # Reclassify every retained row (not just the freshly rebuilt months) so a
-        # powertrain guessed by the old dominant-fuel enrichment cannot survive.
+        model_name_map = maps.get("model_name_map", {})
+        # Reapply model canonical names from model_map (sparse; unmapped fall back to raw).
         model_key = df.apply(lambda r: normalize_key(r["ยี่ห้อรถ2"], r["รุ่นรถ"]), axis=1)
-        registry_name = model_key.map(series_name_map)
-        df["รุ่นรถ2"] = registry_name.fillna(df["รุ่นรถ"])
-        df["Powertrain"] = model_key.map(series_powertrain_map).fillna("N/A")
-        df["include_in_bev_model_report"] = df["Powertrain"] == "BEV"
+        model_name = model_key.map(model_name_map)
+        df["รุ่นรถ2"] = model_name.fillna(df["รุ่นรถ"])
         df.drop(columns=["ชนิดเชื้อเพลิง"], errors="ignore", inplace=True)
 
     return df
@@ -1059,9 +837,6 @@ def main():
     df_model = read_dlt_file(raw2_file)
     print(f"      {len(df_fuel):,} fuel rows | {len(df_model):,} model rows")
 
-    print("\n[Mapping update] Checking master model mapping...", flush=True)
-    append_missing_master_model_rows(model_file, df_model)
-
     maps = load_reference_maps()
 
     df_model, df_fuel = add_derived_columns(df_model, df_fuel, maps)
@@ -1079,6 +854,17 @@ def main():
     df_cleaned = reapply_canonical_maps(df_cleaned, maps, is_fuel=False)
     new_keys = merge_info.get("new_keys", set())
     corrected_keys = merge_info.get("corrected_keys", set())
+
+    # Stale existing parquets built before the source-grain split can still carry
+    # these columns; the rolling merge concat brings them back even though the
+    # current model grain never produces them. Strip before validating/saving.
+    df_cleaned = df_cleaned.drop(
+        columns=["ชนิดเชื้อเพลิง", "Powertrain", "include_in_bev_model_report"], errors="ignore")
+    validate_model(df_cleaned)
+
+    # Auto-add newly observed (brand2, raw_model, model2) as pending rows for human
+    # powertrain review. Never infers or approves — see model_map.py.
+    sync_model_powertrain_review(df_cleaned)
 
     # Save intermediate for pivot builder (parquet: safe, fast, preserves dtypes)
     for col in df_cleaned.select_dtypes(include=["object", "str"]).columns:

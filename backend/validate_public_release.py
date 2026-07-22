@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 
 from build_cleaned import RAW1_PATTERN, RAW2_PATTERN, find_file, read_dlt_file
+from model_map import approved_bev_model_keys, normalize_key
 from schema import validate_fuel, validate_model
-from series_registry import ALLOWED_POWERTRAIN, load_registry, normalize_key, verified_powertrain_map
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -31,61 +31,25 @@ MONTH_MAP = {
     "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
     "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
 }
+ALLOWED_FUEL_POWERTRAIN = {"ICE", "HEV", "PHEV", "BEV", "N/A", "OTH"}
 
 
-def _bool_series(series):
-    if pd.api.types.is_bool_dtype(series):
-        return series.fillna(False)
-    return series.astype(str).str.strip().str.lower().isin({"1", "true", "yes", "y"})
-
-
-def validate_cleaned_source_grains(model: pd.DataFrame, fuel: pd.DataFrame, registry_path=None):
+def validate_cleaned_source_grains(model: pd.DataFrame, fuel: pd.DataFrame):
     """Validate facts before any JSON is eligible for release."""
     validate_model(model)
     validate_fuel(fuel)
-    # Fuel grain maps raw ชนิดเชื้อเพลิง strings through powertrain_map.csv; an unmapped/unknown
-    # fuel string legitimately produces OTH (build_cleaned.py). Model-series classification is
-    # never allowed to fall back to OTH — it must be a registry-verified PT or N/A.
-    allowed_by_grain = {"model": ALLOWED_POWERTRAIN, "fuel": ALLOWED_POWERTRAIN | {"OTH"}}
-    for label, frame in (("model", model), ("fuel", fuel)):
-        values = set(frame["Powertrain"].fillna("N/A").astype(str))
-        invalid = sorted(values - allowed_by_grain[label])
-        if invalid:
-            raise ValueError(f"{label} grain has invalid Powertrain values: {invalid}")
+    # Fuel grain maps raw ชนิดเชื้อเพลิง strings through powertrain_map.csv; an
+    # unmapped/unknown fuel string legitimately produces OTH. Model grain is checked
+    # by validate_model() and must not carry Powertrain at all.
+    fuel_values = set(fuel["Powertrain"].fillna("N/A").astype(str))
+    invalid = sorted(fuel_values - ALLOWED_FUEL_POWERTRAIN)
+    if invalid:
+        raise ValueError(f"fuel grain has invalid Powertrain values: {invalid}")
 
-    verified = verified_powertrain_map(registry_path) if registry_path else verified_powertrain_map()
-    expected_by_key = verified
-    keys = [normalize_key(brand, series) for brand, series in zip(model["ยี่ห้อรถ2"], model["รุ่นรถ"])]
-    expected = pd.Series((expected_by_key.get(key, "N/A") for key in keys), index=model.index)
-    actual = model["Powertrain"].fillna("N/A").astype(str)
-    mismatch = actual.ne(expected)
-    if mismatch.any():
-        sample = model.loc[mismatch, ["ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain"]].head(5)
-        raise ValueError(
-            f"model grain contains {int(mismatch.sum()):,} non-registry Powertrain row(s); "
-            f"examples={sample.to_dict('records')}"
-        )
-
-    if "include_in_bev_model_report" not in model.columns:
-        raise ValueError("model grain is missing include_in_bev_model_report")
-    included = _bool_series(model["include_in_bev_model_report"])
-    should_include = actual.eq("BEV")
-    if not included.equals(should_include):
-        raise ValueError("include_in_bev_model_report must be true exactly when verified Powertrain is BEV")
-
-    # Segmenting a series by registry PT must preserve every source unit, including N/A.
-    base = model.groupby(["ยี่ห้อรถ2", "รุ่นรถ2"], dropna=False)["จำนวนรถ"].sum().sort_index()
-    segmented = (
-        model.groupby(["ยี่ห้อรถ2", "รุ่นรถ2", "Powertrain"], dropna=False)["จำนวนรถ"]
-        .sum().groupby(level=[0, 1]).sum().sort_index()
-    )
-    if not base.equals(segmented):
-        raise ValueError("series Powertrain segments do not reconcile to source series totals")
     return {
         "model_rows": len(model), "fuel_rows": len(fuel),
         "model_units": int(model["จำนวนรถ"].sum()),
         "fuel_units": int(fuel["จำนวนรถ"].sum()),
-        "verified_mappings": len(verified),
     }
 
 
@@ -108,18 +72,14 @@ def _sum_monthly(nodes: list[dict]) -> Counter:
     return total
 
 
-def validate_public_model_tree(models_data: dict, registry_rows: list[dict]):
-    """Validate brand -> canonical series -> registry-backed Powertrain segments."""
+def validate_public_model_tree(models_data: dict):
+    """Validate brand -> canonical series with model-grain N/A segments."""
     nodes = models_data.get("brand_model_tree", [])
     brands = [str(node.get("brand", "")) for node in nodes]
     duplicates = sorted({brand for brand in brands if brands.count(brand) > 1})
     if duplicates:
         raise ValueError(f"Deep Dive must contain one node per brand; duplicates: {duplicates[:10]}")
 
-    approved = {
-        (normalize_key(row["canonical_brand"], row["canonical_series"]), row["powertrain"])
-        for row in registry_rows if row["review_status"] == "verified"
-    }
     series_count = 0
     for brand in nodes:
         series_nodes = brand.get("models", [])
@@ -138,24 +98,19 @@ def validate_public_model_tree(models_data: dict, registry_rows: list[dict]):
             if _monthly_cells(series.get("monthly", {})) != _sum_monthly(segments):
                 raise ValueError(f"public series segments do not reconcile: {brand.get('brand')} / {series.get('name')}")
 
-            for powertrain in powertrains:
-                if powertrain not in ALLOWED_POWERTRAIN:
-                    raise ValueError(f"public model has invalid Powertrain: {brand.get('brand')} / {series.get('name')} / {powertrain}")
-                if powertrain != "N/A":
-                    key = normalize_key(brand.get("brand"), series.get("name"))
-                    if (key, powertrain) not in approved:
-                        raise ValueError(f"public model is not registry-approved: {brand.get('brand')} / {series.get('name')} / {powertrain}")
+            if powertrains != ["N/A"]:
+                raise ValueError(
+                    f"public model must have only an N/A Powertrain segment: "
+                    f"{brand.get('brand')} / {series.get('name')} / {powertrains}"
+                )
     if not series_count:
         raise ValueError("dashboard_models.json contains no model rows")
     return series_count
 
 
-def validate_bev_report_sheets(sheets: dict, registry_rows: list[dict]):
-    approved = {
-        normalize_key(row["canonical_brand"], row["canonical_series"])
-        for row in registry_rows
-        if row["review_status"] == "verified" and row["powertrain"] == "BEV"
-    }
+def validate_bev_report_sheets(sheets: dict, approved=None):
+    """Validate Sheets 7-8 against approved canonical BEV model keys."""
+    approved = approved_bev_model_keys() if approved is None else approved
     observed = []
     for row in sheets["sheet7_bev_by_model"]:
         if row.get("level") == "model":
@@ -165,10 +120,23 @@ def validate_bev_report_sheets(sheets: dict, registry_rows: list[dict]):
             observed.append(normalize_key(row["brand"], row["model"]))
     unapproved = sorted(set(observed) - approved)
     if unapproved:
-        raise ValueError(f"Sheets 7-8 contain non-verified BEV series: {unapproved[:10]}")
+        raise ValueError(f"Sheets 7-8 contain non-approved BEV models: {unapproved[:10]}")
     if approved and not observed:
-        raise ValueError("Sheets 7-8 are empty despite verified BEV registry rows")
+        raise ValueError("Sheets 7-8 are empty despite approved BEV review rows")
     return len(observed)
+
+
+def validate_analyst_views(analyst_data: dict):
+    """Model views cannot expose fuel-derived Powertrain filters."""
+    data = analyst_data.get("data", {})
+    model_powertrains = set(data.get("model", {}))
+    if model_powertrains != {"ALL"}:
+        raise ValueError(f"analyst model views must contain only ALL, got {sorted(model_powertrains)}")
+
+    expected_brand = {"ALL", "ICE", "BEV", "HEV", "PHEV"}
+    brand_powertrains = set(data.get("brand", {}))
+    if brand_powertrains != expected_brand:
+        raise ValueError(f"analyst brand views have invalid Powertrain keys: {sorted(brand_powertrains)}")
 
 
 def _period(name, data):
@@ -198,8 +166,7 @@ def validate_public_release():
         raise ValueError(f"fuel source total mismatch: raw={raw_fuel_units:,}, cleaned={grain['fuel_units']:,}")
     print(
         f"Source grains valid: model={grain['model_rows']:,} rows/{grain['model_units']:,} units; "
-        f"fuel={grain['fuel_rows']:,} rows/{grain['fuel_units']:,} units; "
-        f"verified series mappings={grain['verified_mappings']:,}."
+        f"fuel={grain['fuel_rows']:,} rows/{grain['fuel_units']:,} units."
     )
 
     payloads = {name: json.loads(path.read_text(encoding="utf-8")) for name, path in REQUIRED_FILES.items()}
@@ -207,8 +174,8 @@ def validate_public_release():
     if len(set(periods.values())) != 1:
         raise ValueError(f"reporting periods do not match: {periods}")
 
-    registry = load_registry()
-    model_count = validate_public_model_tree(payloads["dashboard_models.json"], registry)
+    validate_analyst_views(payloads["analyst_data.json"])
+    model_count = validate_public_model_tree(payloads["dashboard_models.json"])
     report = payloads["manual_report.json"]
     sheets = report.get("sheets", {})
     missing_sheets = [sheet for sheet in REQUIRED_REPORT_SHEETS if sheet not in sheets]
@@ -218,11 +185,11 @@ def validate_public_release():
         if not sheets[sheet]:
             raise ValueError(f"manual_report.json has empty fuel-derived section: {sheet}")
 
-    bev_rows = validate_bev_report_sheets(sheets, registry)
+    bev_rows = validate_bev_report_sheets(sheets)
 
     period = next(iter(periods.values()))
-    print(f"Public tree valid: {model_count:,} model nodes; {bev_rows:,} verified BEV report rows. Period={period[1]}/{period[0]}.")
-    print("VALIDATION PASSED: source grains, registry mappings, report sections, and periods are release-safe.")
+    print(f"Public tree valid: {model_count:,} model nodes; {bev_rows:,} approved BEV report rows. Period={period[1]}/{period[0]}.")
+    print("VALIDATION PASSED: source grains, reviewed BEV report rows, report sections, and periods are release-safe.")
 
 
 if __name__ == "__main__":

@@ -3,10 +3,10 @@
 Usage:
     py -3.12 backend/validate_against_markdown.py <sheets1-9.md> [Data.md]
 
-Data.md is authoritative only at its own fuel grain.  It contains no series column,
-so this validator never uses it to approve or infer a series Powertrain.  Sheets 7-8
-are reported as legacy reference material until the registry contains reviewed BEV
-series; they are not a release authority.
+Data.md is authoritative only at its own fuel grain. It contains no model column,
+so this validator never uses it to approve or infer a model Powertrain. Sheets 7-8
+use human-approved BEV rows from config/model_powertrain_review.csv; the legacy
+Markdown is not their release authority.
 """
 import json
 import os
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from series_registry import load_registry
+from model_map import load_model_powertrain_review
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -208,17 +208,17 @@ def main():
         if not ok:
             failures.append(f"{label}: expected {expected}, got {actual}, markdown-located={located}")
 
-    verified_bev = [
-        row for row in load_registry()
-        if row["review_status"] == "verified" and row["powertrain"] == "BEV"
+    approved_bev = [
+        row for row in load_model_powertrain_review().values()
+        if row["review_status"] == "approved" and row["candidate_powertrain"] == "BEV"
     ]
-    print("\n--- Series-derived report authority ---")
-    if verified_bev:
-        print(f"[INFO] Registry contains {len(verified_bev):,} verified BEV raw series variants.")
-        print("[INFO] Sheets 7-8 must be generated from those registry rows; legacy Markdown is comparison-only.")
+    print("\n--- Model report authority ---")
+    if approved_bev:
+        print(f"[INFO] Model review CSV contains {len(approved_bev):,} approved BEV raw models.")
+        print("[INFO] Sheets 7-8 are generated from those reviewed rows; legacy Markdown is comparison-only.")
     else:
-        print("[BLOCKED] Sheets 7-8 accuracy: registry has no verified BEV series.")
-        print("          Keep these sheets empty/pending until Admin records evidence and approves rows.")
+        print("[BLOCKED] Sheets 7-8 accuracy: model review CSV has no approved BEV models.")
+        print("          Keep these sheets empty until a maintainer records evidence and approves rows.")
 
     print("\n--- Summary ---")
     if failures:
@@ -227,7 +227,7 @@ def main():
             print(f"  - {failure}")
         sys.exit(1)
     print("VALIDATION PASSED for fuel-grain facts and fuel-derived report cells.")
-    print("SERIES STATUS: blocked/pending where no registry evidence exists; no guessing performed.")
+    print("MODEL REVIEW STATUS: pending rows remain excluded until human approval; no guessing performed.")
 
 
 if __name__ == "__main__":

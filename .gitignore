@@ -25,6 +25,13 @@ node_modules/
 Thumbs.db
 .aider*
 
+# Local agent/editor state (not part of the product)
+.codex/
+.dev-team/
+.impeccable/
+.pytest_cache/
+.vscode/
+
 # Appended paths
 backend/output/
 frontend/.next/
