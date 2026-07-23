@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Download, RefreshCw, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { filterAnalystRows, selectAnalystFilterOptions } from "../analystFilters";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -59,6 +60,7 @@ export default function AnalystPage() {
   const [selectedVehicleType, setSelectedVehicleType] = useState<string>("ALL");
   const [searchText, setSearchText] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
   
   // Sort State
   const [sortField, setSortField] = useState<keyof AnalystRow>("curr_ytd_units");
@@ -113,7 +115,7 @@ export default function AnalystPage() {
 
   // Reset page to 1 when filters or sorting changes (using render-phase state updates)
   const [prevFilterKey, setPrevFilterKey] = useState("");
-  const currentFilterKey = `${searchText}||${selectedBrand}||${currentViewBy}||${currentPowertrain}||${selectedVehicleType}||${sortField}||${sortDirection}`;
+  const currentFilterKey = `${searchText}||${selectedBrand}||${selectedModel}||${currentViewBy}||${currentPowertrain}||${selectedVehicleType}||${sortField}||${sortDirection}`;
   if (currentFilterKey !== prevFilterKey) {
     setPrevFilterKey(currentFilterKey);
     setCurrentPage(1);
@@ -162,10 +164,22 @@ export default function AnalystPage() {
   const handleViewByChange = (viewBy: "brand" | "model") => {
     setCurrentViewBy(viewBy);
     if (viewBy === "model") setCurrentPowertrain("ALL");
+    if (viewBy === "brand") setSelectedModel("");
   };
 
-  // Unique Brand Options for Filter dropdown
+  const modelFilterRows = useMemo(
+    () => data?.data?.model?.ALL?.[selectedVehicleType] || [],
+    [data, selectedVehicleType],
+  );
+
+  // Model view options come from the already-loaded analyst rows for the active vehicle type.
+  const modelViewOptions = useMemo(
+    () => selectAnalystFilterOptions(modelFilterRows, selectedBrand),
+    [modelFilterRows, selectedBrand],
+  );
+
   const brandOptions = useMemo(() => {
+    if (currentViewBy === "model") return modelViewOptions.brands;
     const brandsSet = new Set<string>();
     if (data?.data?.brand) {
       Object.values(data.data.brand).forEach((byVehicleType) => {
@@ -177,7 +191,24 @@ export default function AnalystPage() {
       });
     }
     return Array.from(brandsSet).sort();
-  }, [data]);
+  }, [currentViewBy, data, modelViewOptions.brands]);
+
+  const handleBrandChange = (brand: string) => {
+    setSelectedBrand(brand);
+    if (currentViewBy !== "model") return;
+    const validModels = new Set(selectAnalystFilterOptions(modelFilterRows, brand).models);
+    if (selectedModel && !validModels.has(selectedModel)) setSelectedModel("");
+  };
+
+  const handleVehicleTypeChange = (vehicleType: string) => {
+    setSelectedVehicleType(vehicleType);
+    setSelectedModel("");
+    if (currentViewBy === "model" && selectedBrand) {
+      const rows = data?.data?.model?.ALL?.[vehicleType] || [];
+      const validBrands = new Set(selectAnalystFilterOptions(rows, "").brands);
+      if (!validBrands.has(selectedBrand)) setSelectedBrand("");
+    }
+  };
 
   // Formatter functions
   const formatNum = (n?: number) => {
@@ -238,10 +269,8 @@ export default function AnalystPage() {
       });
     }
 
-    // 2. Brand Dropdown Filter
-    if (selectedBrand) {
-      filtered = filtered.filter((r) => r.is_grand_total || r.brand === selectedBrand);
-    }
+    // 2. Cascading Brand and Model filters
+    filtered = filterAnalystRows(filtered, selectedBrand, currentViewBy === "model" ? selectedModel : "");
 
     // 3. Sorting (keep Grand Total at the top, sort details)
     const grandTotals = filtered.filter((r) => r.is_grand_total);
@@ -256,7 +285,7 @@ export default function AnalystPage() {
     });
 
     return grandTotals.concat(details);
-  }, [data, currentViewBy, currentPowertrain, selectedVehicleType, searchText, selectedBrand, sortField, sortDirection]);
+  }, [data, currentViewBy, currentPowertrain, selectedVehicleType, searchText, selectedBrand, selectedModel, sortField, sortDirection]);
 
   const paginatedRows = useMemo(() => {
     const grandTotals = filteredAndSortedRows.filter(r => r.is_grand_total);
@@ -285,12 +314,6 @@ export default function AnalystPage() {
 
     try {
       const XLSX = await import("xlsx");
-      // Fetch models data dynamically for Sheet 3 of the export
-      const modelsRes = await fetch(`${DATA_BASE}/data/dashboard_models.json`);
-      const modelsJson = await modelsRes.json();
-      const tree = modelsJson.brand_model_tree || [];
-      const treeYears = modelsJson.meta.years || [];
-      const treeLatestYear = String(treeYears[treeYears.length - 1]);
 
       // Sheet 1: Analyst Full Data (unfiltered)
       const fullRows = data.data[currentViewBy]?.[currentPowertrain]?.[selectedVehicleType] || [];
@@ -299,76 +322,9 @@ export default function AnalystPage() {
       // Sheet 2: Analyst View (currently filtered & sorted)
       const excelFiltered = getExcelRows(filteredAndSortedRows);
 
-      // Sheet 3: Models View (matrix matching full model data)
-      const excelModels: Record<string, string | number>[] = [];
-      tree.forEach((bNode: Record<string, unknown>) => {
-        let bGrandTotal = 0;
-        let bYtd = 0;
-        const bRow: Record<string, string | number> = { "Brand / Model": bNode.brand as string, "Fuel Type": bNode.fuel as string };
-
-        const getMonthly = (node: Record<string, unknown>, year: string) => {
-          const out = Array(12).fill(0);
-          const buckets = node.monthly || {};
-          Object.values(buckets as Record<string, unknown>).forEach((vBucket: unknown) => {
-            const vb = vBucket as Record<string, unknown>;
-            if (Array.isArray(vb[year])) {
-              const yrArr = vb[year] as number[];
-              for (let i = 0; i < 12; i++) out[i] += yrArr[i] || 0;
-              return;
-            }
-            Object.values(vb).forEach((pBucket: unknown) => {
-              const pb = pBucket as Record<string, unknown>;
-              const arr = pb[year] as number[] | undefined;
-              if (arr) {
-                for (let i = 0; i < 12; i++) out[i] += arr[i] || 0;
-              }
-            });
-          });
-          return out;
-        };
-
-        treeYears.forEach((y: number) => {
-          const yStr = String(y);
-          const arr = getMonthly(bNode, yStr);
-          let ySum = 0;
-          arr.forEach((v, i) => {
-            ySum += v;
-            if (yStr === treeLatestYear && v > 0) bYtd += v;
-            bRow[`${y} ${MONTHS_EN[i]}`] = v || "";
-          });
-          bGrandTotal += ySum;
-          bRow[`${y} Total`] = ySum || "";
-        });
-        bRow["YTD"] = bYtd || "";
-        bRow["Grand Total"] = bGrandTotal || "";
-        if (bGrandTotal > 0) excelModels.push(bRow);
-
-        (bNode.models as Array<Record<string, unknown>>)?.forEach((mNode: Record<string, unknown>) => {
-          let mGrandTotal = 0;
-          let mYtd = 0;
-          const mRow: Record<string, string | number> = { "Brand / Model": `  ${mNode.name}`, "Fuel Type": mNode.fuel as string };
-          treeYears.forEach((y: number) => {
-            const yStr = String(y);
-            const arr = getMonthly(mNode, yStr);
-            let ySum = 0;
-            arr.forEach((v, i) => {
-              ySum += v;
-              if (yStr === treeLatestYear && v > 0) mYtd += v;
-              mRow[`${y} ${MONTHS_EN[i]}`] = v || "";
-            });
-            mGrandTotal += ySum;
-            mRow[`${y} Total`] = ySum || "";
-          });
-          mRow["YTD"] = mYtd || "";
-          mRow["Grand Total"] = mGrandTotal || "";
-          if (mGrandTotal > 0) excelModels.push(mRow);
-        });
-      });
-
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelFull), "Full Analyst Data");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelFiltered), "Filtered Analyst View");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelModels), "Models Full Matrix");
 
       const fileDate = `${meta?.current_year ?? ""}-${String(meta?.current_month_num ?? "").padStart(2, "0")}`;
       XLSX.writeFile(wb, `EternityOne_Analyst_Report_${fileDate}.xlsx`);
@@ -497,7 +453,7 @@ export default function AnalystPage() {
           </div>
 
           {/* Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 text-sm pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm pt-1">
             <div>
               <label htmlFor="filter-search" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Search</label>
               <input 
@@ -515,10 +471,24 @@ export default function AnalystPage() {
                 id="filter-brand"
                 className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
                 value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
+                onChange={(e) => handleBrandChange(e.target.value)}
               >
                 <option value="">All Brands</option>
                 {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filter-model" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Model</label>
+              <select
+                id="filter-model"
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs disabled:cursor-not-allowed disabled:text-slate-500"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={currentViewBy !== "model"}
+                title={currentViewBy !== "model" ? "Select Model view to filter by model" : undefined}
+              >
+                <option value="">All Models</option>
+                {modelViewOptions.models.map((model) => <option key={model} value={model}>{model}</option>)}
               </select>
             </div>
             <div>
@@ -556,7 +526,7 @@ export default function AnalystPage() {
                 id="filter-vehicletype"
                 className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
                 value={selectedVehicleType}
-                onChange={(e) => setSelectedVehicleType(e.target.value)}
+                onChange={(e) => handleVehicleTypeChange(e.target.value)}
               >
                 <option value="ALL">ALL</option>
                 {meta?.vehicle_types_list?.map(vt => (
