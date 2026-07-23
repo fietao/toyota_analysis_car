@@ -2,69 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, Download, RefreshCw } from "lucide-react";
+import {
+  MANUAL_REPORT_SHEETS as SHEETS,
+  buildManualReportFileName,
+  buildManualReportSheetRows,
+  getReportForYear,
+  getReportYears,
+  safeSheetName,
+  type ManualReport,
+  type ReportRow,
+} from "../reportExport";
 
 // Canonical manual report: /report renders this JSON directly and never recomputes
 // spreadsheet logic. Produced by backend/export_manual_report.py.
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-
-type ReportRow = {
-  key: string;
-  label: string;
-  prev_months: number[];
-  prev_total: number;
-  prev_ytd: number;
-  prev_total_share: number | null;
-  prev_ytd_share: number | null;
-  curr_months: number[];
-  curr_ytd: number;
-  curr_ytd_share: number | null;
-  growth_vs_prev_month: number | null;
-  growth_vs_same_month_prev_year: number | null;
-  growth_vs_prev_ytd: number | null;
-  prev_rank?: number | null;
-  curr_rank?: number | null;
-  rank_diff?: number | null;
-  level?: "grand" | "brand" | "model" | "province";
-  group?: string;
-  brand?: string;
-  model?: string;
-  overall?: number;
-};
-
-type SectionMeta = { title: string; source: string; filter: string; powertrain: string };
-
-type ManualReport = {
-  meta: {
-    reporting_period: string;
-    latest_year: number;
-    latest_month: string;
-    latest_month_num: number;
-    prev_year: number;
-    months: string[];
-    default_vehicle_types: string[];
-    source_files: { brand_powertrain: string; model: string };
-    sections: Record<string, SectionMeta>;
-    known_mismatches?: { sheets: string[]; row: string; note: string }[];
-    generated_at: string;
-  };
-  sheets: Record<string, ReportRow[]>;
-};
-
-type SheetKind = "powertrain" | "brand" | "model_tree" | "model_rank" | "province_tree";
-
-const SHEETS: { id: string; kind: SheetKind; rowLabel: string }[] = [
-  { id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" },
-  { id: "sheet2_brand_all", kind: "brand", rowLabel: "Brand" },
-  { id: "sheet3_brand_ice", kind: "brand", rowLabel: "Brand" },
-  { id: "sheet4_brand_bev", kind: "brand", rowLabel: "Brand" },
-  { id: "sheet5_brand_hev", kind: "brand", rowLabel: "Brand" },
-  { id: "sheet6_brand_phev", kind: "brand", rowLabel: "Brand" },
-  { id: "sheet7_bev_by_model", kind: "model_tree", rowLabel: "Brand / Model" },
-  { id: "sheet8_model_top_rank", kind: "model_rank", rowLabel: "Model" },
-  { id: "sheet9_by_province", kind: "province_tree", rowLabel: "Province / Brand" },
-];
 
 const nf = new Intl.NumberFormat("en-US");
 const pf = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -93,6 +46,8 @@ export default function ManualReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState("sheet1_powertrain");
   const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -104,6 +59,7 @@ export default function ManualReportPage() {
       })
       .then((json: ManualReport) => {
         setReport(json);
+        setSelectedYear(json.meta.latest_year);
         setLoading(false);
       })
       .catch((err) => {
@@ -123,6 +79,7 @@ export default function ManualReportPage() {
       .then((json: ManualReport) => {
         if (!cancelled) {
           setReport(json);
+          setSelectedYear(json.meta.latest_year);
           setLoading(false);
         }
       })
@@ -138,8 +95,19 @@ export default function ManualReportPage() {
     };
   }, []);
 
+  const years = useMemo(() => (report ? getReportYears(report) : []), [report]);
+  const activeReport = useMemo(
+    () => (report && selectedYear !== null ? getReportForYear(report, selectedYear) : null),
+    [report, selectedYear]
+  );
+
+  const handleSelectYear = (year: number) => {
+    setSelectedYear(year);
+    setSearch("");
+  };
+
   const active = SHEETS.find((s) => s.id === activeId) ?? SHEETS[0];
-  const meta = report?.meta;
+  const meta = activeReport?.meta;
   const section = meta?.sections?.[active.id];
   const currMonths = useMemo(
     () => (meta ? meta.months.slice(0, meta.latest_month_num) : []),
@@ -147,8 +115,8 @@ export default function ManualReportPage() {
   );
 
   const rows = useMemo(() => {
-    if (!report) return [];
-    const all = report.sheets[active.id] ?? [];
+    if (!activeReport) return [];
+    const all = activeReport.sheets[active.id] ?? [];
     const q = search.trim().toLowerCase();
     if (!q) return all;
     return all.filter((r) => {
@@ -156,7 +124,28 @@ export default function ManualReportPage() {
       const hay = `${r.label} ${r.group ?? ""} ${r.brand ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [report, active.id, search]);
+  }, [activeReport, active.id, search]);
+
+  // Exports exactly the sheet currently on screen (respecting the active search filter
+  // and selected report year), not the full 9-sheet workbook — matches what the table
+  // is showing right now.
+  const handleExportExcel = async () => {
+    if (!activeReport || exporting) return;
+    setExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.utils.book_new();
+      const excelRows = buildManualReportSheetRows(active, rows, activeReport.meta);
+      const title = section?.title ?? active.id;
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelRows), safeSheetName(title, new Set()));
+      XLSX.writeFile(wb, buildManualReportFileName(activeReport.meta, title));
+    } catch (e) {
+      console.error(e);
+      alert("Excel export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const knownWarning = useMemo(() => {
     if (!meta?.known_mismatches) return null;
@@ -213,14 +202,56 @@ export default function ManualReportPage() {
                 Rendered directly from <span className="font-mono text-slate-300">manual_report.json</span>. No spreadsheet logic is recomputed in the browser.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-md border border-slate-800 bg-slate-950 px-4 py-3 text-[10px] text-slate-400">
-              <span className="text-slate-500">Reporting period</span>
-              <span className="text-right font-mono text-slate-200">{meta.reporting_period}</span>
-              <span className="text-slate-500">Comparison year</span>
-              <span className="text-right font-mono text-slate-200">{meta.prev_year} (full) vs {meta.latest_year} YTD</span>
-              <span className="text-slate-500">Vehicle filter</span>
-              <span className="text-right font-mono text-slate-200">รย.1,2,3,6,9,10,11</span>
+            <div className="flex flex-col items-stretch gap-2 lg:items-end">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-md border border-slate-800 bg-slate-950 px-4 py-3 text-[10px] text-slate-400">
+                <span className="text-slate-500">Reporting period</span>
+                <span className="text-right font-mono text-slate-200">{meta.reporting_period}</span>
+                <span className="text-slate-500">Comparison year</span>
+                <span className="text-right font-mono text-slate-200">
+                  {meta.has_prev_year === false ? "N/A" : `${meta.prev_year} (full)`} vs {meta.latest_year} YTD
+                </span>
+                <span className="text-slate-500">Vehicle filter</span>
+                <span className="text-right font-mono text-slate-200">รย.1,2,3,6,9,10,11</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={exporting}
+                aria-label="Export current sheet to Excel spreadsheet"
+                className="flex items-center justify-center gap-1.5 rounded-md bg-teal-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-500 active:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {exporting ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Export this sheet (.xlsx)</span>
+                  </>
+                )}
+              </button>
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Report year</span>
+            {years.map((y) => (
+              <button
+                key={y}
+                type="button"
+                onClick={() => handleSelectYear(y)}
+                aria-pressed={y === selectedYear}
+                className={`rounded-md border px-3 py-1 text-xs font-mono transition-colors ${
+                  y === selectedYear
+                    ? "border-teal-500 bg-teal-600 text-white"
+                    : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                }`}
+              >
+                {y}
+              </button>
+            ))}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -237,7 +268,7 @@ export default function ManualReportPage() {
                   }`}
                 >
                   <div className="truncate text-xs font-semibold">{st?.title ?? s.id}</div>
-                  <div className="mt-0.5 truncate text-[10px] opacity-80">{st?.powertrain}</div>
+                  <div className="mt-0.5 truncate text-[10px] opacity-80">{st?.powertrain ?? "Model report"}</div>
                 </button>
               );
             })}
@@ -250,7 +281,8 @@ export default function ManualReportPage() {
             <div>
               <h2 className="text-sm font-semibold text-slate-100">{section?.title ?? active.id}</h2>
               <p className="mt-1 text-[10px] text-slate-500">
-                Source: <span className="font-mono text-slate-400">{section?.source}</span> · {section?.filter} · Powertrain = {section?.powertrain}
+                Source: <span className="font-mono text-slate-400">{section?.source}</span> · {section?.filter}
+                {section?.powertrain ? ` · Powertrain = ${section.powertrain}` : section?.model_report_filter ? ` · ${section.model_report_filter}` : ""}
               </p>
             </div>
             <input
