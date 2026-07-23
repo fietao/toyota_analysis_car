@@ -12,6 +12,7 @@ import {
   brandMonthlyValues,
   seriesTotals,
   seriesMonthlyValues,
+  selectDeepDiveFilterOptions,
 } from "../selectors";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -99,20 +100,16 @@ export default function ModelsPage() {
   const latestYear = years.length > 0 ? String(years[years.length - 1]) : null;
 
   // Available filter options based on raw tree data
-  const { allBrands, allModels } = useMemo(() => {
-    const brandsSet = new Set<string>();
-    const modelsSet = new Set<string>();
-    data?.brand_model_tree?.forEach((node) => {
-      if (node.brand) brandsSet.add(node.brand);
-      node.models?.forEach((m) => {
-        if (m.name) modelsSet.add(m.name);
-      });
-    });
-    return {
-      allBrands: Array.from(brandsSet).sort(),
-      allModels: Array.from(modelsSet).sort()
-    };
-  }, [data]);
+  const { allBrands, allModels } = useMemo(
+    () => selectDeepDiveFilterOptions(data?.brand_model_tree, selectedBrands),
+    [data?.brand_model_tree, selectedBrands]
+  );
+
+  const handleSelectedBrandsChange = (brands: string[]) => {
+    setSelectedBrands(brands);
+    const validModels = new Set(selectDeepDiveFilterOptions(data?.brand_model_tree, brands).allModels);
+    setSelectedModels((models) => models.filter((model) => validModels.has(model)));
+  };
 
   // Filtered Rows Assembly — brand and series totals come only from segments matching the
   // active Powertrain filter; a brand/series with zero matching units is dropped entirely.
@@ -283,8 +280,8 @@ export default function ModelsPage() {
   }
 
   return (
-    <div className="bg-slate-950 text-slate-100 p-6 min-h-screen select-none font-sans antialiased">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="bg-slate-950 text-slate-100 px-4 py-4 md:px-6 min-h-screen select-none font-sans antialiased overflow-x-hidden">
+      <div className="w-full max-w-none mx-auto space-y-3">
         {/* Navigation Breadcrumb */}
         <nav aria-label="Breadcrumb" className="flex items-center">
           <Link href="/" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-teal-400 transition-colors focus:ring-1 focus:ring-teal-400 focus:outline-none rounded px-1 py-0.5">
@@ -294,7 +291,7 @@ export default function ModelsPage() {
         </nav>
 
         {/* Header Section */}
-        <div className="bg-slate-900 border border-slate-800 rounded-md p-5 space-y-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-md p-4 space-y-3">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div>
               <h1 className="text-sm font-semibold text-teal-400 tracking-tight">
@@ -328,14 +325,14 @@ export default function ModelsPage() {
           </div>
 
           {/* Filters Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm pt-1">
-            <FilterPillPopover label="Brand" placeholder="Search brands..." options={allBrands} value={selectedBrands} onChange={setSelectedBrands} />
-            <FilterPillPopover label="Model" placeholder="Search models..." options={allModels} value={selectedModels} onChange={setSelectedModels} />
-            <FilterPillPopover label="Province" placeholder="Search provinces..." options={meta?.provinces ?? []} value={selectedProvinces} onChange={setSelectedProvinces} />
-            <FilterPillPopover label="Vehicle Type" placeholder="Search vehicle types..." options={meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) ?? []} value={selectedVehicleTypes} onChange={setSelectedVehicleTypes} />
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 text-sm pt-1">
+            <div className="min-w-[150px]"><FilterPillPopover label="Brand" placeholder="Search brands..." options={allBrands} value={selectedBrands} onChange={handleSelectedBrandsChange} /></div>
+            <div className="min-w-[150px]"><FilterPillPopover label="Model" placeholder="Search models..." options={allModels} value={selectedModels} onChange={setSelectedModels} /></div>
+            <div className="min-w-[170px]"><FilterPillPopover label="Province" placeholder="Search provinces..." options={meta?.provinces ?? []} value={selectedProvinces} onChange={setSelectedProvinces} /></div>
+            <div className="min-w-[190px]"><FilterPillPopover label="Vehicle Type" placeholder="Search vehicle types..." options={meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) ?? []} value={selectedVehicleTypes} onChange={setSelectedVehicleTypes} /></div>
 
             {/* Year Checklist */}
-            <div className="flex flex-col justify-center">
+            <div className="flex flex-col justify-center md:ml-auto">
               <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Active Years (B.E.)</span>
               <div className="flex items-center gap-2 flex-wrap">
                 {years.map((y) => {
@@ -363,23 +360,23 @@ export default function ModelsPage() {
 
         {/* Pivot/Matrix Table */}
         <div className="bg-slate-900 border border-slate-800 rounded-md overflow-hidden">
-          <div className="overflow-x-auto overflow-y-auto custom-scrollbar max-h-[65vh]">
-            <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+          <div className="overflow-x-auto overflow-y-auto custom-scrollbar max-h-[calc(100vh-18rem)] min-h-[360px]">
+            <table className="min-w-full w-max text-left border-collapse text-xs whitespace-nowrap">
               <thead>
                 <tr className="bg-slate-800/80 border-b border-slate-700 text-slate-300 font-semibold align-middle">
-                  <th scope="col" className="p-3 w-52 sticky top-0 left-0 bg-slate-800 z-40 border-r border-slate-700">Brand / Model</th>
+                  <th scope="col" className="px-3 py-2.5 min-w-[220px] sticky top-0 left-0 bg-slate-800 z-40 border-r border-slate-700">Brand / Model</th>
 
                   {activeYears.map((year) => (
                     <Fragment key={year}>
                       {MONTHS_EN.map((m) => (
-                        <th key={`${year}-${m}`} scope="col" className="p-1 border-l border-slate-700/60 text-center font-normal text-slate-400 min-w-[42px] sticky top-0 bg-slate-800 z-30">{m}</th>
+                        <th key={`${year}-${m}`} scope="col" className="px-2 py-2.5 border-l border-slate-700/60 text-center font-normal text-slate-400 min-w-[64px] sticky top-0 bg-slate-800 z-30">{m}</th>
                       ))}
-                      <th scope="col" className="p-2 border-l-2 border-slate-600 bg-slate-800 text-center font-bold text-teal-300 min-w-[70px] sticky top-0 z-30">Total {year}</th>
+                      <th scope="col" className="px-3 py-2.5 border-l-2 border-slate-600 bg-slate-800 text-center font-bold text-teal-300 min-w-[110px] sticky top-0 z-30">Total {year}</th>
                     </Fragment>
                   ))}
 
-                  <th scope="col" className="p-3 border-l-2 border-slate-600 text-right text-emerald-400 font-bold bg-slate-800 min-w-[75px] sticky top-0 z-30">YTD</th>
-                  <th scope="col" className="p-3 border-l border-slate-600 text-right text-amber-400 font-bold bg-slate-800 min-w-[85px] sticky top-0 z-30">Grand Total</th>
+                  <th scope="col" className="px-3 py-2.5 border-l-2 border-slate-600 text-right text-emerald-400 font-bold bg-slate-800 min-w-[110px] sticky top-0 z-30">YTD</th>
+                  <th scope="col" className="px-3 py-2.5 border-l border-slate-600 text-right text-amber-400 font-bold bg-slate-800 min-w-[120px] sticky top-0 z-30">Grand Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/70">
@@ -396,7 +393,7 @@ export default function ModelsPage() {
                       <tr
                         className="bg-slate-900/95 hover:bg-slate-850 font-semibold border-b border-slate-800/90 transition-colors"
                       >
-                        <td className="p-3 sticky left-0 bg-slate-900 z-10 border-r border-slate-800/90">
+                        <td className="px-3 py-2.5 sticky left-0 bg-slate-900 z-10 border-r border-slate-800/90">
                           <button
                             type="button"
                             onClick={() => toggleBrand(brandNode.toggleKey)}
@@ -417,21 +414,21 @@ export default function ModelsPage() {
                           return (
                             <Fragment key={year}>
                               {monthly.map((val, idx) => (
-                                <td key={`brand-val-${brandNode.toggleKey}-${year}-${idx}`} className="p-1 border-l border-slate-800/70 text-center font-mono text-slate-300">
+                                <td key={`brand-val-${brandNode.toggleKey}-${year}-${idx}`} className="px-2 py-2.5 border-l border-slate-800/70 text-center font-mono text-slate-300">
                                   {val ? val.toLocaleString() : "—"}
                                 </td>
                               ))}
-                              <td className="p-2 border-l-2 border-slate-700/80 bg-slate-800/30 text-center font-mono font-bold text-teal-400">
+                              <td className="px-3 py-2.5 border-l-2 border-slate-700/80 bg-slate-800/30 text-center font-mono font-bold text-teal-400">
                                 {total ? total.toLocaleString() : "—"}
                               </td>
                             </Fragment>
                           );
                         })}
 
-                        <td className="p-3 border-l-2 border-slate-800 text-right font-mono font-bold text-emerald-400 bg-emerald-950/10">
+                        <td className="px-3 py-2.5 border-l-2 border-slate-800 text-right font-mono font-bold text-emerald-400 bg-emerald-950/10">
                           {brandNode.totals.ytdTotal ? brandNode.totals.ytdTotal.toLocaleString() : "—"}
                         </td>
-                        <td className="p-3 border-l border-slate-800 text-right font-mono font-bold text-amber-400 bg-slate-950">
+                        <td className="px-3 py-2.5 border-l border-slate-800 text-right font-mono font-bold text-amber-400 bg-slate-950">
                           {brandNode.totals.grandTotal ? brandNode.totals.grandTotal.toLocaleString() : "—"}
                         </td>
                       </tr>
@@ -442,7 +439,7 @@ export default function ModelsPage() {
                           key={`${brandNode.toggleKey}-${model.name}`}
                           className="bg-slate-950/50 hover:bg-slate-900/60 border-b border-slate-900/60 text-slate-300 transition-colors"
                         >
-                          <td className="p-2.5 pl-8 sticky left-0 bg-slate-950/90 z-10 border-r border-slate-900/60">
+                          <td className="py-2.5 pl-8 pr-3 sticky left-0 bg-slate-950/90 z-10 border-r border-slate-900/60">
                             <div className="flex items-center space-x-1.5">
                               <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-slate-600 flex-shrink-0"></span>
                               <span className="font-medium text-slate-200 text-xs">{model.name}</span>
@@ -455,21 +452,21 @@ export default function ModelsPage() {
                             return (
                               <Fragment key={year}>
                                 {monthly.map((val, idx) => (
-                                  <td key={`mod-val-${brandNode.toggleKey}-${model.name}-${year}-${idx}`} className="p-1 border-l border-slate-800/30 text-center font-mono text-slate-400/90">
+                                  <td key={`mod-val-${brandNode.toggleKey}-${model.name}-${year}-${idx}`} className="px-2 py-2.5 border-l border-slate-800/30 text-center font-mono text-slate-400/90">
                                     {val ? val.toLocaleString() : "—"}
                                   </td>
                                 ))}
-                                <td className="p-2 border-l-2 border-slate-800/50 bg-slate-950/30 text-center font-mono text-slate-300">
+                                <td className="px-3 py-2.5 border-l-2 border-slate-800/50 bg-slate-950/30 text-center font-mono text-slate-300">
                                   {total ? total.toLocaleString() : "—"}
                                 </td>
                               </Fragment>
                             );
                           })}
 
-                          <td className="p-2.5 border-l-2 border-slate-900 text-right font-mono text-emerald-500">
+                          <td className="px-3 py-2.5 border-l-2 border-slate-900 text-right font-mono text-emerald-500">
                             {model.totals.ytdTotal ? model.totals.ytdTotal.toLocaleString() : "—"}
                           </td>
-                          <td className="p-2.5 border-l border-slate-900 text-right font-mono font-bold text-amber-500/90 bg-slate-950/50">
+                          <td className="px-3 py-2.5 border-l border-slate-900 text-right font-mono font-bold text-amber-500/90 bg-slate-950/50">
                             {model.totals.grandTotal ? model.totals.grandTotal.toLocaleString() : "—"}
                           </td>
                         </tr>

@@ -56,6 +56,24 @@ export type DashboardData = {
 
 export type Rec = Record<string, string | number | boolean | null>;
 
+export function selectDeepDiveFilterOptions(tree: BrandNode[] | undefined, selectedBrands: string[]) {
+  const brandsSet = new Set<string>();
+  const modelsSet = new Set<string>();
+
+  tree?.forEach((node) => {
+    if (node.brand) brandsSet.add(node.brand);
+    if (selectedBrands.length > 0 && !selectedBrands.includes(node.brand)) return;
+    node.models?.forEach((model) => {
+      if (model.name) modelsSet.add(model.name);
+    });
+  });
+
+  return {
+    allBrands: Array.from(brandsSet).sort(),
+    allModels: Array.from(modelsSet).sort(),
+  };
+}
+
 export function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number | "All", selectedVehicleTypes: string[], selectedProvinces: string[]) {
   const timeVals: Record<string, number> = {};
   let grandTotal = 0;

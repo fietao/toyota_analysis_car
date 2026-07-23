@@ -14,6 +14,7 @@ import {
   seriesMonthlyValues,
   segmentBreakdown,
   filterSegments,
+  selectDeepDiveFilterOptions,
   selectRankingsData,
 } from "./selectors.ts";
 
@@ -190,4 +191,13 @@ test("loading an empty-registry model tree cannot erase fuel-derived brand ranki
   assert.equal(result.rows.length, 1);
   assert.equal(result.rows[0].name, "MITSUBISHI");
   assert.equal(result.rows[0].YTD, 80);
+});
+
+test("Deep Dive model filter options narrow to the selected brand models", () => {
+  const tree = fixture();
+
+  assert.deepEqual(selectDeepDiveFilterOptions(tree, []).allModels, ["ALPHA", "TRITON"]);
+  assert.deepEqual(selectDeepDiveFilterOptions(tree, ["ACME"]).allModels, ["ALPHA"]);
+  assert.deepEqual(selectDeepDiveFilterOptions(tree, ["MITSUBISHI"]).allModels, ["TRITON"]);
+  assert.deepEqual(selectDeepDiveFilterOptions(tree, ["ACME", "MITSUBISHI"]).allModels, ["ALPHA", "TRITON"]);
 });
