@@ -32,6 +32,12 @@ Thumbs.db
 .pytest_cache/
 .vscode/
 
+# Monthly-update run artifacts (generated locally, not part of the product)
+logs/
+reports/
+frontend/public/data.staging/
+frontend/public/data.bak/
+
 # Appended paths
 backend/output/
 frontend/.next/

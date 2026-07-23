@@ -1,4 +1,5 @@
 """Export multi-year dashboard data from parquet to flat JSON."""
+import os
 import sys
 import json
 import datetime
@@ -15,7 +16,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 BASE = Path(__file__).resolve().parent
 MODEL_PARQUET = BASE / "test_model_cleaned.parquet"
 FUEL_PARQUET  = BASE / "test_fuel_cleaned.parquet"
-FRONTEND_DATA_DIR = BASE.parent / "frontend" / "public" / "data"
+# PUBLIC_DATA_DIR lets the monthly operator build into a staging dir (safe no-collapse
+# publish); unset = the live public dir, so normal runs are unchanged.
+FRONTEND_DATA_DIR = Path(os.environ.get("PUBLIC_DATA_DIR") or (BASE.parent / "frontend" / "public" / "data"))
 FRONTEND_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Master dictionary for vehicle types from user prompt

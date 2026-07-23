@@ -50,7 +50,8 @@ Three scripts at the project root cover normal operation:
 | Script | When | What it does |
 |---|---|---|
 | `SETUP.bat` | Once, or after pulling dependency changes | Installs backend Python packages (`backend/requirements.txt`) and frontend npm packages. |
-| `UPDATE.bat` | Monthly, after dropping the 2 new DLT files into `backend/raw data/` | Runs `update_raw_data.py`: classifies new fuel types, rebuilds the pipeline, and exports dashboard data. |
+| `MONTHLY_UPDATE.bat` | Monthly, by a non-coding operator | Guided double-click flow: checks the 2 raw files, preflights the model-review CSV, rebuilds the pipeline + dashboard + Sheets 7-8, builds into a staging copy, validates it, and only then atomically swaps the live JSON (rollback on any failure — the dashboard always keeps the last good data). Writes `reports/monthly_operator_summary.txt` and a timestamped `logs/` file, all with Thai messages. See `docs/THAI_OPERATOR_MONTHLY_GUIDE.md`. |
+| `UPDATE.bat` | Monthly (developer) | Runs `update_raw_data.py`: classifies new fuel types, rebuilds the pipeline, and exports dashboard data. |
 | `BUILD_RELEASE.bat` | Before publishing | Runs the full deterministic pipeline, exports dashboard/analyst/manual-report data, validates against a markdown export and the public-release gate, then builds the Next.js production bundle. Set `MARKDOWN_REPORT_PATH` to point at the `*_sheets1-9.md` export directly; otherwise it looks for the newest one in `%USERPROFILE%\Downloads`. |
 
 After a monthly build, review newly appended `pending` rows in

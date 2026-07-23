@@ -15,6 +15,7 @@ Source rules (from specs/public_dashboard_markdown_parity_spec.md):
   * Vehicle types default to รย.1,2,3,6,9,10,11.
   * Current period is auto-detected from the fuel parquet (never hardcoded).
 """
+import os
 import sys
 import json
 import datetime
@@ -31,7 +32,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 BASE = Path(__file__).resolve().parent
 FUEL_PARQUET = BASE / "test_fuel_cleaned.parquet"
 MODEL_PARQUET = BASE / "test_model_cleaned.parquet"
-OUT = BASE.parent / "frontend" / "public" / "data" / "manual_report.json"
+OUT = Path(os.environ.get("PUBLIC_DATA_DIR") or (BASE.parent / "frontend" / "public" / "data")) / "manual_report.json"
 
 DEFAULT_VEHICLE_TYPES = ["รย.1", "รย.2", "รย.3", "รย.6", "รย.9", "รย.10", "รย.11"]
 MONTHS = list(MONTH_MAP.values())  # Jan .. Dec

@@ -1,5 +1,6 @@
 """Release gates for source-grain separation and public static artifacts."""
 import json
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -13,7 +14,7 @@ from schema import validate_fuel, validate_model
 sys.stdout.reconfigure(encoding="utf-8")
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR.parent / "frontend" / "public" / "data"
+DATA_DIR = Path(os.environ.get("PUBLIC_DATA_DIR") or (BASE_DIR.parent / "frontend" / "public" / "data"))
 MODEL_PARQUET = BASE_DIR / "test_model_cleaned.parquet"
 FUEL_PARQUET = BASE_DIR / "test_fuel_cleaned.parquet"
 REQUIRED_FILES = {

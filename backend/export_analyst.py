@@ -26,7 +26,7 @@ def export_analyst_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     fuel_path  = os.path.join(base_dir, "backend", "test_fuel_cleaned.parquet")
     model_path = os.path.join(base_dir, "backend", "test_model_cleaned.parquet")
-    output_dir = os.path.join(base_dir, "frontend", "public", "data")
+    output_dir = os.environ.get("PUBLIC_DATA_DIR") or os.path.join(base_dir, "frontend", "public", "data")
     output_path = os.path.join(output_dir, "analyst_data.json")
 
     os.makedirs(output_dir, exist_ok=True)

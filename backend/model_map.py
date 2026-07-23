@@ -41,7 +41,7 @@ def _check_headers(reader, expected, path):
 def load_model_map():
     """Load model_map.csv into a dict {normalized_key: model2}."""
     result = {}
-    with open(MODEL_MAP_PATH, encoding='utf-8') as f:
+    with open(MODEL_MAP_PATH, encoding='utf-8-sig') as f:  # tolerate Excel-saved BOM
         reader = csv.DictReader(f)
         _check_headers(reader, MODEL_MAP_HEADERS, MODEL_MAP_PATH)
         for i, row in enumerate(reader, start=2):
@@ -75,7 +75,7 @@ def load_model_powertrain_review():
     carrying candidate_powertrain, evidence, reviewer, and reviewed_at.
     """
     result = {}
-    with open(MODEL_POWERTRAIN_REVIEW_PATH, encoding='utf-8') as f:
+    with open(MODEL_POWERTRAIN_REVIEW_PATH, encoding='utf-8-sig') as f:  # tolerate Excel-saved BOM
         reader = csv.DictReader(f)
         _check_headers(reader, REVIEW_HEADERS, MODEL_POWERTRAIN_REVIEW_PATH)
         for i, row in enumerate(reader, start=2):
@@ -156,7 +156,7 @@ def sync_model_powertrain_review(df_model, path=None):
     existing_rows = []
     existing_keys = set()
     if path.exists():
-        with open(path, encoding='utf-8', newline='') as f:
+        with open(path, encoding='utf-8-sig', newline='') as f:  # tolerate Excel-saved BOM; rewrite drops it
             reader = csv.DictReader(f)
             _check_headers(reader, REVIEW_HEADERS, path)
             for row in reader:
