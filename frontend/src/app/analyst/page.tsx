@@ -4,10 +4,13 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Download, RefreshCw, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { filterAnalystRows, selectAnalystFilterOptions } from "../analystFilters";
+import { FilterPillPopover } from "../../components/FilterPillPopover";
+import { modelOwnerLookup } from "../selectors";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MISSING = "—";
+const POWERTRAIN_OPTIONS = ["ICE", "BEV", "HEV", "PHEV"];
 
 type AnalystRow = {
   brand: string;
@@ -58,7 +61,6 @@ export default function AnalystPage() {
   const [currentViewBy, setCurrentViewBy] = useState<"brand" | "model">("brand");
   const [currentPowertrain, setCurrentPowertrain] = useState<string>("ALL");
   const [selectedVehicleType, setSelectedVehicleType] = useState<string>("ALL");
-  const [searchText, setSearchText] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   
@@ -115,7 +117,7 @@ export default function AnalystPage() {
 
   // Reset page to 1 when filters or sorting changes (using render-phase state updates)
   const [prevFilterKey, setPrevFilterKey] = useState("");
-  const currentFilterKey = `${searchText}||${selectedBrand}||${selectedModel}||${currentViewBy}||${currentPowertrain}||${selectedVehicleType}||${sortField}||${sortDirection}`;
+  const currentFilterKey = `${selectedBrand}||${selectedModel}||${currentViewBy}||${currentPowertrain}||${selectedVehicleType}||${sortField}||${sortDirection}`;
   if (currentFilterKey !== prevFilterKey) {
     setPrevFilterKey(currentFilterKey);
     setCurrentPage(1);
@@ -178,6 +180,12 @@ export default function AnalystPage() {
     [modelFilterRows, selectedBrand],
   );
 
+  // Ownership index rebuilt only when the VT-scoped rows change, not on every model pick.
+  const modelOwners = useMemo(
+    () => modelOwnerLookup(modelFilterRows.filter((r) => !r.is_grand_total)),
+    [modelFilterRows],
+  );
+
   const brandOptions = useMemo(() => {
     if (currentViewBy === "model") return modelViewOptions.brands;
     const brandsSet = new Set<string>();
@@ -198,6 +206,17 @@ export default function AnalystPage() {
     if (currentViewBy !== "model") return;
     const validModels = new Set(selectAnalystFilterOptions(modelFilterRows, brand).models);
     if (selectedModel && !validModels.has(selectedModel)) setSelectedModel("");
+  };
+
+  // Selecting a model owned by exactly one brand (in the current vehicle-type context) syncs
+  // that brand; a model shared across brands is left alone (no guess). Only in Model view —
+  // syncing Brand in Brand view would silently filter Brand-view rows via Model, which the
+  // spec forbids.
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    if (!model || selectedBrand || currentViewBy !== "model") return;
+    const owner = modelOwners.get(model);
+    if (owner) setSelectedBrand(owner);
   };
 
   const handleVehicleTypeChange = (vehicleType: string) => {
@@ -259,20 +278,10 @@ export default function AnalystPage() {
 
     let filtered = rawRows.slice();
 
-    // 1. Search Filter
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      filtered = filtered.filter((r) => {
-        if (r.is_grand_total) return true;
-        const name = currentViewBy === "model" ? `${r.brand} ${r.model ?? ""}` : r.brand;
-        return name.toLowerCase().includes(q);
-      });
-    }
-
-    // 2. Cascading Brand and Model filters
+    // Cascading Brand and Model filters
     filtered = filterAnalystRows(filtered, selectedBrand, currentViewBy === "model" ? selectedModel : "");
 
-    // 3. Sorting (keep Grand Total at the top, sort details)
+    // Sorting (keep Grand Total at the top, sort details)
     const grandTotals = filtered.filter((r) => r.is_grand_total);
     const details = filtered.filter((r) => !r.is_grand_total);
 
@@ -285,7 +294,7 @@ export default function AnalystPage() {
     });
 
     return grandTotals.concat(details);
-  }, [data, currentViewBy, currentPowertrain, selectedVehicleType, searchText, selectedBrand, selectedModel, sortField, sortDirection]);
+  }, [data, currentViewBy, currentPowertrain, selectedVehicleType, selectedBrand, selectedModel, sortField, sortDirection]);
 
   const paginatedRows = useMemo(() => {
     const grandTotals = filteredAndSortedRows.filter(r => r.is_grand_total);
@@ -452,87 +461,71 @@ export default function AnalystPage() {
             </div>
           </div>
 
-          {/* Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm pt-1">
-            <div>
-              <label htmlFor="filter-search" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Search</label>
-              <input 
-                id="filter-search"
-                type="text" 
-                placeholder="Search brand or model..." 
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs placeholder:text-slate-500"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+          {/* Primary filter pills mirror the Deep-Dive filter vocabulary. */}
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 pt-1 text-sm">
+            <div className="min-w-[150px]">
+              <FilterPillPopover
+                label="Brand"
+                placeholder="Search brands..."
+                options={brandOptions}
+                value={selectedBrand ? [selectedBrand] : []}
+                onChange={(v) => handleBrandChange(v[0] ?? "")}
+                singleSelect
               />
             </div>
-            <div>
-              <label htmlFor="filter-brand" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Brand</label>
-              <select 
-                id="filter-brand"
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
-                value={selectedBrand}
-                onChange={(e) => handleBrandChange(e.target.value)}
-              >
-                <option value="">All Brands</option>
-                {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+            <div className="min-w-[150px]">
+              <FilterPillPopover
+                label="Model"
+                placeholder="Search models..."
+                options={modelViewOptions.models}
+                value={selectedModel ? [selectedModel] : []}
+                onChange={(v) => handleModelChange(v[0] ?? "")}
+                singleSelect
+              />
             </div>
-            <div>
-              <label htmlFor="filter-model" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Model</label>
-              <select
-                id="filter-model"
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs disabled:cursor-not-allowed disabled:text-slate-500"
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={currentViewBy !== "model"}
-                title={currentViewBy !== "model" ? "Select Model view to filter by model" : undefined}
-              >
-                <option value="">All Models</option>
-                {modelViewOptions.models.map((model) => <option key={model} value={model}>{model}</option>)}
-              </select>
+            <div className="min-w-[190px]">
+              <FilterPillPopover
+                label="Vehicle Type"
+                placeholder="Search vehicle types..."
+                options={meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) ?? []}
+                value={selectedVehicleType === "ALL" ? [] : [selectedVehicleType]}
+                onChange={(v) => handleVehicleTypeChange(v[0] ?? "ALL")}
+                singleSelect
+              />
             </div>
-            <div>
-              <label htmlFor="filter-viewby" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">View By</label>
-              <select 
-                id="filter-viewby"
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
-                value={currentViewBy}
-                onChange={(e) => handleViewByChange(e.target.value as "brand" | "model")}
-              >
-                <option value="brand">Brand</option>
-                <option value="model">Model</option>
-              </select>
+            <div
+              className={`min-w-[150px] ${currentViewBy === "model" ? "opacity-40 pointer-events-none" : ""}`}
+              title={currentViewBy === "model" ? "Powertrain locked to ALL — model data has no powertrain breakdown" : undefined}
+            >
+              <FilterPillPopover
+                label="Powertrain"
+                placeholder="Search powertrain..."
+                options={POWERTRAIN_OPTIONS}
+                value={currentPowertrain === "ALL" ? [] : [currentPowertrain]}
+                onChange={(v) => setCurrentPowertrain(v[0] ?? "ALL")}
+                singleSelect
+              />
             </div>
-            <div>
-              <label htmlFor="filter-powertrain" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Powertrain</label>
-              <select 
-                id="filter-powertrain"
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs disabled:cursor-not-allowed disabled:text-slate-500"
-                value={currentPowertrain}
-                onChange={(e) => setCurrentPowertrain(e.target.value)}
-                disabled={currentViewBy === "model"}
-                title={currentViewBy === "model" ? "Powertrain filters require fuel-grain data" : undefined}
-              >
-                <option value="ALL">ALL</option>
-                <option value="ICE">ICE</option>
-                <option value="BEV">BEV</option>
-                <option value="HEV">HEV</option>
-                <option value="PHEV">PHEV</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="filter-vehicletype" className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase tracking-wider">Vehicle Type</label>
-              <select
-                id="filter-vehicletype"
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
-                value={selectedVehicleType}
-                onChange={(e) => handleVehicleTypeChange(e.target.value)}
-              >
-                <option value="ALL">ALL</option>
-                {meta?.vehicle_types_list?.map(vt => (
-                  <option key={vt.code} value={vt.code}>{vt.label}</option>
-                ))}
-              </select>
+
+            {/* View By is Analyst-only and secondary to the Deep-Dive-style filter pills. */}
+            <div className="flex flex-col justify-center md:ml-auto">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">View By</span>
+              <div className="flex items-center rounded-full border border-slate-700 bg-slate-800 p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleViewByChange("brand")}
+                  className={`rounded-full px-2.5 py-1 font-medium transition-colors ${currentViewBy === "brand" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                >
+                  Brand
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewByChange("model")}
+                  className={`rounded-full px-2.5 py-1 font-medium transition-colors ${currentViewBy === "model" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                >
+                  Model
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -33,7 +33,9 @@ import {
   selectBrandRankingsFromMonthly,
   selectDynamicChartData,
   selectDynamicChartDataFromMonthly,
-  selectProvinceAnalysisData
+  selectProvinceAnalysisData,
+  modelBrandPairs,
+  modelOwnerLookup
 } from "./selectors";
 import { FilterPillPopover } from "../components/FilterPillPopover";
 
@@ -340,6 +342,26 @@ export default function Dashboard() {
     }
   }, [allDataModels, rankingModel]);
 
+  // Rebuilt only when the lazy tree loads, not on every model pick.
+  const modelOwners = useMemo(
+    () => modelOwnerLookup(modelBrandPairs(brandModelTree ?? undefined)),
+    [brandModelTree]
+  );
+
+  // Selecting a model owned by exactly one brand syncs that brand in; a model shared across
+  // brands is left alone (no guess). Needs the tree, so ensure it's loading.
+  const handleRankingModelChange = (models: string[]) => {
+    const added = models.filter((m) => !rankingModel.includes(m));
+    setRankingModel(models);
+    if (added.length === 0) return;
+    ensureModels();
+    setRankingBrand((prev) => {
+      const next = new Set(prev);
+      added.forEach((m) => { const b = modelOwners.get(m); if (b) next.add(b); });
+      return next.size === prev.length ? prev : [...next];
+    });
+  };
+
   const timeCols = selectedYear === "All" 
     ? years.map(y => ({ key: String(y), label: String(y) }))
     : months.map(m => ({ key: m, label: m }));
@@ -579,7 +601,7 @@ export default function Dashboard() {
               <div className="flex flex-wrap gap-2 items-center bg-slate-900 border border-slate-800 rounded-sm p-3">
                 <FilterPillPopover label="Powertrain" placeholder="Powertrains" options={["ICE", "BEV", "HEV", "PHEV"]} value={rankingPt} onChange={setRankingPt} />
                 <FilterPillPopover label="Brand" placeholder="Brands" options={allDataBrands} value={rankingBrand} onChange={setRankingBrand} />
-                <FilterPillPopover label="Model" placeholder="Models" options={allDataModels} value={rankingModel} onChange={setRankingModel} onOpen={ensureModels} />
+                <FilterPillPopover label="Model" placeholder="Models" options={allDataModels} value={rankingModel} onChange={handleRankingModelChange} onOpen={ensureModels} />
                 <FilterPillPopover label="Province" placeholder="Provinces" options={allDataProvinces} value={rankingProvince} onChange={setRankingProvince} onOpen={ensureModels} />
               </div>
 

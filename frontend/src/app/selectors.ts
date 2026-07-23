@@ -74,6 +74,23 @@ export function selectDeepDiveFilterOptions(tree: BrandNode[] | undefined, selec
   };
 }
 
+export function modelBrandPairs(tree: BrandNode[] | undefined): { brand: string; model: string }[] {
+  return (tree ?? []).flatMap((b) => (b.models ?? []).map((m) => ({ brand: b.brand, model: m.name })));
+}
+
+// Memoize-once ownership index: model name -> single owning brand, or null when shared across
+// brands (never guess). Missing models return undefined via Map.get. Build once per source-data
+// change so selection handlers do an O(1) lookup instead of rescanning the pairs each pick.
+export function modelOwnerLookup(pairs: { brand: string; model?: string }[]): Map<string, string | null> {
+  const owners = new Map<string, string | null>();
+  pairs.forEach((p) => {
+    if (p.model === undefined) return;
+    if (!owners.has(p.model)) owners.set(p.model, p.brand);
+    else if (owners.get(p.model) !== p.brand) owners.set(p.model, null);
+  });
+  return owners;
+}
+
 export function getNodeSums(node: { monthly: TreeMonthly }, selectedYear: number | "All", selectedVehicleTypes: string[], selectedProvinces: string[]) {
   const timeVals: Record<string, number> = {};
   let grandTotal = 0;

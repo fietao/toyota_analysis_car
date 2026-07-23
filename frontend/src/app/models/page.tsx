@@ -13,6 +13,8 @@ import {
   seriesTotals,
   seriesMonthlyValues,
   selectDeepDiveFilterOptions,
+  modelBrandPairs,
+  modelOwnerLookup,
 } from "../selectors";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -109,6 +111,25 @@ export default function ModelsPage() {
     setSelectedBrands(brands);
     const validModels = new Set(selectDeepDiveFilterOptions(data?.brand_model_tree, brands).allModels);
     setSelectedModels((models) => models.filter((model) => validModels.has(model)));
+  };
+
+  // Built once per tree load; selection handler does an O(1) lookup instead of re-flattening.
+  const modelOwners = useMemo(
+    () => modelOwnerLookup(modelBrandPairs(data?.brand_model_tree)),
+    [data?.brand_model_tree]
+  );
+
+  // Selecting a model whose name belongs to exactly one brand syncs that brand in; a model
+  // shared across brands is left alone (no guess).
+  const handleSelectedModelsChange = (models: string[]) => {
+    const added = models.filter((m) => !selectedModels.includes(m));
+    setSelectedModels(models);
+    if (added.length === 0) return;
+    setSelectedBrands((prev) => {
+      const next = new Set(prev);
+      added.forEach((m) => { const b = modelOwners.get(m); if (b) next.add(b); });
+      return next.size === prev.length ? prev : [...next];
+    });
   };
 
   // Filtered Rows Assembly — brand and series totals come only from segments matching the
@@ -327,7 +348,7 @@ export default function ModelsPage() {
           {/* Filters Bar */}
           <div className="flex flex-wrap items-end gap-x-5 gap-y-3 text-sm pt-1">
             <div className="min-w-[150px]"><FilterPillPopover label="Brand" placeholder="Search brands..." options={allBrands} value={selectedBrands} onChange={handleSelectedBrandsChange} /></div>
-            <div className="min-w-[150px]"><FilterPillPopover label="Model" placeholder="Search models..." options={allModels} value={selectedModels} onChange={setSelectedModels} /></div>
+            <div className="min-w-[150px]"><FilterPillPopover label="Model" placeholder="Search models..." options={allModels} value={selectedModels} onChange={handleSelectedModelsChange} /></div>
             <div className="min-w-[170px]"><FilterPillPopover label="Province" placeholder="Search provinces..." options={meta?.provinces ?? []} value={selectedProvinces} onChange={setSelectedProvinces} /></div>
             <div className="min-w-[190px]"><FilterPillPopover label="Vehicle Type" placeholder="Search vehicle types..." options={meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) ?? []} value={selectedVehicleTypes} onChange={setSelectedVehicleTypes} /></div>
 

@@ -16,6 +16,8 @@ import {
   filterSegments,
   selectDeepDiveFilterOptions,
   selectRankingsData,
+  modelBrandPairs,
+  modelOwnerLookup,
 } from "./selectors.ts";
 
 const YEAR = "2569";
@@ -191,6 +193,29 @@ test("loading an empty-registry model tree cannot erase fuel-derived brand ranki
   assert.equal(result.rows.length, 1);
   assert.equal(result.rows[0].name, "MITSUBISHI");
   assert.equal(result.rows[0].YTD, 80);
+});
+
+test("Model -> Brand sync: single-owner model resolves its brand, shared model does not guess", () => {
+  // ALPHA belongs only to ACME; SHARED belongs to both ACME and MITSUBISHI.
+  const owners = modelOwnerLookup([
+    { brand: "ACME", model: "ALPHA" },
+    { brand: "ACME", model: "SHARED" },
+    { brand: "MITSUBISHI", model: "SHARED" },
+    { brand: "MITSUBISHI", model: "TRITON" },
+    { brand: "ACME", model: "SHARED" }, // duplicate owner must not revert the null verdict
+  ]);
+  assert.equal(owners.get("ALPHA"), "ACME");
+  assert.equal(owners.get("TRITON"), "MITSUBISHI");
+  assert.equal(owners.get("SHARED"), null); // shared across brands -> no guess
+  assert.equal(owners.get("MISSING"), undefined); // unknown -> falsy, no guess
+});
+
+test("modelBrandPairs flattens the tree to brand/model ownership pairs", () => {
+  assert.deepEqual(modelBrandPairs(fixture()), [
+    { brand: "ACME", model: "ALPHA" },
+    { brand: "MITSUBISHI", model: "TRITON" },
+  ]);
+  assert.deepEqual(modelBrandPairs(undefined), []);
 });
 
 test("Deep Dive model filter options narrow to the selected brand models", () => {
