@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronDown, ChevronRight, Download, RefreshCw } from "lucide-react";
 import {
@@ -52,41 +52,53 @@ function rankChange(n: number | null | undefined) {
   return n > 0 ? `+${n}` : String(n);
 }
 
-function MonthlyDetailRow({ row, meta, colSpan }: { row: ReportRow; meta: ManualReportMeta; colSpan: number }) {
+function MonthlyDetailPanel({ row, meta, onClose }: { row: ReportRow; meta: ManualReportMeta; onClose: () => void }) {
   const currentMonths = meta.months.slice(0, meta.latest_month_num);
   return (
-    <tr className="bg-slate-950/70">
-      <td colSpan={colSpan} className="border-b border-slate-800 p-3">
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="rounded-md border border-slate-800 bg-slate-950">
-            <div className="border-b border-slate-800 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              {meta.latest_year} monthly
-            </div>
-            <div className="grid grid-cols-3 gap-px p-2 sm:grid-cols-6">
-              {currentMonths.map((m, mi) => (
-                <div key={`${m}-${meta.latest_year}`} className="bg-slate-900 px-2 py-1.5">
-                  <div className="text-[10px] text-slate-500">{m}</div>
-                  <div className="mt-0.5 font-mono text-xs text-slate-100">{num(row.curr_months[mi])}</div>
-                </div>
-              ))}
-            </div>
+    <div className="border-b border-slate-800 bg-slate-950/70 p-4">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Monthly detail</p>
+          <h3 className="mt-0.5 text-sm font-semibold text-slate-100">{row.label}</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="self-start rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:text-slate-100 sm:self-auto"
+        >
+          Close detail
+        </button>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
+        <div className="rounded-md border border-slate-800 bg-slate-950">
+          <div className="border-b border-slate-800 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            {meta.latest_year} monthly
           </div>
-          <div className="rounded-md border border-slate-800 bg-slate-950">
-            <div className="border-b border-slate-800 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              {meta.prev_year} monthly
-            </div>
-            <div className="grid grid-cols-3 gap-px p-2 sm:grid-cols-6">
-              {meta.months.map((m, mi) => (
-                <div key={`${m}-${meta.prev_year}`} className="bg-slate-900 px-2 py-1.5">
-                  <div className="text-[10px] text-slate-500">{m}</div>
-                  <div className="mt-0.5 font-mono text-xs text-slate-100">{num(row.prev_months[mi])}</div>
-                </div>
-              ))}
-            </div>
+          <div className="grid grid-cols-3 gap-px p-2 sm:grid-cols-6">
+            {currentMonths.map((m, mi) => (
+              <div key={`${m}-${meta.latest_year}`} className="bg-slate-900 px-2 py-1.5">
+                <div className="text-[10px] text-slate-500">{m}</div>
+                <div className="mt-0.5 font-mono text-xs text-slate-100">{num(row.curr_months[mi])}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </td>
-    </tr>
+        <div className="rounded-md border border-slate-800 bg-slate-950">
+          <div className="border-b border-slate-800 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            {meta.prev_year} monthly
+          </div>
+          <div className="grid grid-cols-3 gap-px p-2 sm:grid-cols-6">
+            {meta.months.map((m, mi) => (
+              <div key={`${m}-${meta.prev_year}`} className="bg-slate-900 px-2 py-1.5">
+                <div className="text-[10px] text-slate-500">{m}</div>
+                <div className="mt-0.5 font-mono text-xs text-slate-100">{num(row.prev_months[mi])}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -99,7 +111,7 @@ export default function ManualReportPage() {
   const [exporting, setExporting] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [compareFocus, setCompareFocus] = useState(true);
-  const [expandedMonthlyRows, setExpandedMonthlyRows] = useState<Set<string>>(new Set());
+  const [selectedMonthlyRowId, setSelectedMonthlyRowId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -156,7 +168,7 @@ export default function ManualReportPage() {
   const handleSelectYear = (year: number) => {
     setSelectedYear(year);
     setSearch("");
-    setExpandedMonthlyRows(new Set());
+    setSelectedMonthlyRowId(null);
   };
 
   const active = SHEETS.find((s) => s.id === activeId) ?? SHEETS[0];
@@ -207,14 +219,9 @@ export default function ManualReportPage() {
   const supportsCompareFocus = active.kind === "powertrain" || active.kind === "brand";
   const showCompareFocus = compareFocus && supportsCompareFocus;
   const rowExpandId = (row: ReportRow, i: number) => `${active.id}|${row.key}|${i}`;
-  const toggleMonthlyRow = (id: string) => {
-    setExpandedMonthlyRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const selectedMonthlyRow = showCompareFocus
+    ? rows.find((row, i) => rowExpandId(row, i) === selectedMonthlyRowId) ?? null
+    : null;
 
   // Shared row-emphasis logic across the tree-shaped sheets (model_tree groups by
   // brand, province_tree groups by province); flat sheets just get the grand-total
@@ -335,7 +342,7 @@ export default function ManualReportPage() {
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => { setActiveId(s.id); setSearch(""); setExpandedMonthlyRows(new Set()); }}
+                  onClick={() => { setActiveId(s.id); setSearch(""); setSelectedMonthlyRowId(null); }}
                   className={`rounded-md border px-3 py-2 text-left transition-colors ${
                     on ? "border-teal-500 bg-teal-500/10 text-teal-100" : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 hover:text-slate-200"
                   }`}
@@ -396,6 +403,14 @@ export default function ManualReportPage() {
             </div>
           )}
 
+          {selectedMonthlyRow && (
+            <MonthlyDetailPanel
+              row={selectedMonthlyRow}
+              meta={meta}
+              onClose={() => setSelectedMonthlyRowId(null)}
+            />
+          )}
+
           <div className="max-h-[72vh] overflow-auto custom-scrollbar">
             <table className="w-full border-separate border-spacing-0 text-left text-xs">
               {active.kind === "powertrain" && (
@@ -418,32 +433,29 @@ export default function ManualReportPage() {
                       {rows.map((row, i) => {
                         const { rowClass, labelBg } = rowVisual(row, i, active.kind);
                         const expandId = rowExpandId(row, i);
-                        const expanded = expandedMonthlyRows.has(expandId);
+                        const selected = selectedMonthlyRowId === expandId;
                         return (
-                          <Fragment key={`${row.key}-${i}`}>
-                            <tr className={`border-b border-slate-800 ${rowClass}`}>
-                              <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleMonthlyRow(expandId)}
-                                  aria-expanded={expanded}
-                                  className="flex w-full items-center gap-2 text-left"
-                                >
-                                  {expanded ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
-                                  <span>{row.label}</span>
-                                </button>
-                              </td>
-                              <td className="border-l border-slate-800/70 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
-                              <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.curr_months[meta.latest_month_num - 2])}</td>
-                              <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
-                              <td className={`border-l-2 border-slate-700 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
-                              <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
-                              <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
-                              <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
-                              <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
-                            </tr>
-                            {expanded && <MonthlyDetailRow row={row} meta={meta} colSpan={9} />}
-                          </Fragment>
+                          <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${selected ? "outline outline-1 outline-teal-600/70" : ""} ${rowClass}`}>
+                            <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMonthlyRowId(selected ? null : expandId)}
+                                aria-expanded={selected}
+                                className="flex w-full items-center gap-2 text-left"
+                              >
+                                {selected ? <ChevronDown className="h-3.5 w-3.5 text-teal-300" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                                <span>{row.label}</span>
+                              </button>
+                            </td>
+                            <td className="border-l border-slate-800/70 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                            <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.curr_months[meta.latest_month_num - 2])}</td>
+                            <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
+                            <td className={`border-l-2 border-slate-700 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                            <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
+                            <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                            <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
+                            <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -520,35 +532,32 @@ export default function ManualReportPage() {
                       {rows.map((row, i) => {
                         const { rowClass, labelBg } = rowVisual(row, i, active.kind);
                         const expandId = rowExpandId(row, i);
-                        const expanded = expandedMonthlyRows.has(expandId);
+                        const selected = selectedMonthlyRowId === expandId;
                         return (
-                          <Fragment key={`${row.key}-${i}`}>
-                            <tr className={`border-b border-slate-800 ${rowClass}`}>
-                              <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleMonthlyRow(expandId)}
-                                  aria-expanded={expanded}
-                                  className="flex w-full items-center gap-2 text-left"
-                                >
-                                  {expanded ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
-                                  <span>{row.label}</span>
-                                </button>
-                              </td>
-                              <td className="border-l border-slate-800/70 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
-                              <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.curr_months[meta.latest_month_num - 2])}</td>
-                              <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
-                              <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_month_diff)}`}>{points(row.curr_month_diff)}</td>
-                              <td className={`border-l-2 border-slate-700 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
-                              <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
-                              <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
-                              <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
-                              <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_ytd_diff)}`}>{points(row.curr_ytd_diff)}</td>
-                              <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
-                              <td className="border-l-2 border-slate-700 p-2 text-center font-mono text-slate-400">{rankChange(row.rank_diff)}</td>
-                            </tr>
-                            {expanded && <MonthlyDetailRow row={row} meta={meta} colSpan={12} />}
-                          </Fragment>
+                          <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${selected ? "outline outline-1 outline-teal-600/70" : ""} ${rowClass}`}>
+                            <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMonthlyRowId(selected ? null : expandId)}
+                                aria-expanded={selected}
+                                className="flex w-full items-center gap-2 text-left"
+                              >
+                                {selected ? <ChevronDown className="h-3.5 w-3.5 text-teal-300" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                                <span>{row.label}</span>
+                              </button>
+                            </td>
+                            <td className="border-l border-slate-800/70 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                            <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.curr_months[meta.latest_month_num - 2])}</td>
+                            <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
+                            <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_month_diff)}`}>{points(row.curr_month_diff)}</td>
+                            <td className={`border-l-2 border-slate-700 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                            <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
+                            <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                            <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
+                            <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_ytd_diff)}`}>{points(row.curr_ytd_diff)}</td>
+                            <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
+                            <td className="border-l-2 border-slate-700 p-2 text-center font-mono text-slate-400">{rankChange(row.rank_diff)}</td>
+                          </tr>
                         );
                       })}
                     </tbody>
