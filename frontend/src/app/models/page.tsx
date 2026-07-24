@@ -321,6 +321,9 @@ export default function ModelsPage() {
               <p className="text-[10px] text-slate-500 mt-0.5">Thailand Department of Land Transport — Multi-Year Registration Details</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs bg-slate-950 text-teal-300 font-semibold px-3 py-2 rounded border border-slate-800">
+                Data through: {meta?.reporting_period ?? "N/A"}
+              </span>
               <span className="text-xs bg-slate-950 text-slate-400 px-3 py-2 rounded border border-slate-800 tabular-nums">
                 Reference Grand Total: {referenceTotal.toLocaleString()}
               </span>
