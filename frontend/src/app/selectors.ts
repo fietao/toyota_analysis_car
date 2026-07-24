@@ -56,6 +56,29 @@ export type DashboardData = {
 
 export type Rec = Record<string, string | number | boolean | null>;
 
+export type PeriodComparison = {
+  selectedYear: number;
+  selectedMonth: string;
+  selectedMonthIndex: number;
+  previousMonthYear: number;
+  previousMonth: string;
+  priorYear: number;
+  currentMonthUnits: number;
+  previousMonthUnits: number;
+  sameMonthPriorYearUnits: number;
+  currentYtdUnits: number;
+  priorYtdUnits: number;
+  priorFullYearUnits: number;
+  momDeltaUnits: number;
+  yoyDeltaUnits: number;
+  ytdDeltaUnits: number;
+  momGrowth: number | null;
+  yoyGrowth: number | null;
+  ytdGrowth: number | null;
+  topPowertrainMover: { name: string; delta: number } | null;
+  topBrandMover: { name: string; delta: number } | null;
+};
+
 export function selectDeepDiveFilterOptions(tree: BrandNode[] | undefined, selectedBrands: string[]) {
   const brandsSet = new Set<string>();
   const modelsSet = new Set<string>();
@@ -276,6 +299,138 @@ export function selectFilterOptions(data: DashboardData | null, rankingBrand: st
   const allDataModels = Array.from(mSet).sort();
   
   return { allDataBrands, allDataModels };
+}
+
+function monthIndex(months: string[], month: string): number {
+  return months.findIndex((m) => m === month);
+}
+
+function growth(current: number, baseline: number): number | null {
+  return baseline === 0 ? null : (current - baseline) / baseline;
+}
+
+function strongestMover(values: Map<string, { current: number; prior: number }>) {
+  let best: { name: string; delta: number } | null = null;
+  values.forEach((v, name) => {
+    const delta = v.current - v.prior;
+    if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { name, delta };
+  });
+  return best;
+}
+
+export function availableComparisonMonths(data: DashboardData | null, selectedYear: number | "All"): string[] {
+  if (!data?.fuel_monthly || !data.meta?.months) return [];
+  const targetYear = selectedYear === "All"
+    ? data.meta.latest_year ?? data.meta.years?.[data.meta.years.length - 1]
+    : selectedYear;
+  if (!targetYear) return [];
+
+  const activeMonths = new Set(data.fuel_monthly.filter((row) => row.y === targetYear && row.u > 0).map((row) => row.m));
+  return data.meta.months.filter((month) => activeMonths.has(month));
+}
+
+export function defaultComparisonMonth(data: DashboardData | null, selectedYear: number | "All"): string {
+  const available = availableComparisonMonths(data, selectedYear);
+  if (available.length === 0) return "";
+  if (selectedYear !== "All" && selectedYear === data?.meta?.latest_year && data.meta.latest_month && available.includes(data.meta.latest_month)) {
+    return data.meta.latest_month;
+  }
+  if (selectedYear === "All" && data?.meta?.latest_month && available.includes(data.meta.latest_month)) {
+    return data.meta.latest_month;
+  }
+  return available[available.length - 1];
+}
+
+export function selectPeriodComparison(
+  data: DashboardData | null,
+  selectedYear: number | "All",
+  selectedMonth: string,
+  selectedVehicleTypes: string[],
+  rankingPt: string[],
+  rankingBrand: string[]
+): PeriodComparison | null {
+  if (!data?.fuel_monthly || !data?.brand_monthly || !data.meta?.months) return null;
+  const targetYear = selectedYear === "All"
+    ? data.meta.latest_year ?? data.meta.years?.[data.meta.years.length - 1]
+    : selectedYear;
+  if (!targetYear) return null;
+
+  const mIdx = monthIndex(data.meta.months, selectedMonth);
+  if (mIdx < 0) return null;
+
+  const previousMonthIndex = mIdx === 0 ? data.meta.months.length - 1 : mIdx - 1;
+  const previousMonth = data.meta.months[previousMonthIndex];
+  const previousMonthYear = mIdx === 0 ? targetYear - 1 : targetYear;
+  const priorYear = targetYear - 1;
+  const vehicleSet = selectedVehicleTypes.length > 0 ? new Set(selectedVehicleTypes) : null;
+  const ptSet = rankingPt.length > 0 ? new Set(rankingPt) : null;
+  const brandSet = rankingBrand.length > 0 ? new Set(rankingBrand) : null;
+
+  const fuelInScope = data.fuel_monthly.filter((row) => {
+    if (vehicleSet && !vehicleSet.has(row.v)) return false;
+    if (ptSet && !ptSet.has(row.pt)) return false;
+    return true;
+  });
+
+  const brandInScope = data.brand_monthly.filter((row) => {
+    if (vehicleSet && !vehicleSet.has(row.v)) return false;
+    if (ptSet && !ptSet.has(row.pt)) return false;
+    if (brandSet && !brandSet.has(row.b)) return false;
+    return true;
+  });
+
+  const sumFuel = (year: number, months: string[]) => fuelInScope
+    .filter((row) => row.y === year && months.includes(row.m))
+    .reduce((s, row) => s + row.u, 0);
+
+  const currentMonthUnits = sumFuel(targetYear, [selectedMonth]);
+  const previousMonthUnits = sumFuel(previousMonthYear, [previousMonth]);
+  const sameMonthPriorYearUnits = sumFuel(priorYear, [selectedMonth]);
+  const ytdMonths = data.meta.months.slice(0, mIdx + 1);
+  const currentYtdUnits = sumFuel(targetYear, ytdMonths);
+  const priorYtdUnits = sumFuel(priorYear, ytdMonths);
+  const priorFullYearUnits = sumFuel(priorYear, data.meta.months);
+
+  const powertrainMovers = new Map<string, { current: number; prior: number }>();
+  fuelInScope.forEach((row) => {
+    if (row.m !== selectedMonth || (row.y !== targetYear && row.y !== priorYear)) return;
+    const bucket = powertrainMovers.get(row.pt) ?? { current: 0, prior: 0 };
+    if (row.y === targetYear) bucket.current += row.u;
+    if (row.y === priorYear) bucket.prior += row.u;
+    powertrainMovers.set(row.pt, bucket);
+  });
+
+  const brandMovers = new Map<string, { current: number; prior: number }>();
+  brandInScope.forEach((row) => {
+    if (row.m !== selectedMonth || (row.y !== targetYear && row.y !== priorYear)) return;
+    const bucket = brandMovers.get(row.b) ?? { current: 0, prior: 0 };
+    if (row.y === targetYear) bucket.current += row.u;
+    if (row.y === priorYear) bucket.prior += row.u;
+    brandMovers.set(row.b, bucket);
+  });
+
+  return {
+    selectedYear: targetYear,
+    selectedMonth,
+    selectedMonthIndex: mIdx,
+    previousMonthYear,
+    previousMonth,
+    priorYear,
+    currentMonthUnits,
+    previousMonthUnits,
+    sameMonthPriorYearUnits,
+    currentYtdUnits,
+    priorYtdUnits,
+    priorFullYearUnits,
+    momDeltaUnits: currentMonthUnits - previousMonthUnits,
+    yoyDeltaUnits: currentMonthUnits - sameMonthPriorYearUnits,
+    ytdDeltaUnits: currentYtdUnits - priorYtdUnits,
+    momGrowth: growth(currentMonthUnits, previousMonthUnits),
+    yoyGrowth: growth(currentMonthUnits, sameMonthPriorYearUnits),
+    ytdGrowth: growth(currentYtdUnits, priorYtdUnits),
+    topPowertrainMover: strongestMover(powertrainMovers),
+    topBrandMover: strongestMover(brandMovers),
+  };
 }
 
 export function selectTrendData(

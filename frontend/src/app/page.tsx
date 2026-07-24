@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import {
   DashboardData, Rec, BrandNode,
+  PeriodComparison,
   selectFilterOptions,
   selectTrendData,
   selectRankingsData,
@@ -34,6 +35,9 @@ import {
   selectDynamicChartData,
   selectDynamicChartDataFromMonthly,
   selectProvinceAnalysisData,
+  availableComparisonMonths,
+  defaultComparisonMonth,
+  selectPeriodComparison,
   modelBrandPairs,
   modelOwnerLookup
 } from "./selectors";
@@ -67,6 +71,17 @@ const fmt = (n: unknown) => {
   const v = Number(n);
   if (v === 0) return "—";
   return isNaN(v) ? "—" : v.toLocaleString();
+};
+
+const fmtSigned = (n: number) => {
+  if (n === 0) return "0";
+  return `${n > 0 ? "+" : ""}${n.toLocaleString()}`;
+};
+
+const fmtGrowth = (n: number | null) => {
+  if (n === null || !Number.isFinite(n)) return "n/a";
+  const pct = n * 100;
+  return `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
 };
 
 /* ── Components ───────────────────────────────────────────────────── */
@@ -247,6 +262,72 @@ function TopBarChart({ data, nameKey, title }: { data: Rec[], nameKey: string, t
   );
 }
 
+function ComparisonMetric({ label, value, sublabel, tone = "neutral" }: {
+  label: string;
+  value: string;
+  sublabel?: string;
+  tone?: "neutral" | "positive" | "negative";
+}) {
+  const toneClass = tone === "positive" ? "text-brand-light" : tone === "negative" ? "text-red-300" : "text-slate-100";
+  return (
+    <div className="min-w-0 border-t border-slate-800 pt-2 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className={`mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums ${toneClass}`}>{value}</p>
+      {sublabel && <p className="mt-0.5 truncate text-[10px] text-slate-500" title={sublabel}>{sublabel}</p>}
+    </div>
+  );
+}
+
+function PeriodComparisonPanel({ comparison }: { comparison: PeriodComparison | null }) {
+  if (!comparison) return null;
+  const momTone = comparison.momDeltaUnits >= 0 ? "positive" : "negative";
+  const yoyTone = comparison.yoyDeltaUnits >= 0 ? "positive" : "negative";
+  const ytdTone = comparison.ytdDeltaUnits >= 0 ? "positive" : "negative";
+  return (
+    <Card title="Period Comparison">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Selected Month</p>
+          <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">
+            {fmt(comparison.currentMonthUnits)}
+          </p>
+          <p className="mt-0.5 text-[10px] text-slate-500">
+            {comparison.selectedMonth} {comparison.selectedYear}
+          </p>
+        </div>
+        <ComparisonMetric
+          label="vs Previous Month"
+          value={`${fmtSigned(comparison.momDeltaUnits)} (${fmtGrowth(comparison.momGrowth)})`}
+          sublabel={`${comparison.previousMonth} ${comparison.previousMonthYear}: ${fmt(comparison.previousMonthUnits)}`}
+          tone={momTone}
+        />
+        <ComparisonMetric
+          label="vs Same Month Prior Year"
+          value={`${fmtSigned(comparison.yoyDeltaUnits)} (${fmtGrowth(comparison.yoyGrowth)})`}
+          sublabel={`${comparison.selectedMonth} ${comparison.priorYear}: ${fmt(comparison.sameMonthPriorYearUnits)}`}
+          tone={yoyTone}
+        />
+        <ComparisonMetric
+          label="Equivalent YTD"
+          value={`${fmtSigned(comparison.ytdDeltaUnits)} (${fmtGrowth(comparison.ytdGrowth)})`}
+          sublabel={`Jan-${comparison.selectedMonth} ${comparison.priorYear}: ${fmt(comparison.priorYtdUnits)}; full ${comparison.priorYear}: ${fmt(comparison.priorFullYearUnits)}`}
+          tone={ytdTone}
+        />
+      </div>
+      <div className="mt-3 grid gap-2 border-t border-slate-800 pt-3 text-[10px] text-slate-400 sm:grid-cols-2">
+        <p>
+          <span className="font-semibold text-slate-300">Powertrain mover:</span>{" "}
+          {comparison.topPowertrainMover ? `${comparison.topPowertrainMover.name} ${fmtSigned(comparison.topPowertrainMover.delta)} YoY units` : "n/a"}
+        </p>
+        <p>
+          <span className="font-semibold text-slate-300">Brand mover:</span>{" "}
+          {comparison.topBrandMover ? `${comparison.topBrandMover.name} ${fmtSigned(comparison.topBrandMover.delta)} YoY units` : "n/a"}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 /* ── Main Dashboard ───────────────────────────────────────────────── */
 
 
@@ -256,6 +337,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("rankings");
   const [selectedYear, setSelectedYear] = useState<number | "All">("All");
+  const [comparisonMonth, setComparisonMonth] = useState<string>("");
   const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
 
   // Filter Pills (Arrays)
@@ -321,6 +403,7 @@ export default function Dashboard() {
         if (summary.meta?.years?.length > 0) {
           setSelectedYear(summary.meta.years[summary.meta.years.length - 1]);
         }
+        setComparisonMonth(defaultComparisonMonth(summary, summary.meta?.latest_year ?? summary.meta?.years?.[summary.meta.years.length - 1] ?? "All"));
         setSelectedVehicleTypes(resolveProfileCodes("formal_report", allCodes));
         setLoading(false);
       })
@@ -333,6 +416,14 @@ export default function Dashboard() {
 
   const years = data?.meta?.years ?? [];
   const months = data?.meta?.months ?? [];
+  const comparisonMonths = useMemo(
+    () => availableComparisonMonths(data, selectedYear),
+    [data, selectedYear]
+  );
+  const activeComparisonMonth = useMemo(() => {
+    if (comparisonMonths.includes(comparisonMonth)) return comparisonMonth;
+    return defaultComparisonMonth(data, selectedYear);
+  }, [comparisonMonth, comparisonMonths, data, selectedYear]);
   const allDataProvinces = data?.meta?.provinces ?? [];
   const allVehicleCodes = useMemo(
     () => data?.meta?.vehicle_types_list?.map((v) => v.code) ?? [],
@@ -443,6 +534,10 @@ export default function Dashboard() {
   const { rows: rankedRows, totalUnits: rankTotal, bevUnits: rankBev, ptMix: rankPtMix } = rankingsData;
   const bevPenetration = rankTotal > 0 ? ((rankBev / rankTotal) * 100).toFixed(1) + "%" : "0%";
   const topBrand = rankedRows[0] ? rankedRows[0]["name"] : "—";
+  const periodComparison = useMemo(
+    () => selectPeriodComparison(data, selectedYear, activeComparisonMonth, selectedVehicleTypes, rankingPt, rankingBrand),
+    [data, selectedYear, activeComparisonMonth, selectedVehicleTypes, rankingPt, rankingBrand]
+  );
 
   const rankingsCols = [ 
      { key: "name", label: "Brand / Model", align: "left" }, 
@@ -532,6 +627,22 @@ export default function Dashboard() {
                 </option>
                 {years.slice().reverse().map(y => (
                   <option key={y} value={y} className="bg-slate-900">Year {y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-sm border border-slate-800 bg-slate-900 p-1.5 focus-within:border-brand-primary">
+              <Filter className="h-3 w-3 text-slate-400 ml-1" />
+              <select
+                className="w-full bg-transparent text-xs font-semibold text-slate-200 outline-none disabled:text-slate-500"
+                value={activeComparisonMonth}
+                onChange={(e) => setComparisonMonth(e.target.value)}
+                disabled={comparisonMonths.length === 0}
+              >
+                {comparisonMonths.length === 0 ? (
+                  <option value="" className="bg-slate-900">No comparison month</option>
+                ) : comparisonMonths.map(month => (
+                  <option key={month} value={month} className="bg-slate-900">Compare {month}</option>
                 ))}
               </select>
             </div>
@@ -636,6 +747,7 @@ export default function Dashboard() {
             
             {/* ── Rankings & Leaderboards ─────────────────────────────── */}
             {activeTab === "rankings" && (<>
+              <PeriodComparisonPanel comparison={periodComparison} />
               
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricCard title="Total Units" value={rankTotal.toLocaleString()} />
