@@ -9,6 +9,7 @@ import {
   buildManualReportSheetRows,
   getReportForYear,
   getReportYears,
+  latestMonthLabels,
   safeSheetName,
   type ManualReport,
   type ReportRow,
@@ -34,6 +35,12 @@ function signed(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   const s = pf.format(n);
   return n > 0 ? `+${s}` : s;
+}
+function points(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  const v = Math.round(n * 1000) / 10;
+  if (v === 0) return "—";
+  return v > 0 ? `+${v.toFixed(1)} pp` : `${v.toFixed(1)} pp`;
 }
 function growthClass(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "text-slate-500";
@@ -109,8 +116,8 @@ export default function ManualReportPage() {
   const active = SHEETS.find((s) => s.id === activeId) ?? SHEETS[0];
   const meta = activeReport?.meta;
   const section = meta?.sections?.[active.id];
-  const currMonths = useMemo(
-    () => (meta ? meta.months.slice(0, meta.latest_month_num) : []),
+  const labels = useMemo(
+    () => (meta ? latestMonthLabels(meta) : null),
     [meta]
   );
 
@@ -167,7 +174,7 @@ export default function ManualReportPage() {
     );
   }
 
-  if (error || !report || !meta) {
+  if (error || !report || !meta || !labels) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <div className="max-w-md rounded-md border border-red-900/60 bg-red-950/30 p-6 text-center">
@@ -305,18 +312,30 @@ export default function ManualReportPage() {
               <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
                 <tr>
                   <th rowSpan={2} className="sticky left-0 z-30 min-w-48 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
-                  <th colSpan={13} className="border-r border-slate-700 p-2 text-center">{meta.prev_year}</th>
-                  <th colSpan={currMonths.length + 3} className="p-2 text-center">{meta.latest_year} YTD</th>
+                  <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{meta.prev_year}</th>
+                  <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.prevMonthPeriod}</th>
+                  <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.prevYtdPeriod}</th>
+                  <th colSpan={5} className="border-r border-slate-700 p-2 text-center">{labels.currMonthPeriod}</th>
+                  <th colSpan={4} className="p-2 text-center">{labels.currYtdPeriod}</th>
                   {hasOverall && <th rowSpan={2} className="min-w-24 border-l-2 border-slate-600 p-2 text-center align-bottom">Overall</th>}
                   {hasRank && <th colSpan={3} className="border-l-2 border-slate-600 p-2 text-center">Rank</th>}
                 </tr>
                 <tr className="text-[10px] uppercase tracking-wide text-slate-400">
-                  {(meta.months).map((m) => <th key={`p-${m}`} className="min-w-14 border-l border-slate-700 p-2 text-center">{m}</th>)}
-                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Total</th>
-                  {currMonths.map((m) => <th key={`c-${m}`} className="min-w-14 border-l border-slate-700 p-2 text-center">{m}</th>)}
-                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">YTD</th>
+                  <th className="min-w-20 border-l border-slate-700 p-2 text-center">Units</th>
                   <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
-                  <th className="min-w-20 border-l border-slate-700 p-2 text-center">MoM</th>
+                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Diff</th>
+                  <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevMonth} {meta.latest_year}</th>
+                  <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.currMonth} {meta.prev_year}</th>
+                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Diff</th>
+                  <th className="min-w-32 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevYtdPeriod}</th>
                   {hasRank && (
                     <>
                       <th className="min-w-14 border-l-2 border-slate-600 p-2 text-center">{meta.prev_year}</th>
@@ -341,12 +360,21 @@ export default function ManualReportPage() {
                       <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelCellBg(row, first)} ${isChild ? "pl-7 font-normal text-slate-400" : ""}`}>
                         {row.label}
                       </td>
-                      {row.prev_months.map((v, idx) => <td key={`pm-${idx}`} className="border-l border-slate-800/70 p-2 text-center font-mono">{num(v)}</td>)}
-                      <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.prev_total)}</td>
-                      {currMonths.map((_, idx) => <td key={`cm-${idx}`} className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.curr_months[idx])}</td>)}
+                      <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_total)}</td>
+                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_total_share)}</td>
+                      <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
+                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_month_share)}</td>
+                      <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
+                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_ytd_share)}</td>
+                      <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_month_share)}</td>
+                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_month_diff)}`}>{points(row.curr_month_diff)}</td>
+                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
                       <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
                       <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_ytd_share)}</td>
-                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_ytd_diff)}`}>{points(row.curr_ytd_diff)}</td>
+                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
                       {hasOverall && <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.overall)}</td>}
                       {hasRank && (
                         <>

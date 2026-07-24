@@ -129,10 +129,17 @@ def build_rows(mat: dict, latest_year: int, prev_year: int, lm_idx: int, *, rank
     base_prev_total = grand["prev_total"]
     base_prev_ytd = grand["prev_ytd"]
     base_curr_ytd = grand["curr_ytd"]
+    base_prev_month = grand["prev_months"][lm_idx] if has_prev_year else None
+    base_curr_month = grand["curr_months"][lm_idx]
 
     def finalize(r: dict, is_grand: bool) -> dict:
         cm = r["curr_months"][lm_idx]
         pm = r["curr_months"][lm_idx - 1] if lm_idx > 0 else 0
+        prev_month = r["prev_months"][lm_idx] if has_prev_year else None
+        prev_month_share = _safe_div(prev_month, base_prev_month) if has_prev_year else None
+        curr_month_share = _safe_div(cm, base_curr_month)
+        prev_ytd_share = _safe_div(r["prev_ytd"], base_prev_ytd) if has_prev_year else None
+        curr_ytd_share = _safe_div(r["curr_ytd"], base_curr_ytd)
         row = {
             "key": r["key"],
             "label": r["label"],
@@ -140,10 +147,16 @@ def build_rows(mat: dict, latest_year: int, prev_year: int, lm_idx: int, *, rank
             "prev_total": r["prev_total"],
             "prev_ytd": r["prev_ytd"],
             "prev_total_share": _safe_div(r["prev_total"], base_prev_total) if has_prev_year else None,
-            "prev_ytd_share": _safe_div(r["prev_ytd"], base_prev_ytd) if has_prev_year else None,
+            "prev_month_units": prev_month,
+            "prev_month_share": prev_month_share,
+            "prev_ytd_share": prev_ytd_share,
             "curr_months": r["curr_months"],
+            "curr_month_units": cm,
+            "curr_month_share": curr_month_share,
+            "curr_month_diff": (curr_month_share - prev_month_share) if (curr_month_share is not None and prev_month_share is not None) else None,
             "curr_ytd": r["curr_ytd"],
-            "curr_ytd_share": _safe_div(r["curr_ytd"], base_curr_ytd),
+            "curr_ytd_share": curr_ytd_share,
+            "curr_ytd_diff": (curr_ytd_share - prev_ytd_share) if (curr_ytd_share is not None and prev_ytd_share is not None) else None,
             "growth_vs_prev_month": _safe_div(cm - pm, pm),
             "growth_vs_same_month_prev_year": _safe_div(cm - r["prev_months"][lm_idx], r["prev_months"][lm_idx]) if has_prev_year else None,
             "growth_vs_prev_ytd": _safe_div(r["curr_ytd"] - r["prev_ytd"], r["prev_ytd"]) if has_prev_year else None,

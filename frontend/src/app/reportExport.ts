@@ -9,10 +9,16 @@ export type ReportRow = {
   prev_total: number | null;
   prev_ytd: number | null;
   prev_total_share: number | null;
+  prev_month_units?: number | null;
+  prev_month_share?: number | null;
   prev_ytd_share: number | null;
   curr_months: number[];
+  curr_month_units?: number | null;
+  curr_month_share?: number | null;
+  curr_month_diff?: number | null;
   curr_ytd: number;
   curr_ytd_share: number | null;
+  curr_ytd_diff?: number | null;
   growth_vs_prev_month: number | null;
   growth_vs_same_month_prev_year: number | null;
   growth_vs_prev_ytd: number | null;
@@ -103,6 +109,27 @@ function pctBlank(n: number | null | undefined): number | "" {
   return v === 0 ? "" : v;
 }
 
+export function latestMonthLabels(meta: ManualReportMeta): {
+  prevMonth: string;
+  currMonth: string;
+  prevMonthPeriod: string;
+  currMonthPeriod: string;
+  prevYtdPeriod: string;
+  currYtdPeriod: string;
+} {
+  const currMonth = meta.months[meta.latest_month_num - 1] ?? meta.latest_month;
+  const prevMonth = meta.months[meta.latest_month_num - 2] ?? "";
+  const ytdStart = meta.months[0] ?? "Jan";
+  return {
+    prevMonth,
+    currMonth,
+    prevMonthPeriod: `${currMonth} ${meta.prev_year}`,
+    currMonthPeriod: `${currMonth} ${meta.latest_year}`,
+    prevYtdPeriod: `${ytdStart}-${currMonth} ${meta.prev_year}`,
+    currYtdPeriod: `${ytdStart}-${currMonth} ${meta.latest_year}`,
+  };
+}
+
 export function safeSheetName(title: string, used: Set<string>): string {
   const base = title.replace(/[:\\/?*[\]]/g, "-").trim().slice(0, 31) || "Sheet";
   let candidate = base;
@@ -123,21 +150,30 @@ export function buildManualReportSheetRows(
 ): Record<string, string | number>[] {
   const hasRank = def.kind === "brand" || def.kind === "model_rank";
   const hasOverall = def.kind === "province_tree";
-  const currMonths = meta.months.slice(0, meta.latest_month_num);
+  const labels = latestMonthLabels(meta);
 
   return rows.map((row) => {
     const out: Record<string, string | number> = { [def.rowLabel]: row.label };
-    meta.months.forEach((m, i) => { out[`${m} ${meta.prev_year}`] = blank(row.prev_months[i]); });
-    out[`Total ${meta.prev_year}`] = blank(row.prev_total);
-    currMonths.forEach((m, i) => { out[`${m} ${meta.latest_year}`] = blank(row.curr_months[i]); });
-    out[`YTD ${meta.latest_year}`] = blank(row.curr_ytd);
-    out["Share YTD %"] = pctBlank(row.curr_ytd_share);
-    out["MoM %"] = pctBlank(row.growth_vs_prev_month);
+    out[`Units ${meta.prev_year}`] = blank(row.prev_total);
+    out[`Share ${meta.prev_year} %`] = pctBlank(row.prev_total_share);
+    out[`Units ${labels.prevMonthPeriod}`] = blank(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1]);
+    out[`Share ${labels.prevMonthPeriod} %`] = pctBlank(row.prev_month_share);
+    out[`Units ${labels.prevYtdPeriod}`] = blank(row.prev_ytd);
+    out[`Share ${labels.prevYtdPeriod} %`] = pctBlank(row.prev_ytd_share);
+    out[`Units ${labels.currMonthPeriod}`] = blank(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1]);
+    out[`Share ${labels.currMonthPeriod} %`] = pctBlank(row.curr_month_share);
+    out["Diff"] = pctBlank(row.curr_month_diff);
+    out[`Growth vs ${labels.prevMonth} ${meta.latest_year} %`] = pctBlank(row.growth_vs_prev_month);
+    out[`Growth vs ${labels.currMonth} ${meta.prev_year} %`] = pctBlank(row.growth_vs_same_month_prev_year);
+    out[`Units ${labels.currYtdPeriod}`] = blank(row.curr_ytd);
+    out[`Share ${labels.currYtdPeriod} %`] = pctBlank(row.curr_ytd_share);
+    out["YTD Diff"] = pctBlank(row.curr_ytd_diff);
+    out[`Growth vs ${labels.prevYtdPeriod} %`] = pctBlank(row.growth_vs_prev_ytd);
     if (hasOverall) out["Overall"] = blank(row.overall);
     if (hasRank) {
-      out[`Rank ${meta.prev_year}`] = blank(row.prev_rank);
-      out[`Rank ${meta.latest_year}`] = blank(row.curr_rank);
-      out["Rank Delta"] = blank(row.rank_diff);
+      out[String(meta.prev_year)] = blank(row.prev_rank);
+      out[String(meta.latest_year)] = blank(row.curr_rank);
+      out["Rank Diff"] = blank(row.rank_diff);
     }
     return out;
   });
