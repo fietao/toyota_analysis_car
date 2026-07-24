@@ -38,6 +38,7 @@ import {
   modelOwnerLookup
 } from "./selectors";
 import { FilterPillPopover } from "../components/FilterPillPopover";
+import { MARKET_PROFILE_LABELS, resolveProfileCodes, identifyMarketProfile, resolveVehicleTypeSelection, missingFormalReportCodes } from "./marketProfiles";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -307,10 +308,20 @@ export default function Dashboard() {
         return r.json();
       })
       .then((summary: DashboardData) => {
+        const allCodes = summary.meta?.vehicle_types_list?.map((v) => v.code) ?? [];
+        const missingFormalCodes = missingFormalReportCodes(allCodes);
+        if (missingFormalCodes.length > 0) {
+          setError(
+            `Data contract error: dashboard metadata is missing required Formal report vehicle type code(s): ${missingFormalCodes.join(", ")}.`
+          );
+          setLoading(false);
+          return;
+        }
         setData(summary);
         if (summary.meta?.years?.length > 0) {
           setSelectedYear(summary.meta.years[summary.meta.years.length - 1]);
         }
+        setSelectedVehicleTypes(resolveProfileCodes("formal_report", allCodes));
         setLoading(false);
       })
       .catch((err) => {
@@ -323,6 +334,20 @@ export default function Dashboard() {
   const years = data?.meta?.years ?? [];
   const months = data?.meta?.months ?? [];
   const allDataProvinces = data?.meta?.provinces ?? [];
+  const allVehicleCodes = useMemo(
+    () => data?.meta?.vehicle_types_list?.map((v) => v.code) ?? [],
+    [data]
+  );
+  // The popover's "All" action reports []; selectedVehicleTypes must never be empty
+  // (the header label and the denominator both read off it), so [] resolves to every code.
+  const handleVehicleTypesChange = useCallback(
+    (v: string[]) => setSelectedVehicleTypes(resolveVehicleTypeSelection(v, allVehicleCodes)),
+    [allVehicleCodes]
+  );
+  const marketProfile = useMemo(
+    () => identifyMarketProfile(selectedVehicleTypes, allVehicleCodes),
+    [selectedVehicleTypes, allVehicleCodes]
+  );
   const { allDataBrands, allDataModels } = useMemo(
     () => selectFilterOptions(data, rankingBrand, brandModelTree),
     [data, rankingBrand, brandModelTree]
@@ -510,6 +535,27 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
+
+            <div className="flex flex-col gap-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Market Profile</p>
+              <div className="flex items-center gap-1 rounded-sm border border-slate-700 bg-slate-800 p-0.5">
+                {(["formal_report", "all_dlt"] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setSelectedVehicleTypes(resolveProfileCodes(id, allVehicleCodes))}
+                    className={`flex-1 rounded-sm px-2 py-1 text-[10px] font-semibold transition-colors ${
+                      marketProfile.id === id ? "bg-brand-primary text-white" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {id === "formal_report" ? "Formal report" : "All DLT"}
+                  </button>
+                ))}
+              </div>
+              {marketProfile.id === "custom" && (
+                <p className="text-[10px] font-semibold text-amber-400">{MARKET_PROFILE_LABELS.custom}</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -541,23 +587,24 @@ export default function Dashboard() {
 
       {/* ── Main Content Area ─────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-10 hidden border-b border-slate-800 bg-slate-950 px-6 py-4 md:block">
-          <div className="flex items-center gap-8 text-sm">
+        <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 px-4 py-3 md:px-6 md:py-4">
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Selected Year</p>
               <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">{selectedYear}</p>
             </div>
-            {selectedVehicleTypes.length > 0 && selectedVehicleTypes.length < (data?.meta?.vehicle_types_list?.length || 0) && (
-              <>
-                <div className="h-8 w-px bg-slate-800" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Vehicle Types Active</p>
-                  <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">
-                    {selectedVehicleTypes.length} <span className="text-sm text-slate-500 font-sans font-normal">of {data?.meta?.vehicle_types_list?.length || 0}</span>
-                  </p>
-                </div>
-              </>
-            )}
+            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <div>
+              <p className={`text-[10px] font-bold uppercase tracking-wider ${marketProfile.id === "custom" ? "text-amber-500" : "text-slate-500"}`}>Market Scope</p>
+              <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">
+                {marketProfile.label} <span className="text-sm text-slate-500 font-sans font-normal">— {selectedVehicleTypes.length} of {allVehicleCodes.length} vehicle types</span>
+              </p>
+            </div>
+            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Reporting Period</p>
+              <p className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100">{data.meta?.reporting_period ?? "—"}</p>
+            </div>
           </div>
         </header>
 
@@ -579,9 +626,9 @@ export default function Dashboard() {
             <FilterPillPopover 
               label="Global Vehicle Types" 
               placeholder="Search vehicle types..." 
-              options={data?.meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) || []} 
-              value={selectedVehicleTypes} 
-              onChange={setSelectedVehicleTypes} 
+              options={data?.meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) || []}
+              value={selectedVehicleTypes}
+              onChange={handleVehicleTypesChange}
             />
           </div>
 
