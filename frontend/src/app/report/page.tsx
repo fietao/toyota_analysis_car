@@ -111,6 +111,7 @@ export default function ManualReportPage() {
   const [exporting, setExporting] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [compareFocus, setCompareFocus] = useState(true);
+  const [showModelRankMonth, setShowModelRankMonth] = useState(false);
   const [selectedMonthlyRowId, setSelectedMonthlyRowId] = useState<string | null>(null);
 
   const load = () => {
@@ -387,6 +388,20 @@ export default function ManualReportPage() {
                   Full sheet
                 </button>
               </div>
+              {active.kind === "model_rank" && (
+                <button
+                  type="button"
+                  onClick={() => setShowModelRankMonth((v) => !v)}
+                  aria-pressed={showModelRankMonth}
+                  className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                    showModelRankMonth
+                      ? "border-teal-500 bg-teal-600 text-white"
+                      : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                  }`}
+                >
+                  {showModelRankMonth ? `Hide ${labels.currMonth}'${String(meta.latest_year).slice(-2)}` : `Show ${labels.currMonth}'${String(meta.latest_year).slice(-2)}`}
+                </button>
+              )}
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -674,7 +689,9 @@ export default function ManualReportPage() {
                       <th rowSpan={2} className="min-w-24 border-r border-slate-700 p-2 text-center align-bottom">{meta.prev_year} Total</th>
                       <th rowSpan={2} className="min-w-24 border-r border-slate-700 p-2 text-center align-bottom">{meta.latest_year} Total</th>
                       <th colSpan={3} className="border-r border-slate-700 p-2 text-center">Rank</th>
-                      <th rowSpan={2} className="min-w-20 p-2 text-center align-bottom">{labels.currMonth}&apos;{String(meta.latest_year).slice(-2)}</th>
+                      {showModelRankMonth && (
+                        <th rowSpan={2} className="min-w-20 p-2 text-center align-bottom">{labels.currMonth}&apos;{String(meta.latest_year).slice(-2)}</th>
+                      )}
                     </tr>
                     <tr className="text-[10px] uppercase tracking-wide text-slate-400">
                       <th className="min-w-14 border-l-2 border-slate-600 p-2 text-center">{meta.prev_year}</th>
@@ -694,7 +711,9 @@ export default function ManualReportPage() {
                           <td className="border-l-2 border-slate-600 p-2 text-center font-mono text-slate-400">{row.prev_rank ?? "—"}</td>
                           <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.curr_rank ?? "—"}</td>
                           <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.rank_diff === null || row.rank_diff === undefined ? "—" : row.rank_diff > 0 ? `+${row.rank_diff}` : row.rank_diff}</td>
-                          <td className="p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                          {showModelRankMonth && (
+                            <td className="p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                          )}
                         </tr>
                       );
                     })}
