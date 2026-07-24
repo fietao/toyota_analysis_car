@@ -48,36 +48,88 @@ function row(overrides: Partial<ReportRow>): ReportRow {
 test("null/undefined/zero values export as blank, never a fabricated zero", () => {
   const r = row({ curr_ytd_share: null, growth_vs_prev_month: 0, curr_ytd: 0 });
   const [out] = buildManualReportSheetRows({ id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" }, [r], meta);
-  assert.equal(out["Share Jan-Jun 2569 %"], "");
+  assert.equal(out["Share Jan-Jun 2569 Total %"], "");
   assert.equal(out["Growth vs May 2569 %"], "");
-  assert.equal(out["Units Jan-Jun 2569"], "");
+  assert.equal(out["Units Jan-Jun 2569 Total"], "");
 });
 
 test("summary export uses latest-month and YTD columns, no future-month zeros", () => {
   const r = row({});
   const [out] = buildManualReportSheetRows({ id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" }, [r], meta);
   assert.ok("Units Jun 2569" in out);
-  assert.ok("Units Jan-Jun 2569" in out);
+  assert.ok("Units Jan-Jun 2569 Total" in out);
   assert.ok(!("Jul 2569" in out));
   assert.ok(!("Units Jul 2569" in out));
+});
+
+test("powertrain sheet has no Diff and no Rank columns", () => {
+  const r = row({ curr_month_diff: 0.025, curr_ytd_diff: -0.014, prev_rank: 1, curr_rank: 2, rank_diff: -1 });
+  const [out] = buildManualReportSheetRows({ id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" }, [r], meta);
+  assert.ok(!("Diff" in out));
+  assert.ok(!("YTD Diff" in out));
+  assert.ok(!("2568" in out));
+  assert.ok(!("2569" in out));
 });
 
 test("brand/model_rank sheets carry Rank columns; powertrain sheets do not", () => {
   const r = row({ prev_rank: 1, curr_rank: 2, rank_diff: -1 });
   const brandOut = buildManualReportSheetRows({ id: "sheet2_brand_all", kind: "brand", rowLabel: "Brand" }, [r], meta)[0];
-  assert.equal(brandOut["2568"], 1);
-  assert.equal(brandOut["2569"], 2);
+  assert.equal(brandOut["Rank 2568"], 1);
+  assert.equal(brandOut["Rank 2569"], 2);
   assert.equal(brandOut["Rank Diff"], -1);
 
   const ptOut = buildManualReportSheetRows({ id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" }, [r], meta)[0];
-  assert.ok(!("2568" in ptOut));
+  assert.ok(!("Rank 2568" in ptOut));
 });
 
-test("share diff exports as percentage-point number", () => {
+test("brand sheet export column order matches the visible table: Rank columns stay last", () => {
+  // Regression: bare-year keys ("2568") are integer-like strings, which JS hoists to the
+  // front of an object's key order regardless of insertion order — that reordered the
+  // exported Rank columns ahead of Brand/Units/Share instead of after Growth vs Jan-Jun.
+  const r = row({ prev_rank: 1, curr_rank: 2, rank_diff: -1 });
+  const out = buildManualReportSheetRows({ id: "sheet2_brand_all", kind: "brand", rowLabel: "Brand" }, [r], meta)[0];
+  const keys = Object.keys(out);
+  assert.equal(keys[0], "Brand");
+  assert.deepEqual(keys.slice(-3), ["Rank 2568", "Rank 2569", "Rank Diff"]);
+});
+
+test("share diff exports as percentage-point number on brand sheets", () => {
   const r = row({ curr_month_diff: 0.025, curr_ytd_diff: -0.014 });
-  const [out] = buildManualReportSheetRows({ id: "sheet1_powertrain", kind: "powertrain", rowLabel: "Powertrain" }, [r], meta);
+  const [out] = buildManualReportSheetRows({ id: "sheet2_brand_all", kind: "brand", rowLabel: "Brand" }, [r], meta);
   assert.equal(out["Diff"], 2.5);
   assert.equal(out["YTD Diff"], -1.4);
+});
+
+test("sheet7 brand/model monthly stops at the latest reported month, no rank, no powertrain field", () => {
+  const r = row({ curr_months: [10, 20, 30, 40, 50, 60, 0, 0, 0, 0, 0, 0], prev_total: 100 });
+  const [out] = buildManualReportSheetRows({ id: "sheet7_bev_by_model", kind: "model_tree", rowLabel: "Brand / Model" }, [r], meta);
+  assert.equal(out["Jan"], 10);
+  assert.equal(out["Jun"], 60);
+  assert.ok(!("Jul" in out));
+  assert.ok(!("2568" in out));
+  assert.ok(!Object.keys(out).some((k) => /powertrain|fuel/i.test(k)));
+});
+
+test("sheet8 model rank is compact with split Model/Brand columns and a dynamic short-month rank column", () => {
+  const r = row({ model: "DOLPHIN", brand: "BYD", prev_total: 500, curr_ytd: 700, prev_rank: 3, curr_rank: 1, rank_diff: 2, curr_month_units: 120 });
+  const [out] = buildManualReportSheetRows({ id: "sheet8_model_top_rank", kind: "model_rank", rowLabel: "Model" }, [r], meta);
+  assert.equal(out["Model"], "DOLPHIN");
+  assert.equal(out["Brand"], "BYD");
+  assert.equal(out["2568 Total"], 500);
+  assert.equal(out["2569 Total"], 700);
+  assert.equal(out["Jun'69"], 120);
+  assert.ok(!("Units 2568 Total" in out));
+});
+
+test("sheet9 province/brand monthly carries both years' month-qualified columns", () => {
+  const r = row({ label: "TOYOTA", group: "Bangkok", level: "brand", prev_months: new Array(12).fill(5), curr_months: [1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0] });
+  const [out] = buildManualReportSheetRows({ id: "sheet9_by_province", kind: "province_tree", rowLabel: "Province / Brand" }, [r], meta);
+  assert.equal(out["จังหวัด"], "");
+  assert.equal(out["ยี่ห้อรถ2"], "TOYOTA");
+  assert.equal(out["Jan 2568"], 5);
+  assert.equal(out["Dec 2568"], 5);
+  assert.equal(out["Jun 2569"], 6);
+  assert.ok(!("Jul 2569" in out));
 });
 
 test("model-grain sheets never expose a Powertrain/fuel column", () => {
@@ -149,7 +201,7 @@ test("2564 report has null prior-year fields and null ranks, not fabricated zero
   assert.equal(r.meta.has_prev_year, false);
   const r64 = row({ prev_months: new Array(12).fill(null), prev_total: null, prev_ytd: null, prev_rank: null, curr_rank: 1, rank_diff: null });
   const out = buildManualReportSheetRows({ id: "sheet2_brand_all", kind: "brand", rowLabel: "Brand" }, [r64], r.meta)[0];
-  assert.equal(out[`Units 2563`], "");
-  assert.equal(out[`2563`], "");
+  assert.equal(out[`Units 2563 Total`], "");
+  assert.equal(out[`Rank 2563`], "");
   assert.equal(out["Rank Diff"], "");
 });

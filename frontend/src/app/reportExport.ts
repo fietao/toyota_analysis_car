@@ -143,40 +143,119 @@ export function safeSheetName(title: string, used: Set<string>): string {
   return candidate;
 }
 
+// Keys are prefixed "Rank " (not bare years) because JS/JSON hoists integer-like string
+// keys ("2568") to the front of the object regardless of insertion order, which would pull
+// the Rank columns to the start of the exported row instead of the end where the table has them.
+function rankCols(row: ReportRow, meta: ManualReportMeta, out: Record<string, string | number>) {
+  out[`Rank ${meta.prev_year}`] = blank(row.prev_rank);
+  out[`Rank ${meta.latest_year}`] = blank(row.curr_rank);
+  out["Rank Diff"] = blank(row.rank_diff);
+}
+
+// Sheet 1: powertrain summary. No Diff columns, no Rank — a powertrain isn't ranked
+// against itself and share-diff isn't part of the requested layout.
+function powertrainRow(def: SheetDef, row: ReportRow, meta: ManualReportMeta, labels: ReturnType<typeof latestMonthLabels>) {
+  const out: Record<string, string | number> = { [def.rowLabel]: row.label };
+  out[`Units ${labels.prevYtdPeriod}`] = blank(row.prev_ytd);
+  out[`Share ${labels.prevYtdPeriod} %`] = pctBlank(row.prev_ytd_share);
+  out[`Units ${meta.prev_year} Total`] = blank(row.prev_total);
+  out[`Share ${meta.prev_year} Total %`] = pctBlank(row.prev_total_share);
+  out[`Units ${labels.currMonthPeriod}`] = blank(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1]);
+  out[`Share ${labels.currMonthPeriod} %`] = pctBlank(row.curr_month_share);
+  out[`Growth vs ${labels.prevMonth} ${meta.latest_year} %`] = pctBlank(row.growth_vs_prev_month);
+  out[`Growth vs ${labels.currMonth} ${meta.prev_year} %`] = pctBlank(row.growth_vs_same_month_prev_year);
+  out[`Units ${labels.currYtdPeriod} Total`] = blank(row.curr_ytd);
+  out[`Share ${labels.currYtdPeriod} Total %`] = pctBlank(row.curr_ytd_share);
+  out[`Growth vs ${labels.prevYtdPeriod} %`] = pctBlank(row.growth_vs_prev_ytd);
+  return out;
+}
+
+// Sheets 2-6: brand + brand-by-powertrain summary. Same shape for all five sheets —
+// only the source powertrain filter differs (handled upstream in the backend export).
+function brandRow(def: SheetDef, row: ReportRow, meta: ManualReportMeta, labels: ReturnType<typeof latestMonthLabels>) {
+  const out: Record<string, string | number> = { [def.rowLabel]: row.label };
+  out[`Units ${labels.currMonth} ${meta.prev_year}`] = blank(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1]);
+  out[`Share ${labels.currMonth} ${meta.prev_year} %`] = pctBlank(row.prev_month_share);
+  out[`Units ${labels.prevYtdPeriod}`] = blank(row.prev_ytd);
+  out[`Share ${labels.prevYtdPeriod} %`] = pctBlank(row.prev_ytd_share);
+  out[`Units ${meta.prev_year} Total`] = blank(row.prev_total);
+  out[`Share ${meta.prev_year} Total %`] = pctBlank(row.prev_total_share);
+  out[`Units ${labels.currMonthPeriod}`] = blank(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1]);
+  out[`Share ${labels.currMonthPeriod} %`] = pctBlank(row.curr_month_share);
+  out["Diff"] = pctBlank(row.curr_month_diff);
+  out[`Growth vs ${labels.prevMonth} ${meta.latest_year} %`] = pctBlank(row.growth_vs_prev_month);
+  out[`Growth vs ${labels.currMonth} ${meta.prev_year} %`] = pctBlank(row.growth_vs_same_month_prev_year);
+  out[`Units ${labels.currYtdPeriod}`] = blank(row.curr_ytd);
+  out[`Share ${labels.currYtdPeriod} %`] = pctBlank(row.curr_ytd_share);
+  out["YTD Diff"] = pctBlank(row.curr_ytd_diff);
+  out[`Growth vs ${labels.prevYtdPeriod} %`] = pctBlank(row.growth_vs_prev_ytd);
+  rankCols(row, meta, out);
+  return out;
+}
+
+// Sheet 7: Brand/Model monthly. Uses the curr_months array directly, sliced to the
+// latest reported month only — no future-month columns, no rank, no powertrain field.
+function modelMonthlyRow(def: SheetDef, row: ReportRow, meta: ManualReportMeta, labels: ReturnType<typeof latestMonthLabels>) {
+  const out: Record<string, string | number> = { [def.rowLabel]: row.label };
+  out[`Units ${meta.prev_year} Total`] = blank(row.prev_total);
+  out[`Share ${meta.prev_year} Total %`] = pctBlank(row.prev_total_share);
+  for (let i = 0; i < meta.latest_month_num; i++) {
+    out[meta.months[i]] = blank(row.curr_months[i]);
+  }
+  out[`Units ${labels.currYtdPeriod} Total`] = blank(row.curr_ytd);
+  out[`Share ${labels.currYtdPeriod} Total %`] = pctBlank(row.curr_ytd_share);
+  return out;
+}
+
+// Sheet 8: compact model rank. Model/Brand are split into their own columns (the
+// fields already exist on the row; no need for the combined "Model  ·  Brand" label).
+function modelRankRow(row: ReportRow, meta: ManualReportMeta, labels: ReturnType<typeof latestMonthLabels>) {
+  const out: Record<string, string | number> = {};
+  out["Model"] = row.model ?? row.label;
+  out["Brand"] = row.brand ?? "";
+  out[`${meta.prev_year} Total`] = blank(row.prev_total);
+  out[`${meta.latest_year} Total`] = blank(row.curr_ytd);
+  rankCols(row, meta, out);
+  out[`${labels.currMonth}'${String(meta.latest_year).slice(-2)}`] = blank(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1]);
+  return out;
+}
+
+// Sheet 9: province/brand monthly. จังหวัด (province) and ยี่ห้อรถ2 (brand) are split
+// into their own columns per the workbook layout; prev-year shows all 12 months
+// (complete year), current year is sliced to the latest reported month only.
+function provinceMonthlyRow(row: ReportRow, meta: ManualReportMeta) {
+  const out: Record<string, string | number> = {};
+  out["จังหวัด"] = row.level === "brand" ? "" : row.group ?? row.label;
+  out["ยี่ห้อรถ2"] = row.level === "brand" ? row.label : "";
+  for (let i = 0; i < 12; i++) {
+    out[`${meta.months[i]} ${meta.prev_year}`] = blank(row.prev_months[i]);
+  }
+  out[`${meta.prev_year} Total`] = blank(row.prev_total);
+  for (let i = 0; i < meta.latest_month_num; i++) {
+    out[`${meta.months[i]} ${meta.latest_year}`] = blank(row.curr_months[i]);
+  }
+  out[`${meta.latest_year} Total`] = blank(row.curr_ytd);
+  return out;
+}
+
 export function buildManualReportSheetRows(
   def: SheetDef,
   rows: ReportRow[],
   meta: ManualReportMeta
 ): Record<string, string | number>[] {
-  const hasRank = def.kind === "brand" || def.kind === "model_rank";
-  const hasOverall = def.kind === "province_tree";
   const labels = latestMonthLabels(meta);
-
-  return rows.map((row) => {
-    const out: Record<string, string | number> = { [def.rowLabel]: row.label };
-    out[`Units ${meta.prev_year}`] = blank(row.prev_total);
-    out[`Share ${meta.prev_year} %`] = pctBlank(row.prev_total_share);
-    out[`Units ${labels.prevMonthPeriod}`] = blank(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1]);
-    out[`Share ${labels.prevMonthPeriod} %`] = pctBlank(row.prev_month_share);
-    out[`Units ${labels.prevYtdPeriod}`] = blank(row.prev_ytd);
-    out[`Share ${labels.prevYtdPeriod} %`] = pctBlank(row.prev_ytd_share);
-    out[`Units ${labels.currMonthPeriod}`] = blank(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1]);
-    out[`Share ${labels.currMonthPeriod} %`] = pctBlank(row.curr_month_share);
-    out["Diff"] = pctBlank(row.curr_month_diff);
-    out[`Growth vs ${labels.prevMonth} ${meta.latest_year} %`] = pctBlank(row.growth_vs_prev_month);
-    out[`Growth vs ${labels.currMonth} ${meta.prev_year} %`] = pctBlank(row.growth_vs_same_month_prev_year);
-    out[`Units ${labels.currYtdPeriod}`] = blank(row.curr_ytd);
-    out[`Share ${labels.currYtdPeriod} %`] = pctBlank(row.curr_ytd_share);
-    out["YTD Diff"] = pctBlank(row.curr_ytd_diff);
-    out[`Growth vs ${labels.prevYtdPeriod} %`] = pctBlank(row.growth_vs_prev_ytd);
-    if (hasOverall) out["Overall"] = blank(row.overall);
-    if (hasRank) {
-      out[String(meta.prev_year)] = blank(row.prev_rank);
-      out[String(meta.latest_year)] = blank(row.curr_rank);
-      out["Rank Diff"] = blank(row.rank_diff);
-    }
-    return out;
-  });
+  switch (def.kind) {
+    case "powertrain":
+      return rows.map((row) => powertrainRow(def, row, meta, labels));
+    case "brand":
+      return rows.map((row) => brandRow(def, row, meta, labels));
+    case "model_tree":
+      return rows.map((row) => modelMonthlyRow(def, row, meta, labels));
+    case "model_rank":
+      return rows.map((row) => modelRankRow(row, meta, labels));
+    case "province_tree":
+      return rows.map((row) => provinceMonthlyRow(row, meta));
+  }
 }
 
 export function buildManualReportFileName(meta: ManualReportMeta, sectionTitle?: string): string {
