@@ -9,6 +9,8 @@ Remote: `https://github.com/fietao/toyota_analysis_car.git`
 
 The Manual Report layouts for Sheets 7-9 were previously implemented, tested, committed, and pushed in commit `41043be`.
 
+Market-scope safety is now committed and pushed to `origin/main` in commit `0de7ede` (`Add market scope safety controls`).
+
 The dashboard research phase is complete. The full external research report is at:
 
 `C:\Users\georg\Downloads\vehicle_registration_dashboard_research_report.md`
@@ -20,7 +22,7 @@ Its accepted product direction is a quiet, high-density analyst workstation with
 - formal Sheets 1-9 and governed exports retained;
 - confusing cards, arbitrary chart colors, ambiguous periods, and hidden denominators removed over incremental slices.
 
-## Market-Scope Safety: implemented, not yet committed
+## Market-Scope Safety: implemented, committed, and pushed
 
 Files in scope:
 
@@ -63,18 +65,10 @@ Verification reported and reviewed:
 
 ## Git and workspace caution
 
-At handoff time, the market-scope files are uncommitted.
+The market-scope safety slice was committed in `0de7ede`. Future commits should keep this completed slice separate from unrelated workspace changes.
 
-Stage only:
+Do not accidentally stage unrelated existing workspace changes:
 
-- `frontend/src/app/marketProfiles.ts`
-- `frontend/src/app/marketProfiles.test.ts`
-- `frontend/src/app/page.tsx`
-
-Do not include unrelated existing workspace changes:
-
-- `CLAUDE.md`
-- `.claude/commands/`
 - `.route-logs/`
 
 Read and follow repository `CLAUDE.md`. Do not revert user changes.
