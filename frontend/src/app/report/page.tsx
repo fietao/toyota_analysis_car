@@ -159,9 +159,21 @@ export default function ManualReportPage() {
     return meta.known_mismatches.find((k) => k.sheets.includes(active.id)) ?? null;
   }, [meta, active.id]);
 
-  const hasRank = active.kind === "brand" || active.kind === "model_rank";
-  const hasOverall = active.kind === "province_tree";
-  const isTree = active.kind === "model_tree" || active.kind === "province_tree";
+  // Shared row-emphasis logic across the tree-shaped sheets (model_tree groups by
+  // brand, province_tree groups by province); flat sheets just get the grand-total
+  // emphasis on row 0.
+  function rowVisual(row: ReportRow, i: number, kind: string) {
+    const first = i === 0;
+    const isChild = row.level === "model" || (row.level === "brand" && kind === "province_tree");
+    const isGroup = (row.level === "brand" && kind === "model_tree") || row.level === "province";
+    const rowClass = first || row.level === "grand"
+      ? "bg-slate-800/60 font-bold text-teal-300"
+      : isGroup
+      ? "bg-slate-800/20 font-semibold text-slate-200"
+      : "text-slate-300 hover:bg-slate-800/30";
+    const labelBg = first || row.level === "grand" ? "bg-slate-800" : isChild ? "bg-slate-950" : "bg-slate-900";
+    return { first, isChild, rowClass, labelBg };
+  }
 
   if (loading) {
     return (
@@ -188,9 +200,6 @@ export default function ManualReportPage() {
       </div>
     );
   }
-
-  const labelCellBg = (row: ReportRow, first: boolean) =>
-    first || row.level === "grand" ? "bg-slate-800" : row.level === "model" || (row.level === "brand" && isTree) ? "bg-slate-950" : "bg-slate-900";
 
   return (
     <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
@@ -309,84 +318,236 @@ export default function ManualReportPage() {
 
           <div className="max-h-[72vh] overflow-auto custom-scrollbar">
             <table className="w-full border-separate border-spacing-0 text-left text-xs">
-              <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
-                <tr>
-                  <th rowSpan={2} className="sticky left-0 z-30 min-w-48 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
-                  <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{meta.prev_year}</th>
-                  <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.prevMonthPeriod}</th>
-                  <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.prevYtdPeriod}</th>
-                  <th colSpan={5} className="border-r border-slate-700 p-2 text-center">{labels.currMonthPeriod}</th>
-                  <th colSpan={4} className="p-2 text-center">{labels.currYtdPeriod}</th>
-                  {hasOverall && <th rowSpan={2} className="min-w-24 border-l-2 border-slate-600 p-2 text-center align-bottom">Overall</th>}
-                  {hasRank && <th colSpan={3} className="border-l-2 border-slate-600 p-2 text-center">Rank</th>}
-                </tr>
-                <tr className="text-[10px] uppercase tracking-wide text-slate-400">
-                  <th className="min-w-20 border-l border-slate-700 p-2 text-center">Units</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
-                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
-                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
-                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Diff</th>
-                  <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevMonth} {meta.latest_year}</th>
-                  <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.currMonth} {meta.prev_year}</th>
-                  <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
-                  <th className="min-w-16 border-l border-slate-700 p-2 text-center">Diff</th>
-                  <th className="min-w-32 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevYtdPeriod}</th>
-                  {hasRank && (
-                    <>
+              {active.kind === "powertrain" && (
+                <>
+                  <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-30 min-w-48 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
+                      <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.prevYtdPeriod}</th>
+                      <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{meta.prev_year} Total</th>
+                      <th colSpan={4} className="border-r border-slate-700 p-2 text-center">{labels.currMonthPeriod}</th>
+                      <th colSpan={3} className="p-2 text-center">{labels.currYtdPeriod} Total</th>
+                    </tr>
+                    <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                      <th className="min-w-20 border-l border-slate-700 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevMonth} {meta.latest_year}</th>
+                      <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.currMonth} {meta.prev_year}</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-32 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevYtdPeriod}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const { rowClass, labelBg } = rowVisual(row, i, active.kind);
+                      return (
+                        <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
+                          <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>{row.label}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_ytd_share)}</td>
+                          <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_total)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_total_share)}</td>
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_month_share)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_ytd_share)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </>
+              )}
+
+              {active.kind === "brand" && (
+                <>
+                  <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-30 min-w-48 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
+                      <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.currMonth} {meta.prev_year}</th>
+                      <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{labels.prevYtdPeriod}</th>
+                      <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{meta.prev_year} Total</th>
+                      <th colSpan={5} className="border-r border-slate-700 p-2 text-center">{labels.currMonthPeriod}</th>
+                      <th colSpan={4} className="border-r border-slate-700 p-2 text-center">{labels.currYtdPeriod}</th>
+                      <th colSpan={3} className="p-2 text-center">Rank</th>
+                    </tr>
+                    <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                      <th className="min-w-20 border-l border-slate-700 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Diff</th>
+                      <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevMonth} {meta.latest_year}</th>
+                      <th className="min-w-28 border-l border-slate-700 p-2 text-center">Growth vs {labels.currMonth} {meta.prev_year}</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Diff</th>
+                      <th className="min-w-32 border-l border-slate-700 p-2 text-center">Growth vs {labels.prevYtdPeriod}</th>
                       <th className="min-w-14 border-l-2 border-slate-600 p-2 text-center">{meta.prev_year}</th>
                       <th className="min-w-14 border-l border-slate-700 p-2 text-center">{meta.latest_year}</th>
                       <th className="min-w-14 border-l border-slate-700 p-2 text-center">Δ</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => {
-                  const first = i === 0;
-                  const isChild = row.level === "model" || (row.level === "brand" && active.kind === "province_tree");
-                  const isGroup = row.level === "brand" && active.kind === "model_tree" ? true : row.level === "province";
-                  const rowClass = first || row.level === "grand"
-                    ? "bg-slate-800/60 font-bold text-teal-300"
-                    : isGroup
-                    ? "bg-slate-800/20 font-semibold text-slate-200"
-                    : "text-slate-300 hover:bg-slate-800/30";
-                  return (
-                    <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
-                      <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelCellBg(row, first)} ${isChild ? "pl-7 font-normal text-slate-400" : ""}`}>
-                        {row.label}
-                      </td>
-                      <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_total)}</td>
-                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_total_share)}</td>
-                      <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
-                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_month_share)}</td>
-                      <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
-                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_ytd_share)}</td>
-                      <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
-                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_month_share)}</td>
-                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_month_diff)}`}>{points(row.curr_month_diff)}</td>
-                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
-                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
-                      <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
-                      <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_ytd_share)}</td>
-                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_ytd_diff)}`}>{points(row.curr_ytd_diff)}</td>
-                      <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
-                      {hasOverall && <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.overall)}</td>}
-                      {hasRank && (
-                        <>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const { rowClass, labelBg } = rowVisual(row, i, active.kind);
+                      return (
+                        <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
+                          <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>{row.label}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_month_units ?? row.prev_months[meta.latest_month_num - 1])}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_month_share)}</td>
+                          <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_ytd)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_ytd_share)}</td>
+                          <td className="border-l-2 border-slate-700 p-2 text-center font-mono">{num(row.prev_total)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_total_share)}</td>
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_month_share)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_month_diff)}`}>{points(row.curr_month_diff)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_month)}`}>{signed(row.growth_vs_prev_month)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_same_month_prev_year)}`}>{signed(row.growth_vs_same_month_prev_year)}</td>
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_ytd_share)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.curr_ytd_diff)}`}>{points(row.curr_ytd_diff)}</td>
+                          <td className={`border-l border-slate-800/70 p-2 text-center font-mono ${growthClass(row.growth_vs_prev_ytd)}`}>{signed(row.growth_vs_prev_ytd)}</td>
                           <td className="border-l-2 border-slate-700 p-2 text-center font-mono text-slate-400">{row.prev_rank ?? "—"}</td>
                           <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.curr_rank ?? "—"}</td>
                           <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.rank_diff === null || row.rank_diff === undefined ? "—" : row.rank_diff > 0 ? `+${row.rank_diff}` : row.rank_diff}</td>
-                        </>
-                      )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </>
+              )}
+
+              {active.kind === "model_tree" && (
+                <>
+                  <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-30 min-w-48 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
+                      <th colSpan={2} className="border-r border-slate-700 p-2 text-center">{meta.prev_year} Total</th>
+                      {meta.months.slice(0, meta.latest_month_num).map((m) => (
+                        <th key={m} rowSpan={2} className="min-w-16 border-l-2 border-slate-600 p-2 text-center align-bottom">{m}</th>
+                      ))}
+                      <th colSpan={2} className="border-l-2 border-slate-600 p-2 text-center">{labels.currYtdPeriod} Total</th>
                     </tr>
-                  );
-                })}
-              </tbody>
+                    <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                      <th className="min-w-20 border-l border-slate-700 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                      <th className="min-w-20 border-l-2 border-slate-600 p-2 text-center">Units</th>
+                      <th className="min-w-16 border-l border-slate-700 p-2 text-center">Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const { isChild, rowClass, labelBg } = rowVisual(row, i, active.kind);
+                      return (
+                        <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
+                          <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg} ${isChild ? "pl-7 font-normal text-slate-400" : ""}`}>{row.label}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono">{num(row.prev_total)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.prev_total_share)}</td>
+                          {meta.months.slice(0, meta.latest_month_num).map((m, mi) => (
+                            <td key={m} className="border-l-2 border-slate-600 p-2 text-center font-mono">{num(row.curr_months[mi])}</td>
+                          ))}
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{pct(row.curr_ytd_share)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </>
+              )}
+
+              {active.kind === "model_rank" && (
+                <>
+                  <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-30 min-w-40 border-r border-slate-700 bg-slate-800 p-3">{active.rowLabel}</th>
+                      <th rowSpan={2} className="min-w-32 border-r border-slate-700 p-3 text-center align-bottom">Brand</th>
+                      <th rowSpan={2} className="min-w-24 border-r border-slate-700 p-2 text-center align-bottom">{meta.prev_year} Total</th>
+                      <th rowSpan={2} className="min-w-24 border-r border-slate-700 p-2 text-center align-bottom">{meta.latest_year} Total</th>
+                      <th colSpan={3} className="border-r border-slate-700 p-2 text-center">Rank</th>
+                      <th rowSpan={2} className="min-w-20 p-2 text-center align-bottom">{labels.currMonth}&apos;{String(meta.latest_year).slice(-2)}</th>
+                    </tr>
+                    <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                      <th className="min-w-14 border-l-2 border-slate-600 p-2 text-center">{meta.prev_year}</th>
+                      <th className="min-w-14 border-l border-slate-700 p-2 text-center">{meta.latest_year}</th>
+                      <th className="min-w-14 border-l border-slate-700 p-2 text-center">Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const { rowClass, labelBg } = rowVisual(row, i, active.kind);
+                      return (
+                        <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
+                          <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>{row.model ?? row.label}</td>
+                          <td className="border-r border-slate-800/70 p-2 text-center text-slate-400">{row.brand ?? "—"}</td>
+                          <td className="border-r border-slate-800/70 p-2 text-center font-mono">{num(row.prev_total)}</td>
+                          <td className="border-r border-slate-800/70 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                          <td className="border-l-2 border-slate-600 p-2 text-center font-mono text-slate-400">{row.prev_rank ?? "—"}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.curr_rank ?? "—"}</td>
+                          <td className="border-l border-slate-800/70 p-2 text-center font-mono text-slate-400">{row.rank_diff === null || row.rank_diff === undefined ? "—" : row.rank_diff > 0 ? `+${row.rank_diff}` : row.rank_diff}</td>
+                          <td className="p-2 text-center font-mono font-semibold">{num(row.curr_month_units ?? row.curr_months[meta.latest_month_num - 1])}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </>
+              )}
+
+              {active.kind === "province_tree" && (
+                <>
+                  <thead className="sticky top-0 z-20 bg-slate-800 text-slate-300">
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-30 min-w-32 border-r border-slate-700 bg-slate-800 p-3">จังหวัด</th>
+                      <th rowSpan={2} className="min-w-32 border-r border-slate-700 p-3 align-bottom">ยี่ห้อรถ2</th>
+                      <th colSpan={13} className="border-r border-slate-700 p-2 text-center">{meta.prev_year}</th>
+                      <th colSpan={meta.latest_month_num + 1} className="p-2 text-center">{meta.latest_year}</th>
+                    </tr>
+                    <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                      {meta.months.map((m) => (
+                        <th key={`p-${m}`} className="min-w-14 border-l border-slate-700 p-2 text-center">{m}</th>
+                      ))}
+                      <th className="min-w-16 border-l-2 border-slate-600 p-2 text-center">Total</th>
+                      {meta.months.slice(0, meta.latest_month_num).map((m) => (
+                        <th key={`c-${m}`} className="min-w-14 border-l border-slate-700 p-2 text-center">{m}</th>
+                      ))}
+                      <th className="min-w-16 border-l-2 border-slate-600 p-2 text-center">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const { isChild, rowClass, labelBg } = rowVisual(row, i, active.kind);
+                      const jangwat = row.level === "brand" ? "" : row.group ?? row.label;
+                      const brand = row.level === "brand" ? row.label : "";
+                      return (
+                        <tr key={`${row.key}-${i}`} className={`border-b border-slate-800 ${rowClass}`}>
+                          <td className={`sticky left-0 z-10 border-r border-slate-800 p-2.5 ${labelBg}`}>{jangwat}</td>
+                          <td className={`border-r border-slate-800/70 p-2.5 ${isChild ? "pl-5 font-normal text-slate-400" : ""}`}>{brand}</td>
+                          {row.prev_months.map((v, mi) => (
+                            <td key={`p-${mi}`} className="border-l border-slate-800/70 p-2 text-center font-mono">{num(v)}</td>
+                          ))}
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.prev_total)}</td>
+                          {row.curr_months.slice(0, meta.latest_month_num).map((v, mi) => (
+                            <td key={`c-${mi}`} className="border-l border-slate-800/70 p-2 text-center font-mono">{num(v)}</td>
+                          ))}
+                          <td className="border-l-2 border-slate-700 bg-slate-950/50 p-2 text-center font-mono font-semibold">{num(row.curr_ytd)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </>
+              )}
             </table>
           </div>
           <div className="border-t border-slate-800 p-2 text-right text-[10px] text-slate-600">
