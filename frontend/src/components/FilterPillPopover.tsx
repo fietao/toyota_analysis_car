@@ -53,7 +53,7 @@ export function FilterPillPopover({
   const btnText = value.length === 0 ? "All" : (singleSelect ? (normalizedOptions.find(o => o.id === value[0])?.label || value[0]) : `${value.length} / ${options.length}`);
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} className={`relative inline-block ${isOpen ? "z-[120]" : ""}`}>
       <button
         type="button"
         onClick={() => {
@@ -75,7 +75,7 @@ export function FilterPillPopover({
       </button>
 
       {isOpen && (
-        <div id={popupId} className="absolute z-50 mt-2 w-[300px] rounded-sm border border-slate-700 bg-slate-800">
+        <div id={popupId} className="absolute z-[120] mt-2 w-[300px] rounded-sm border border-slate-700 bg-slate-800">
           <div className="p-2 border-b border-slate-700">
             <div className="flex items-center rounded-sm bg-slate-900 px-2 py-1 text-xs border border-slate-700">
               <Search className="h-3 w-3 text-slate-500 mr-2" />
