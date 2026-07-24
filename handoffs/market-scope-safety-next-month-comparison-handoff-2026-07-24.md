@@ -11,6 +11,8 @@ The Manual Report layouts for Sheets 7-9 were previously implemented, tested, co
 
 Market-scope safety is now committed and pushed to `origin/main` in commit `0de7ede` (`Add market scope safety controls`).
 
+The compact period-comparison overview is now committed and pushed to `origin/main` in commit `84f9d52` (`Add period comparison overview`).
+
 The dashboard research phase is complete. The full external research report is at:
 
 `C:\Users\georg\Downloads\vehicle_registration_dashboard_research_report.md`
@@ -73,9 +75,33 @@ Do not accidentally stage unrelated existing workspace changes:
 
 Read and follow repository `CLAUDE.md`. Do not revert user changes.
 
-## Next implementation slice
+## Period-comparison slice: implemented, committed, and pushed
 
-Build a compact period-comparison experience without redesigning the entire dashboard yet.
+Implemented behavior:
+
+- Homepage has a compact Comparison Month selector in the sidebar.
+- Rankings overview shows a Period Comparison strip for the selected month.
+- The strip compares:
+  - selected month versus previous month;
+  - selected month versus the same month in the prior year;
+  - current YTD through the selected month versus equivalent prior-year YTD;
+  - prior full year only as clearly labeled context.
+- Comparison totals respect the selected market profile, vehicle types, Powertrain filter, and Brand filter where the small summary data supports them.
+- Powertrain and Brand mover context is derived from existing monthly summary data.
+- No backend data was regenerated.
+- `MONTHLY_UPDATE.bat` was not run.
+
+Verification:
+
+- `npm test`: 50/50 passing.
+- `npm run lint`: clean.
+- `npm run build`: succeeds.
+- `git diff --check`: clean.
+- Live desktop and mobile checks on local Next dev server showed the Period Comparison strip rendered with no page-level horizontal overflow.
+
+## Deferred product work
+
+The compact period-comparison experience is complete. Defer any broader redesign or deeper grain expansion unless explicitly requested.
 
 Desired comparisons for a selected month:
 
