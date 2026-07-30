@@ -109,6 +109,15 @@ def load_model_powertrain_review():
                     f"evidence, reviewer, and reviewed_at"
                 )
 
+            if reviewed_at:
+                import datetime
+                try:
+                    datetime.datetime.strptime(reviewed_at, "%Y-%m-%d")
+                except ValueError:
+                    raise ValueError(
+                        f"{MODEL_POWERTRAIN_REVIEW_PATH}:{i}: reviewed_at {reviewed_at!r} must be in YYYY-MM-DD format"
+                    )
+
             key = normalize_key(brand2, raw_model)
             if key in result:
                 raise ValueError(f"Duplicate key {key} in model_powertrain_review.csv")

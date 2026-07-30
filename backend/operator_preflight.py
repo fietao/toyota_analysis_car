@@ -104,6 +104,16 @@ def validate_review_csv(path=DEFAULT_CSV):
                     f"ยังขาดคอลัมน์: {', '.join(missing)}"
                 )
 
+            if reviewed_at:
+                import datetime
+                try:
+                    datetime.datetime.strptime(reviewed_at, "%Y-%m-%d")
+                except ValueError:
+                    errors.append(
+                        f"{where}: คอลัมน์ reviewed_at = {reviewed_at!r} ไม่ถูกต้อง — "
+                        f"ต้องเป็นฟอร์แมต YYYY-MM-DD (เช่น 2026-07-30)"
+                    )
+
             key = (_norm(brand2), _norm(raw_model))
             if key in seen:
                 errors.append(

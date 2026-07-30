@@ -123,6 +123,16 @@ def test_count_pending():
         tmp.unlink()
 
 
+def test_bad_date_format():
+    check("bad date format 1", _write([dict(GOOD, reviewed_at="7/30/2026")]),
+          expect_error=True, needle="reviewed_at")
+    check("bad date format 2", _write([dict(GOOD, reviewed_at="2026/07/30")]),
+          expect_error=True, needle="reviewed_at")
+    # blank is fine
+    check("blank date format", _write([dict(PENDING, reviewed_at="")]),
+          expect_error=False)
+
+
 def test_contract_matches_model_map():
     """Drift guard: preflight constants must equal model_map's (skipped without pandas)."""
     try:
@@ -150,6 +160,7 @@ if __name__ == "__main__":
     test_blank_required()
     test_collects_all_errors()
     test_count_pending()
+    test_bad_date_format()
     test_contract_matches_model_map()
     if failures:
         print(f"FAIL — {len(failures)} issue(s) in operator-preflight tests:")
