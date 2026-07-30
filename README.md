@@ -45,11 +45,12 @@ remain unclassified; only explicitly approved BEV review rows enter Sheets 7-8. 
 
 ## Normal Operation
 
-Four scripts at the project root cover normal operation:
+These scripts at the project root cover normal operation and handoff:
 
 | Script | When | What it does |
 |---|---|---|
 | `INSTALL_FROM_ZERO.bat` | First time on a fresh Windows laptop | Checks or installs Python 3.12, Node.js LTS/npm, and Git with `winget`, then runs `SETUP.bat`. |
+| `TAKEOVER.bat` | Handoff sessions on another laptop | Opens a plain-language menu: start the dashboard, run the monthly update, open the monthly guide/latest summary/model review file, run frontend checks, plus one-time install/setup and takeover notes. |
 | `SETUP.bat` | Once, or after pulling dependency changes | Installs backend Python packages (`backend/requirements.txt`) and frontend npm packages. |
 | `MONTHLY_UPDATE.bat` | Monthly, by a non-coding operator | Guided double-click flow: checks the 2 raw files, preflights the model-review CSV, rebuilds the pipeline + dashboard + Sheets 7-8, builds into a staging copy, validates it, and only then atomically swaps the live JSON (rollback on any failure — the dashboard always keeps the last good data). Writes `reports/monthly_operator_summary.txt` and a timestamped `logs/` file, all with Thai messages. See `docs/THAI_OPERATOR_MONTHLY_GUIDE.md`. |
 | `UPDATE.bat` | Monthly (developer) | Runs `update_raw_data.py`: classifies new fuel types, rebuilds the pipeline, and exports dashboard data. |

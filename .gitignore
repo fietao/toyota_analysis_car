@@ -29,6 +29,7 @@ Thumbs.db
 .codex/
 .dev-team/
 .impeccable/
+.tmp/
 .pytest_cache/
 .vscode/
 
