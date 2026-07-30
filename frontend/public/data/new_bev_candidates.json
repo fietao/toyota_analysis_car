@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "year": 2569,
+    "month": 6,
+    "generated_at": "2026-07-30T12:00:00",
+    "candidate_count": 3,
+    "total_units": 187
+  },
+  "candidates": [
+    {
+      "brand": "AVATR",
+      "raw_model": "AVATR 11 ULTRA",
+      "model": "AVATR 11",
+      "units": 102,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'AVATR 07 MAX'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "ZEEKR",
+      "raw_model": "ZEEKR 009",
+      "model": "ZEEKR 009",
+      "units": 65,
+      "confidence": "high",
+      "reason_code": "approved_family_match",
+      "reason": "Same brand and canonical model family ('ZEEKR 009') as an already-approved BEV.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "DEEPAL",
+      "raw_model": "DEEPAL S07 EV",
+      "model": "S07",
+      "units": 20,
+      "confidence": "medium",
+      "reason_code": "electric_name_marker",
+      "reason": "Raw model name contains an electric-vehicle name marker (EV/BEV/ELECTRIC).",
+      "review_status": "pending"
+    }
+  ]
+}

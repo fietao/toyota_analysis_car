@@ -55,7 +55,8 @@ def build_calculation_table(
     powertrain: str,
     current_year: int,
     current_month_num: int,
-    vehicle_types: set[str] = {"1", "2", "3", "6", "9", "10", "11"}
+    vehicle_types: set[str] = {"1", "2", "3", "6", "9", "10", "11"},
+    province: Optional[str] = None,
 ) -> List[CalculationRow]:
     
     df = df.copy()
@@ -65,6 +66,9 @@ def build_calculation_table(
         codes = df["ประเภทรถ"].astype(str).str.extract(r"รย\.(\d+)")[0]
         df = df[codes.isin(vehicle_types)].copy()
         
+    if province and "จังหวัด" in df.columns:
+        df = df[df["จังหวัด"] == province].copy()
+
     # Map Powertrain
     if "Powertrain" in df.columns:
         df["Powertrain"] = df["Powertrain"].replace("BEV Major", "BEV")

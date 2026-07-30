@@ -19,6 +19,12 @@ import {
   modelBrandPairs,
   modelOwnerLookup,
 } from "./selectors.ts";
+import {
+  buildDeepDiveMatrixRows,
+  deepDiveFilterKey,
+  referenceDeepDiveTotal,
+  selectDeepDiveMatrixOptions,
+} from "./deepDiveModelMatrix.ts";
 
 const YEAR = "2569";
 const VT = "รย.1";
@@ -225,4 +231,87 @@ test("Deep Dive model filter options narrow to the selected brand models", () =>
   assert.deepEqual(selectDeepDiveFilterOptions(tree, ["ACME"]).allModels, ["ALPHA"]);
   assert.deepEqual(selectDeepDiveFilterOptions(tree, ["MITSUBISHI"]).allModels, ["TRITON"]);
   assert.deepEqual(selectDeepDiveFilterOptions(tree, ["ACME", "MITSUBISHI"]).allModels, ["ALPHA", "TRITON"]);
+});
+
+test("Deep Dive matrix province options come from meta and the model tree", () => {
+  const tree: BrandNode[] = [
+    {
+      brand: "ACME",
+      monthly: { VT1: { BANGKOK: { "2569": [20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } } },
+      models: [
+        {
+          name: "ALPHA",
+          monthly: { VT1: { CHIANG_MAI: { "2569": [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } } },
+          segments: [
+            { powertrain: "ICE", monthly: { VT1: { CHIANG_MAI: { "2569": [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } } } },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const options = selectDeepDiveMatrixOptions(tree, [], ["PHUKET"]);
+
+  assert.deepEqual(options.allBrands, ["ACME"]);
+  assert.deepEqual(options.allModels, ["ALPHA"]);
+  assert.deepEqual(options.allProvinces, ["BANGKOK", "CHIANG_MAI", "PHUKET"]);
+});
+
+test("Deep Dive matrix rows respect selected province", () => {
+  const tree: BrandNode[] = [
+    {
+      brand: "ACME",
+      monthly: { VT1: {
+        BANGKOK: { "2569": [20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        CHIANG_MAI: { "2569": [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      } },
+      models: [
+        {
+          name: "ALPHA",
+          monthly: { VT1: {
+            BANGKOK: { "2569": [20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+            CHIANG_MAI: { "2569": [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+          } },
+          segments: [
+            { powertrain: "ICE", monthly: { VT1: {
+              BANGKOK: { "2569": [20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+              CHIANG_MAI: { "2569": [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+            } } },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const rows = buildDeepDiveMatrixRows(
+    tree,
+    {
+      activeYears: ["2569"],
+      selectedBrands: [],
+      selectedModels: [],
+      selectedProvinces: ["CHIANG_MAI"],
+      selectedVehicleTypes: ["VT1"],
+    },
+    "2569",
+    new Set(["ACME"]),
+  );
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].totals.grandTotal, 5);
+  assert.equal(rows[0].models[0].totals.grandTotal, 5);
+  assert.equal(referenceDeepDiveTotal(tree), 25);
+});
+
+test("Deep Dive filter key changes when selected province changes", () => {
+  const base = {
+    activeYears: ["2569"],
+    selectedBrands: ["ACME"],
+    selectedModels: ["ALPHA"],
+    selectedVehicleTypes: ["VT1"],
+  };
+
+  assert.notEqual(
+    deepDiveFilterKey({ ...base, selectedProvinces: ["BANGKOK"] }),
+    deepDiveFilterKey({ ...base, selectedProvinces: ["CHIANG_MAI"] }),
+  );
 });

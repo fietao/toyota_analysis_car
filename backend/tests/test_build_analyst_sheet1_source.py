@@ -20,7 +20,7 @@ from build_analyst import (
     check_period_match, check_nonzero_recognized_total,
 )
 from aggregate import current_period
-from calculation_builder import build_calculation_table
+from calculation_builder import build_calculation_table, THAI_MONTHS
 
 failures = []
 
@@ -78,6 +78,19 @@ def test_fuel_ice_bev_hev_phev_produces_nonzero_totals():
         failures.append(f"expected nonzero grand total 11 for ICE/BEV/HEV/PHEV fuel data, got {data.get(('grand', 'W'))}")
 
 
+def test_calculation_table_can_filter_by_province():
+    jan = THAI_MONTHS[1]
+    bangkok = _row(2569, jan, "ICE", 12, fuel="à¹€à¸šà¸™à¸‹à¸´à¸™")
+    chiang_mai = _row(2569, jan, "ICE", 7, fuel="à¹€à¸šà¸™à¸‹à¸´à¸™")
+    chiang_mai["จังหวัด"] = "CHIANG MAI"
+    df_fuel = pd.DataFrame([bangkok, chiang_mai])
+
+    rows = build_calculation_table(df_fuel, "brand", "ALL", 2569, 1, {"1"}, province="CHIANG MAI")
+    grand = rows[0]
+    if grand.curr_month_units != 7:
+        failures.append(f"expected province-filtered current month total 7, got {grand.curr_month_units}")
+
+
 def test_zero_recognized_total_guard_raises():
     # Every row is an unrecognized powertrain -> the guard's grand total is zero.
     df_fuel = pd.DataFrame([
@@ -132,6 +145,7 @@ if __name__ == "__main__":
     test_sheet1_uses_fuel_powertrain()
     test_model_grain_rejects_powertrain_filter()
     test_fuel_ice_bev_hev_phev_produces_nonzero_totals()
+    test_calculation_table_can_filter_by_province()
     test_zero_recognized_total_guard_raises()
     test_nonzero_recognized_total_guard_passes()
     test_period_mismatch_guard_raises()

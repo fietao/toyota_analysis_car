@@ -6,27 +6,22 @@ import { Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { FilterPillPopover } from "../../components/FilterPillPopover";
 import {
   DashboardData,
-  BrandNode,
-  ModelNode,
   brandTotals,
   brandMonthlyValues,
   seriesTotals,
   seriesMonthlyValues,
-  selectDeepDiveFilterOptions,
   modelBrandPairs,
   modelOwnerLookup,
 } from "../selectors";
+import {
+  buildDeepDiveMatrixRows,
+  deepDiveFilterKey,
+  referenceDeepDiveTotal,
+  selectDeepDiveMatrixOptions,
+} from "../deepDiveModelMatrix";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-type SeriesRow = ModelNode & { totals: { grandTotal: number; ytdTotal: number } };
-type BrandRow = Omit<BrandNode, "models"> & {
-  toggleKey: string;
-  isExpanded: boolean;
-  totals: { grandTotal: number; ytdTotal: number };
-  models: SeriesRow[];
-};
 
 export default function ModelsPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -49,7 +44,14 @@ export default function ModelsPage() {
 
   // Reset page to 1 whenever any filter or active year changes (using render-phase state updates)
   const [prevFilterKey, setPrevFilterKey] = useState("");
-  const currentFilterKey = `${selectedBrands.join(",")}|${selectedModels.join(",")}|${selectedProvinces.join(",")}|${selectedVehicleTypes.join(",")}|${activeYears.join(",")}`;
+  const filters = useMemo(() => ({
+    activeYears,
+    selectedBrands,
+    selectedModels,
+    selectedProvinces,
+    selectedVehicleTypes,
+  }), [activeYears, selectedBrands, selectedModels, selectedProvinces, selectedVehicleTypes]);
+  const currentFilterKey = deepDiveFilterKey(filters);
   if (currentFilterKey !== prevFilterKey) {
     setPrevFilterKey(currentFilterKey);
     setCurrentPage(1);
@@ -102,14 +104,14 @@ export default function ModelsPage() {
   const latestYear = years.length > 0 ? String(years[years.length - 1]) : null;
 
   // Available filter options based on raw tree data
-  const { allBrands, allModels } = useMemo(
-    () => selectDeepDiveFilterOptions(data?.brand_model_tree, selectedBrands),
-    [data?.brand_model_tree, selectedBrands]
+  const { allBrands, allModels, allProvinces } = useMemo(
+    () => selectDeepDiveMatrixOptions(data?.brand_model_tree, selectedBrands, meta?.provinces ?? []),
+    [data?.brand_model_tree, selectedBrands, meta?.provinces]
   );
 
   const handleSelectedBrandsChange = (brands: string[]) => {
     setSelectedBrands(brands);
-    const validModels = new Set(selectDeepDiveFilterOptions(data?.brand_model_tree, brands).allModels);
+    const validModels = new Set(selectDeepDiveMatrixOptions(data?.brand_model_tree, brands).allModels);
     setSelectedModels((models) => models.filter((model) => validModels.has(model)));
   };
 
@@ -134,40 +136,10 @@ export default function ModelsPage() {
 
   // Filtered Rows Assembly — brand and series totals come only from segments matching the
   // active Powertrain filter; a brand/series with zero matching units is dropped entirely.
-  const filteredTree: BrandRow[] = useMemo(() => {
-    if (!data?.brand_model_tree) return [];
-
-    return data.brand_model_tree
-      .map((brandNode): BrandRow | null => {
-        if (selectedBrands.length > 0 && !selectedBrands.includes(brandNode.brand)) return null;
-
-        const toggleKey = brandNode.brand;
-        const isExpanded = expandedBrands.has(toggleKey);
-
-        const bTotals = brandTotals(brandNode, activeYears, latestYear, [], selectedVehicleTypes, selectedProvinces);
-        if (bTotals.grandTotal === 0) return null;
-
-        const filteredModels = (brandNode.models || [])
-          .map((model): SeriesRow | null => {
-            if (selectedModels.length > 0 && !selectedModels.includes(model.name)) return null;
-            const mTotals = seriesTotals(model, activeYears, latestYear, [], selectedVehicleTypes, selectedProvinces);
-            if (mTotals.grandTotal === 0) return null;
-            return { ...model, totals: mTotals };
-          })
-          .filter((m): m is SeriesRow => m !== null)
-          .sort((a, b) => b.totals.grandTotal - a.totals.grandTotal);
-
-        return {
-          ...brandNode,
-          toggleKey,
-          isExpanded,
-          totals: bTotals,
-          models: filteredModels,
-        };
-      })
-      .filter((b): b is BrandRow => b !== null)
-      .sort((a, b) => b.totals.grandTotal - a.totals.grandTotal);
-  }, [data, selectedBrands, selectedModels, selectedVehicleTypes, selectedProvinces, activeYears, latestYear, expandedBrands]);
+  const filteredTree = useMemo(
+    () => buildDeepDiveMatrixRows(data?.brand_model_tree, filters, latestYear, expandedBrands),
+    [data?.brand_model_tree, filters, latestYear, expandedBrands]
+  );
 
   // Compute Grand Total of all filtered rows
   const superGrandTotal = useMemo(() => {
@@ -183,19 +155,8 @@ export default function ModelsPage() {
 
   // Calculate Reference Grand Total of ALL data unfiltered (source totals, ignores every filter)
   const referenceTotal = useMemo(() => {
-    if (!data?.brand_model_tree) return 0;
-    let sum = 0;
-    data.brand_model_tree.forEach((brandNode) => {
-      Object.values(brandNode.monthly || {}).forEach((vehicleBucket) => {
-        Object.values(vehicleBucket || {}).forEach((provinceBucket) => {
-          Object.values(provinceBucket || {}).forEach((arr) => {
-            sum += (arr || []).reduce((s, v) => s + (v || 0), 0);
-          });
-        });
-      });
-    });
-    return sum;
-  }, [data]);
+    return referenceDeepDiveTotal(data?.brand_model_tree);
+  }, [data?.brand_model_tree]);
 
   const toggleBrand = (key: string) => {
     setExpandedBrands((prev) => {
@@ -352,7 +313,7 @@ export default function ModelsPage() {
           <div className="flex flex-wrap items-end gap-x-5 gap-y-3 text-sm pt-1">
             <div className="min-w-[150px]"><FilterPillPopover label="Brand" placeholder="Search brands..." options={allBrands} value={selectedBrands} onChange={handleSelectedBrandsChange} /></div>
             <div className="min-w-[150px]"><FilterPillPopover label="Model" placeholder="Search models..." options={allModels} value={selectedModels} onChange={handleSelectedModelsChange} /></div>
-            <div className="min-w-[170px]"><FilterPillPopover label="Province" placeholder="Search provinces..." options={meta?.provinces ?? []} value={selectedProvinces} onChange={setSelectedProvinces} /></div>
+            <div className="min-w-[170px]"><FilterPillPopover label="Province" placeholder="Search provinces..." options={allProvinces} value={selectedProvinces} onChange={setSelectedProvinces} /></div>
             <div className="min-w-[190px]"><FilterPillPopover label="Vehicle Type" placeholder="Search vehicle types..." options={meta?.vehicle_types_list?.map(v => ({ id: v.code, label: v.label })) ?? []} value={selectedVehicleTypes} onChange={setSelectedVehicleTypes} /></div>
 
             {/* Year Checklist */}

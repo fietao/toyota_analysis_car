@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Download, RefreshCw, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { filterAnalystRows, selectAnalystFilterOptions } from "../analystFilters";
+import { buildAnalystRowsFromFacts, filterAnalystRows, selectAnalystFilterOptions, type AnalystFact } from "../analystFilters";
 import { FilterPillPopover } from "../../components/FilterPillPopover";
 import { modelOwnerLookup } from "../selectors";
 
@@ -33,7 +33,7 @@ type AnalystRow = {
   curr_ytd_growth?: number;
   prev_rank?: number;
   curr_rank?: number;
-  rank_diff?: string | number;
+  rank_diff?: string | number | null;
 };
 
 export type AnalystData = {
@@ -52,15 +52,26 @@ export type AnalystData = {
   };
 };
 
+type AnalystProvinceData = {
+  meta: AnalystData["meta"];
+  facts: {
+    brand: AnalystFact[];
+    model: AnalystFact[];
+  };
+};
+
 export default function AnalystPage() {
   const [data, setData] = useState<AnalystData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [provinceData, setProvinceData] = useState<AnalystProvinceData | null>(null);
+  const [provinceError, setProvinceError] = useState<string | null>(null);
 
   // Filters State
   const [currentViewBy, setCurrentViewBy] = useState<"brand" | "model">("brand");
   const [currentPowertrain, setCurrentPowertrain] = useState<string>("ALL");
   const [selectedVehicleType, setSelectedVehicleType] = useState<string>("ALL");
+  const [selectedProvince, setSelectedProvince] = useState<string>("ALL");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   
@@ -78,6 +89,7 @@ export default function AnalystPage() {
   const tr1Ref = useRef<HTMLTableRowElement>(null);
   const tr2Ref = useRef<HTMLTableRowElement>(null);
   const tr3Ref = useRef<HTMLTableRowElement>(null);
+  const provinceFetchStartedRef = useRef(false);
 
   const loadData = () => {
     setLoading(true);
@@ -117,11 +129,29 @@ export default function AnalystPage() {
 
   // Reset page to 1 when filters or sorting changes (using render-phase state updates)
   const [prevFilterKey, setPrevFilterKey] = useState("");
-  const currentFilterKey = `${selectedBrand}||${selectedModel}||${currentViewBy}||${currentPowertrain}||${selectedVehicleType}||${sortField}||${sortDirection}`;
+  const currentFilterKey = `${selectedBrand}||${selectedModel}||${currentViewBy}||${currentPowertrain}||${selectedVehicleType}||${selectedProvince}||${sortField}||${sortDirection}`;
   if (currentFilterKey !== prevFilterKey) {
     setPrevFilterKey(currentFilterKey);
     setCurrentPage(1);
   }
+
+  useEffect(() => {
+    if (selectedProvince === "ALL" || provinceData || provinceError || provinceFetchStartedRef.current) return;
+    provinceFetchStartedRef.current = true;
+    fetch(`${DATA_BASE}/data/analyst_province_data.json`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
+        return r.json();
+      })
+      .then((j: AnalystProvinceData) => {
+        setProvinceData(j);
+      })
+      .catch((err) => {
+        console.error("Failed to load analyst_province_data.json:", err);
+        provinceFetchStartedRef.current = false;
+        setProvinceError("Province data could not be loaded. National rows are still available.");
+      });
+  }, [selectedProvince, provinceData, provinceError]);
 
   // Recalculate sticky offsets using ResizeObserver and CSS custom properties
   useEffect(() => {
@@ -156,12 +186,20 @@ export default function AnalystPage() {
     return () => {
       observer.disconnect();
     };
-  }, [loading, data, currentViewBy, currentPowertrain, selectedVehicleType]);
+  }, [loading, data, currentViewBy, currentPowertrain, selectedVehicleType, selectedProvince]);
 
   const meta = data?.meta;
   const currYear = meta?.current_year;
   const prevYear = currYear ? currYear - 1 : "";
   const monthLabel = MONTHS_EN[(meta?.current_month_num ?? 0) - 1] || "";
+  const isProvinceMode = selectedProvince !== "ALL";
+  const isProvincePending = isProvinceMode && !provinceData && !provinceError;
+  const currentFacts = useMemo(
+    () => isProvinceMode ? provinceData?.facts[currentViewBy] ?? [] : [],
+    [isProvinceMode, provinceData, currentViewBy],
+  );
+  const currentMonthNum = meta?.current_month_num ?? 0;
+  const currentYearNum = meta?.current_year ?? 0;
 
   const handleViewByChange = (viewBy: "brand" | "model") => {
     setCurrentViewBy(viewBy);
@@ -170,8 +208,21 @@ export default function AnalystPage() {
   };
 
   const modelFilterRows = useMemo(
-    () => data?.data?.model?.ALL?.[selectedVehicleType] || [],
-    [data, selectedVehicleType],
+    () => {
+      if (isProvinceMode && provinceData && currentYearNum && currentMonthNum) {
+        return buildAnalystRowsFromFacts({
+          facts: provinceData.facts.model,
+          viewBy: "model",
+          powertrain: "ALL",
+          vehicleType: selectedVehicleType,
+          province: selectedProvince,
+          currentYear: currentYearNum,
+          currentMonthNum,
+        });
+      }
+      return data?.data?.model?.ALL?.[selectedVehicleType] || [];
+    },
+    [isProvinceMode, provinceData, currentYearNum, currentMonthNum, selectedVehicleType, selectedProvince, data],
   );
 
   // Model view options come from the already-loaded analyst rows for the active vehicle type.
@@ -189,7 +240,19 @@ export default function AnalystPage() {
   const brandOptions = useMemo(() => {
     if (currentViewBy === "model") return modelViewOptions.brands;
     const brandsSet = new Set<string>();
-    if (data?.data?.brand) {
+    if (isProvinceMode && provinceData && currentYearNum && currentMonthNum) {
+      buildAnalystRowsFromFacts({
+        facts: provinceData.facts.brand,
+        viewBy: "brand",
+        powertrain: "ALL",
+        vehicleType: selectedVehicleType,
+        province: selectedProvince,
+        currentYear: currentYearNum,
+        currentMonthNum,
+      }).forEach((r) => {
+        if (!r.is_grand_total && r.brand) brandsSet.add(r.brand);
+      });
+    } else if (data?.data?.brand) {
       Object.values(data.data.brand).forEach((byVehicleType) => {
         Object.values(byVehicleType).forEach((ptRows: AnalystRow[]) => {
           ptRows.forEach((r: AnalystRow) => {
@@ -199,7 +262,7 @@ export default function AnalystPage() {
       });
     }
     return Array.from(brandsSet).sort();
-  }, [currentViewBy, data, modelViewOptions.brands]);
+  }, [currentViewBy, isProvinceMode, provinceData, currentYearNum, currentMonthNum, selectedVehicleType, selectedProvince, data, modelViewOptions.brands]);
 
   const handleBrandChange = (brand: string) => {
     setSelectedBrand(brand);
@@ -223,10 +286,27 @@ export default function AnalystPage() {
     setSelectedVehicleType(vehicleType);
     setSelectedModel("");
     if (currentViewBy === "model" && selectedBrand) {
-      const rows = data?.data?.model?.ALL?.[vehicleType] || [];
+      const rows = isProvinceMode && provinceData && currentYearNum && currentMonthNum
+        ? buildAnalystRowsFromFacts({
+            facts: provinceData.facts.model,
+            viewBy: "model",
+            powertrain: "ALL",
+            vehicleType,
+            province: selectedProvince,
+            currentYear: currentYearNum,
+            currentMonthNum,
+          })
+        : data?.data?.model?.ALL?.[vehicleType] || [];
       const validBrands = new Set(selectAnalystFilterOptions(rows, "").brands);
       if (!validBrands.has(selectedBrand)) setSelectedBrand("");
     }
+  };
+
+  const handleProvinceChange = (province: string) => {
+    setSelectedProvince(province);
+    setProvinceError(null);
+    setSelectedBrand("");
+    setSelectedModel("");
   };
 
   // Formatter functions
@@ -273,7 +353,17 @@ export default function AnalystPage() {
 
   // Sort and Filter rows
   const filteredAndSortedRows = useMemo(() => {
-    const rawRows: AnalystRow[] = data?.data?.[currentViewBy]?.[currentPowertrain]?.[selectedVehicleType] || [];
+    const rawRows: AnalystRow[] = isProvinceMode && provinceData && currentYearNum && currentMonthNum
+      ? buildAnalystRowsFromFacts({
+          facts: currentFacts,
+          viewBy: currentViewBy,
+          powertrain: currentViewBy === "model" ? "ALL" : currentPowertrain,
+          vehicleType: selectedVehicleType,
+          province: selectedProvince,
+          currentYear: currentYearNum,
+          currentMonthNum,
+        })
+      : data?.data?.[currentViewBy]?.[currentPowertrain]?.[selectedVehicleType] || [];
     if (rawRows.length === 0) return [];
 
     let filtered = rawRows.slice();
@@ -294,7 +384,7 @@ export default function AnalystPage() {
     });
 
     return grandTotals.concat(details);
-  }, [data, currentViewBy, currentPowertrain, selectedVehicleType, selectedBrand, selectedModel, sortField, sortDirection]);
+  }, [isProvinceMode, provinceData, currentYearNum, currentMonthNum, currentFacts, currentViewBy, currentPowertrain, selectedVehicleType, selectedProvince, data, selectedBrand, selectedModel, sortField, sortDirection]);
 
   const paginatedRows = useMemo(() => {
     const grandTotals = filteredAndSortedRows.filter(r => r.is_grand_total);
@@ -325,7 +415,17 @@ export default function AnalystPage() {
       const XLSX = await import("xlsx");
 
       // Sheet 1: Analyst Full Data (unfiltered)
-      const fullRows = data.data[currentViewBy]?.[currentPowertrain]?.[selectedVehicleType] || [];
+      const fullRows: AnalystRow[] = isProvinceMode && provinceData && currentYearNum && currentMonthNum
+        ? buildAnalystRowsFromFacts({
+            facts: currentFacts,
+            viewBy: currentViewBy,
+            powertrain: currentViewBy === "model" ? "ALL" : currentPowertrain,
+            vehicleType: selectedVehicleType,
+            province: selectedProvince,
+            currentYear: currentYearNum,
+            currentMonthNum,
+          })
+        : data.data[currentViewBy]?.[currentPowertrain]?.[selectedVehicleType] || [];
       const excelFull = getExcelRows(fullRows);
 
       // Sheet 2: Analyst View (currently filtered & sorted)
@@ -493,6 +593,16 @@ export default function AnalystPage() {
                 singleSelect
               />
             </div>
+            <div className="min-w-[170px]">
+              <FilterPillPopover
+                label="Province"
+                placeholder="Search provinces..."
+                options={meta?.provinces ?? []}
+                value={selectedProvince === "ALL" ? [] : [selectedProvince]}
+                onChange={(v) => handleProvinceChange(v[0] ?? "ALL")}
+                singleSelect
+              />
+            </div>
             <div
               className={`min-w-[150px] ${currentViewBy === "model" ? "opacity-40 pointer-events-none" : ""}`}
               title={currentViewBy === "model" ? "Powertrain locked to ALL — model data has no powertrain breakdown" : undefined}
@@ -529,6 +639,20 @@ export default function AnalystPage() {
             </div>
           </div>
         </div>
+
+        {(isProvincePending || provinceError) && (
+          <div
+            role={provinceError ? "alert" : "status"}
+            aria-live="polite"
+            className={`rounded-md border px-3 py-2 text-xs ${
+              provinceError
+                ? "border-amber-900/60 bg-amber-950/30 text-amber-200"
+                : "border-slate-800 bg-slate-900 text-slate-400"
+            }`}
+          >
+            {provinceError ?? `Loading analyst rows for ${selectedProvince}...`}
+          </div>
+        )}
 
         {/* Pivot/Calculation Table Container */}
         <div className="bg-slate-900 border border-slate-800 rounded-md overflow-hidden">

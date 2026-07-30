@@ -19,7 +19,7 @@ MODEL_PARQUET = BASE_DIR / "test_model_cleaned.parquet"
 FUEL_PARQUET = BASE_DIR / "test_fuel_cleaned.parquet"
 REQUIRED_FILES = {
     name: DATA_DIR / name for name in (
-        "dashboard_summary.json", "dashboard_models.json", "analyst_data.json",
+        "dashboard_summary.json", "dashboard_models.json", "analyst_data.json", "analyst_province_data.json",
         "cleaned_data_manifest.json", "manual_report.json",
     )
 }
@@ -33,6 +33,9 @@ MONTH_MAP = {
     "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
 }
 ALLOWED_FUEL_POWERTRAIN = {"ICE", "HEV", "PHEV", "BEV", "N/A", "OTH"}
+BEV_CANDIDATES_FILE = DATA_DIR / "new_bev_candidates.json"
+BEV_CANDIDATE_REASON_CODES = {"approved_family_match", "approved_model_match", "electric_name_marker"}
+BEV_CANDIDATE_CONFIDENCE = {"high", "medium"}
 
 
 def validate_cleaned_source_grains(model: pd.DataFrame, fuel: pd.DataFrame):
@@ -127,6 +130,56 @@ def validate_bev_report_sheets(sheets: dict, approved=None):
     return len(observed)
 
 
+def validate_bev_candidates_watchlist(payload: dict, canonical_period: tuple):
+    """Validate new_bev_candidates.json's schema and reporting period.
+
+    Candidate-only artifact: never required (missing/absent is fine — the caller only
+    invokes this when the file exists), and its candidate_count must never gate release;
+    only a malformed shape or a period mismatch does.
+    """
+    meta = payload.get("meta", {})
+    for field in ("year", "month", "generated_at", "candidate_count", "total_units"):
+        if field not in meta:
+            raise ValueError(f"new_bev_candidates.json meta missing required field: {field}")
+    if not isinstance(meta["year"], int) or not isinstance(meta["month"], int):
+        raise ValueError(f"new_bev_candidates.json meta.year/month must be integers: {meta}")
+    if (meta["year"], meta["month"]) != canonical_period:
+        raise ValueError(
+            f"new_bev_candidates.json period {(meta['year'], meta['month'])} does not match "
+            f"the canonical release period {canonical_period}"
+        )
+
+    candidates = payload.get("candidates", [])
+    if not isinstance(candidates, list):
+        raise ValueError("new_bev_candidates.json 'candidates' must be a list")
+    if meta["candidate_count"] != len(candidates):
+        raise ValueError(
+            f"new_bev_candidates.json candidate_count ({meta['candidate_count']}) "
+            f"!= len(candidates) ({len(candidates)})"
+        )
+    total_units = sum(c.get("units", 0) for c in candidates)
+    if meta["total_units"] != total_units:
+        raise ValueError(
+            f"new_bev_candidates.json total_units ({meta['total_units']}) != sum(units) ({total_units})"
+        )
+
+    required_fields = {"brand", "raw_model", "model", "units", "confidence", "reason_code", "reason", "review_status"}
+    for c in candidates:
+        missing = required_fields - set(c)
+        if missing:
+            raise ValueError(f"new_bev_candidates.json candidate missing fields: {missing}")
+        if c["reason_code"] not in BEV_CANDIDATE_REASON_CODES:
+            raise ValueError(f"new_bev_candidates.json candidate has invalid reason_code: {c['reason_code']!r}")
+        if c["confidence"] not in BEV_CANDIDATE_CONFIDENCE:
+            raise ValueError(f"new_bev_candidates.json candidate has invalid confidence: {c['confidence']!r}")
+        if c["review_status"] != "pending":
+            raise ValueError(
+                f"new_bev_candidates.json candidate review_status must be 'pending' "
+                f"(never auto-approved): {c['review_status']!r}"
+            )
+    return len(candidates)
+
+
 def validate_analyst_views(analyst_data: dict):
     """Model views cannot expose fuel-derived Powertrain filters."""
     data = analyst_data.get("data", {})
@@ -140,8 +193,24 @@ def validate_analyst_views(analyst_data: dict):
         raise ValueError(f"analyst brand views have invalid Powertrain keys: {sorted(brand_powertrains)}")
 
 
+def validate_analyst_province_views(province_data: dict):
+    """Province analyst payload is compact monthly facts, not pre-rendered tables."""
+    facts = province_data.get("facts", {})
+    brand = facts.get("brand", [])
+    model = facts.get("model", [])
+    if not brand or not model:
+        raise ValueError("analyst_province_data.json must contain brand and model facts")
+    for name, rows, required in (
+        ("brand", brand, {"p", "b", "y", "mo", "v", "pt", "u"}),
+        ("model", model, {"p", "b", "m", "y", "mo", "v", "u"}),
+    ):
+        missing = [required - set(row) for row in rows[:100] if required - set(row)]
+        if missing:
+            raise ValueError(f"analyst province {name} facts missing keys: {missing[0]}")
+
+
 def _period(name, data):
-    if name == "analyst_data.json":
+    if name in {"analyst_data.json", "analyst_province_data.json"}:
         meta = data.get("meta", {})
         return int(meta["current_year"]), int(meta["current_month_num"])
     meta = data.get("meta", data)
@@ -176,6 +245,7 @@ def validate_public_release():
         raise ValueError(f"reporting periods do not match: {periods}")
 
     validate_analyst_views(payloads["analyst_data.json"])
+    validate_analyst_province_views(payloads["analyst_province_data.json"])
     model_count = validate_public_model_tree(payloads["dashboard_models.json"])
     report = payloads["manual_report.json"]
     sheets = report.get("sheets", {})
@@ -189,6 +259,15 @@ def validate_public_release():
     bev_rows = validate_bev_report_sheets(sheets)
 
     period = next(iter(periods.values()))
+
+    # Candidate-only watchlist: never required (a missing/never-generated file is fine —
+    # BEV_CANDIDATES_FILE is not in REQUIRED_FILES), but if present its schema and period
+    # must reconcile with the release. Candidate presence itself never fails the release.
+    if BEV_CANDIDATES_FILE.exists():
+        watchlist = json.loads(BEV_CANDIDATES_FILE.read_text(encoding="utf-8"))
+        candidate_count = validate_bev_candidates_watchlist(watchlist, period)
+        print(f"BEV watchlist valid: {candidate_count} candidate(s) for period {period[1]}/{period[0]}.")
+
     print(f"Public tree valid: {model_count:,} model nodes; {bev_rows:,} approved BEV report rows. Period={period[1]}/{period[0]}.")
     print("VALIDATION PASSED: source grains, reviewed BEV report rows, report sections, and periods are release-safe.")
 

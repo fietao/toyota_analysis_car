@@ -4,11 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  CheckCircle2,
+  XCircle,
   RefreshCw,
   Filter,
   Layers,
   Trophy,
   PieChart as PieChartIcon,
+  Radar,
+  Download,
 } from "lucide-react";
 import {
   Area,
@@ -43,6 +47,8 @@ import {
 } from "./selectors";
 import { FilterPillPopover } from "../components/FilterPillPopover";
 import { MARKET_PROFILE_LABELS, resolveProfileCodes, identifyMarketProfile, resolveVehicleTypeSelection, missingFormalReportCodes } from "./marketProfiles";
+import { OperatorStatus, HealthTone, healthTone, healthLabel } from "./operatorStatus";
+import { BevWatchlistState, BevCandidate, parseBevWatchlist, bevWatchlistMessage, candidatesToCsv } from "./bevWatchlist";
 
 const DATA_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -105,6 +111,181 @@ function MetricCard({ title, value, subtitle }: { title: string; value: string |
       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</div>
       <div className="mt-1 font-mono text-xs font-semibold tracking-tight tabular-nums text-slate-100 truncate" title={String(value)}>{value}</div>
       {subtitle && <div className="mt-1 text-xs text-brand-light font-medium">{subtitle}</div>}
+    </Card>
+  );
+}
+
+const HEALTH_TONE_CLASSES: Record<HealthTone, string> = {
+  green: "border-emerald-900/60 bg-emerald-950/30 text-emerald-300",
+  yellow: "border-amber-900/60 bg-amber-950/30 text-amber-300",
+  red: "border-red-900/60 bg-red-950/30 text-red-300",
+};
+const HEALTH_TONE_ICON: Record<HealthTone, typeof CheckCircle2> = {
+  green: CheckCircle2, yellow: AlertTriangle, red: XCircle,
+};
+
+// Data Health strip — the single at-a-glance answer to "is the live dashboard data
+// good right now" for a non-coding operator. Driven entirely by operator_status.json.
+function DataHealthStrip({ status, unavailable }: { status: OperatorStatus | null; unavailable: boolean }) {
+  if (unavailable) {
+    return (
+      <div className="mb-4 rounded-sm border border-slate-800 bg-slate-900 px-3 py-2 text-[11px] text-slate-500">
+        Status unavailable
+      </div>
+    );
+  }
+  if (!status) return null; // still loading; avoid a flash of "unavailable"
+
+  const tone = healthTone(status.status, status.totals_match);
+  const Icon = HEALTH_TONE_ICON[tone];
+
+  return (
+    <div
+      role="status"
+      className={`mb-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-sm border px-3 py-2 text-xs ${HEALTH_TONE_CLASSES[tone]}`}
+    >
+      <span className="flex items-center gap-2 font-semibold">
+        <Icon className="h-3.5 w-3.5 flex-shrink-0" /> {healthLabel(status.status)}
+      </span>
+      {status.status === "failed" && status.safe_live_data && (
+        <span className="font-semibold">Showing last good data</span>
+      )}
+      {!status.totals_match && (
+        <span className="font-semibold">Totals mismatch</span>
+      )}
+      <span className="text-slate-400">
+        Period <span className="ml-1 font-mono text-slate-200">{status.reporting_period ?? "—"}</span>
+      </span>
+      <span className="text-slate-400">
+        Last update <span className="ml-1 font-mono text-slate-200">{new Date(status.last_run_at).toLocaleString()}</span>
+      </span>
+      {status.pending_review_count > 0 && (
+        <span className="text-slate-400">
+          Pending review <span className="ml-1 font-mono text-slate-200">{status.pending_review_count}</span>
+        </span>
+      )}
+      <span className="text-slate-400">
+        Next <span className="ml-1 text-slate-200">{status.next_action}</span>
+      </span>
+    </div>
+  );
+}
+
+
+const MONTH_ABBR = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const CONFIDENCE_LABEL: Record<BevCandidate["confidence"], string> = { high: "High", medium: "Medium" };
+
+function downloadBevCandidatesCsv(candidates: BevCandidate[], year: number, month: number) {
+  const blob = new Blob([candidatesToCsv(candidates)], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `new_bev_candidates_${year}-${String(month).padStart(2, "0")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Possible New BEV Models — a candidate-only watchlist (backend/bev_candidates.py). It
+// never reflects an approval decision; it only tells the operator what to go check in
+// model_powertrain_review.csv. Absent/malformed data must never crash the dashboard.
+function BevWatchlistPanel({ state }: { state: BevWatchlistState | null }) {
+  if (state === null) return null; // still loading; avoid a flash of "unavailable"
+
+  if (state.kind === "unavailable") {
+    return (
+      <div className="mb-4 rounded-sm border border-slate-800 bg-slate-900 px-3 py-2 text-[11px] text-slate-500">
+        Watchlist unavailable
+      </div>
+    );
+  }
+
+  const periodLabel = `${MONTH_ABBR[state.month] ?? state.month} ${state.year}`;
+
+  if (state.kind === "empty") {
+    return (
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Radar className="h-3.5 w-3.5 text-slate-500" />
+            <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Possible New BEV Models</h2>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            Period <span className="font-mono text-slate-300">{periodLabel}</span>
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">No new BEV candidates.</p>
+      </Card>
+    );
+  }
+
+  const { candidates, totalUnits, year, month } = state;
+
+  return (
+    <Card className="mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Radar className="h-3.5 w-3.5 text-brand-light" />
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Possible New BEV Models</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+          <span>
+            Period <span className="font-mono text-slate-200">{periodLabel}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => downloadBevCandidatesCsv(candidates, year, month)}
+            className="flex items-center gap-1 rounded-sm border border-slate-700 px-2 py-1 font-medium text-slate-300 transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+          >
+            <Download className="h-3 w-3" /> Download CSV
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 flex items-center gap-2 text-xs font-medium text-amber-300">
+        <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+        {bevWatchlistMessage(candidates.length)}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500">
+        {candidates.length} model{candidates.length === 1 ? "" : "s"} · {totalUnits.toLocaleString()} unit(s) in{" "}
+        {periodLabel} · review in backend/config/model_powertrain_review.csv
+      </p>
+
+      <div className="mt-3 overflow-x-auto custom-scrollbar">
+        <table className="w-full min-w-[560px] text-xs">
+          <thead>
+            <tr className="border-b border-slate-700">
+              <th className="whitespace-nowrap px-2 py-1.5 text-left font-medium text-slate-400">Brand</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-left font-medium text-slate-400">Raw Model</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-right font-medium text-slate-400">Units</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-left font-medium text-slate-400">Confidence</th>
+              <th className="px-2 py-1.5 text-left font-medium text-slate-400">Reason</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/50">
+            {candidates.map((c, i) => (
+              <tr key={`${c.brand}-${c.raw_model}-${i}`} className="text-slate-300">
+                <td className="whitespace-nowrap px-2 py-1.5 font-medium">{c.brand}</td>
+                <td className="whitespace-nowrap px-2 py-1.5">{c.raw_model}</td>
+                <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{c.units.toLocaleString()}</td>
+                <td className="whitespace-nowrap px-2 py-1.5">
+                  <span
+                    className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      c.confidence === "high"
+                        ? "border-brand-light/40 text-brand-light"
+                        : "border-slate-700 text-slate-400"
+                    }`}
+                  >
+                    {CONFIDENCE_LABEL[c.confidence]}
+                  </span>
+                </td>
+                <td className="px-2 py-1.5 text-slate-400">{c.reason}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }
@@ -335,6 +516,9 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [operatorStatus, setOperatorStatus] = useState<OperatorStatus | null>(null);
+  const [operatorStatusUnavailable, setOperatorStatusUnavailable] = useState(false);
+  const [bevWatchlist, setBevWatchlist] = useState<BevWatchlistState | null>(null);
   const [activeTab, setActiveTab] = useState("rankings");
   const [selectedYear, setSelectedYear] = useState<number | "All">("All");
   const [comparisonMonth, setComparisonMonth] = useState<string>("");
@@ -412,6 +596,26 @@ export default function Dashboard() {
         setError("Failed to load dashboard summary data.");
         setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    fetch(`${DATA_BASE}/data/operator_status.json`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load operator status");
+        return r.json();
+      })
+      .then((status: OperatorStatus) => setOperatorStatus(status))
+      .catch(() => setOperatorStatusUnavailable(true)); // quiet — never blocks the dashboard
+  }, []);
+
+  useEffect(() => {
+    fetch(`${DATA_BASE}/data/new_bev_candidates.json`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load BEV watchlist");
+        return r.json();
+      })
+      .then((data) => setBevWatchlist(parseBevWatchlist(data)))
+      .catch(() => setBevWatchlist({ kind: "unavailable" })); // quiet — never blocks the dashboard
   }, []);
 
   const years = data?.meta?.years ?? [];
@@ -720,6 +924,8 @@ export default function Dashboard() {
         </header>
 
         <div className="p-4 md:p-6">
+          <DataHealthStrip status={operatorStatus} unavailable={operatorStatusUnavailable} />
+          <BevWatchlistPanel state={bevWatchlist} />
           {modelsError && (
             <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-sm border border-red-900/60 bg-red-950/30 px-3 py-2 text-xs text-red-300">
               <span className="flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" /> {modelsError}</span>

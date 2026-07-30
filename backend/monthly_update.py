@@ -18,6 +18,7 @@ import os
 import shutil
 import subprocess
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -33,10 +34,13 @@ LOGS_DIR = ROOT / "logs"
 REPORTS_DIR = ROOT / "reports"
 SUMMARY_PATH = REPORTS_DIR / "monthly_operator_summary.txt"
 MANIFEST_PATH = DATA_DIR / "cleaned_data_manifest.json"
+STATUS_PATH = DATA_DIR / "operator_status.json"
 JSON_OUTPUTS = [
     "dashboard_summary.json", "dashboard_models.json", "cleaned_data_manifest.json",
-    "analyst_data.json", "manual_report.json",
+    "analyst_data.json", "analyst_province_data.json", "manual_report.json",
+    "new_bev_candidates.json",
 ]
+BEV_CANDIDATES_PATH = DATA_DIR / "new_bev_candidates.json"
 
 # Exact operator-facing result lines (contract — see docs/THAI_OPERATOR_MONTHLY_GUIDE.md).
 RESULT_OK = "สำเร็จ: เผยแพร่ข้อมูลใหม่แล้ว"
@@ -184,6 +188,41 @@ def safe_publish(staging, public, backup, names):
     shutil.rmtree(backup)
 
 
+def _read_manifest():
+    """Best-effort read of cleaned_data_manifest.json. Never raises; {} if missing/corrupt."""
+    try:
+        return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # ValueError = corrupt/partial JSON
+        return {}
+
+
+def _read_bev_candidates():
+    """Best-effort read of new_bev_candidates.json. Never raises; a missing/corrupt
+    watchlist must never fail the run or the operator status — it just reads as 0
+    candidates (see bev_candidates.py for the generator)."""
+    try:
+        payload = json.loads(BEV_CANDIDATES_PATH.read_text(encoding="utf-8"))
+        meta = payload.get("meta", {})
+        return {
+            "candidate_count": meta.get("candidate_count", 0),
+            "total_units": meta.get("total_units", 0),
+            "top": [
+                f"{c.get('brand')} {c.get('raw_model')}" for c in payload.get("candidates", [])[:5]
+            ],
+        }
+    except (OSError, ValueError):
+        return {"candidate_count": 0, "total_units": 0, "top": []}
+
+
+def _published_files(run_start):
+    """JSON_OUTPUTS paired with whether this run (re)wrote each one, in DATA_DIR."""
+    files = []
+    for name in JSON_OUTPUTS:
+        p = DATA_DIR / name
+        files.append((name, p.exists() and p.stat().st_mtime >= run_start))
+    return files
+
+
 def write_summary(run_start, result):
     """Write reports/monthly_operator_summary.txt. Best-effort; never aborts the run.
 
@@ -192,14 +231,10 @@ def write_summary(run_start, result):
     untouched, so period/row counts below reflect the last known good data still served.
     """
     REPORTS_DIR.mkdir(exist_ok=True)
-    period = model_rows = fuel_rows = None
-    try:
-        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-        period = manifest.get("reporting_period")
-        model_rows = manifest.get("model_row_count")
-        fuel_rows = manifest.get("fuel_row_count")
-    except (OSError, ValueError):  # ValueError = corrupt/partial JSON; summary must never traceback
-        pass
+    manifest = _read_manifest()
+    period = manifest.get("reporting_period")
+    model_rows = manifest.get("model_row_count")
+    fuel_rows = manifest.get("fuel_row_count")
 
     pending = operator_preflight.count_pending()
 
@@ -212,11 +247,7 @@ def write_summary(run_start, result):
     except Exception:
         approved_bev_models = "?"
 
-    regenerated = []
-    for name in JSON_OUTPUTS:
-        p = DATA_DIR / name
-        fresh = p.exists() and p.stat().st_mtime >= run_start
-        regenerated.append((name, fresh))
+    regenerated = _published_files(run_start)
     any_stale = any(not fresh for _, fresh in regenerated)
 
     lines = []
@@ -231,6 +262,12 @@ def write_summary(run_start, result):
         lines.append(f"จำนวนแถวข้อมูลเชื้อเพลิง (Fuel rows): {fuel_rows:,}")
     lines.append(f"รุ่นรถรอรีวิว (Pending model rows) : {pending}")
     lines.append(f"รุ่น BEV ที่อนุมัติใน Sheet 7-8    : {approved_bev_models}")
+    bev_candidates = _read_bev_candidates()
+    lines.append(f"รุ่น BEV ใหม่ที่อาจตกหล่น (watchlist): {bev_candidates['candidate_count']}")
+    if bev_candidates["top"]:
+        lines.append("  Top candidates:")
+        for name in bev_candidates["top"]:
+            lines.append(f"    - {name}")
     lines.append("")
     lines.append("ข้อมูลที่เผยแพร่ (Published JSON, [x] = อัพเดทรอบนี้):")
     for name, fresh in regenerated:
@@ -267,9 +304,82 @@ def write_summary(run_start, result):
     say(f"เขียนสรุปผลไว้ที่: {SUMMARY_PATH}")
 
 
+# result -> operator_status.json `status` (dashboard-facing; UI chrome stays English).
+RESULT_STATUS = {RESULT_OK: "ok", RESULT_REVIEW: "review_needed", RESULT_FAIL: "failed"}
+
+
+def write_operator_status(run_start, result):
+    """Write frontend/public/data/operator_status.json — single source of truth for
+    the dashboard's Data Health strip. Best-effort; never aborts the run.
+
+    Written straight to DATA_DIR (not through staging/safe_publish): it must report
+    the outcome of *this* run, including failures, while the safe-publish guarantee
+    keeps JSON_OUTPUTS (the actual data) untouched or rolled back on failure. Reuses
+    the manifest / pending-review helpers so pipeline math isn't duplicated here.
+    """
+    manifest = _read_manifest()
+    model_total = manifest.get("model_total_units")
+    fuel_total = manifest.get("fuel_total_units")
+    pending = operator_preflight.count_pending()
+    status = RESULT_STATUS[result]
+    bev_candidates = _read_bev_candidates()
+    candidate_count = bev_candidates["candidate_count"]
+
+    if status == "failed":
+        next_action = (
+            "Monthly update failed; the dashboard is still showing the last good data. "
+            "Open the monthly update guide, fix the issue, then run the monthly update again."
+        )
+    elif candidate_count > 0:
+        # Candidates are a subset of pending rows never a red/failing condition on their own.
+        next_action = (
+            "Review the possible BEV models listed in the watchlist. Approve only "
+            "models supported by reliable evidence."
+        )
+    elif pending > 0:
+        next_action = (
+            f"No action needed — new data is published and safe. {pending} new model row(s) "
+            "are awaiting review and won't appear in Sheets 7-8 until approved in "
+            "model_powertrain_review.csv; only act if a specific new BEV model is missing."
+        )
+    else:
+        next_action = "No action needed. Live dashboard data is up to date."
+
+    payload = {
+        "status": status,
+        "reporting_period": manifest.get("reporting_period"),
+        "generated_at": datetime.now().isoformat(),
+        "last_run_at": datetime.fromtimestamp(run_start).isoformat(),
+        "model_row_count": manifest.get("model_row_count"),
+        "fuel_row_count": manifest.get("fuel_row_count"),
+        "model_total_units": model_total,
+        "fuel_total_units": fuel_total,
+        "totals_match": model_total is not None and model_total == fuel_total,
+        "pending_review_count": pending,
+        "published_files": [
+            {"file": name, "updated_this_run": fresh} for name, fresh in _published_files(run_start)
+        ],
+        "bev_watchlist": {
+            "candidate_count": candidate_count,
+            "total_units": bev_candidates["total_units"],
+            "message": (
+                f"{candidate_count} possible new BEV models need checking. Published data remains safe."
+                if candidate_count > 0 else "No new BEV candidates."
+            ),
+        },
+        "next_action": next_action,
+        # safe_publish() guarantees DATA_DIR is either fully updated or rolled back to
+        # its prior state, so a failed run never leaves the live JSON half-written.
+        "safe_live_data": True,
+    }
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    STATUS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def finish(result, run_start):
-    """Write the summary, print the verbatim result banner, return the exit code."""
+    """Write the summary + status JSON, print the verbatim result banner, return the exit code."""
     write_summary(run_start, result)
+    write_operator_status(run_start, result)
     say("")
     rule()
     for line in result.splitlines():
@@ -309,6 +419,7 @@ def main():
         built = (
             run_step("  - สร้างข้อมูลหลัก + แดชบอร์ด (update_raw_data.py)", "update_raw_data.py")
             and run_step("  - สร้างรายงาน Manual Report / Sheet 7-8 (export_manual_report.py)", "export_manual_report.py")
+            and run_step("  - ตรวจรุ่นรถที่อาจเป็น BEV ใหม่ (bev_candidates.py)", "bev_candidates.py")
             and run_step("  - ตรวจสอบความถูกต้องก่อนเผยแพร่ (validate_public_release.py)", "validate_public_release.py")
         )
         if not built:
@@ -329,6 +440,12 @@ def main():
 
         pending = operator_preflight.count_pending()
         return finish(RESULT_REVIEW if pending > 0 else RESULT_OK, run_start)
+    except Exception:
+        # An unhandled crash must still leave operator_status.json reflecting "failed",
+        # not the previous run's stale status — otherwise the dashboard keeps claiming
+        # the old (possibly outdated) run was healthy while the operator sees a traceback.
+        traceback.print_exc(file=LOG_FILE)
+        return finish(RESULT_FAIL, run_start)
     finally:
         say("")
         say(f"บันทึก log ไว้ที่: {log_path}")
