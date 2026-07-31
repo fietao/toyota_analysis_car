@@ -42,6 +42,7 @@ frontend/public/data.bak/
 # Appended paths
 backend/output/
 !backend/output/
+backend/output/*
 !backend/output/test_9_masterModel.xlsx
 frontend/.next/
 frontend/node_modules/
