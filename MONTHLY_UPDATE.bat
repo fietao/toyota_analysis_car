@@ -37,7 +37,7 @@ set RC=%ERRORLEVEL%
 echo.
 if %RC% neq 0 (
     echo ------------------------------------------------------------
-    echo  Not finished - read the Thai message above and fix it.
+    echo  Not finished - read the error above and fix it.
     echo ------------------------------------------------------------
 )
 echo.

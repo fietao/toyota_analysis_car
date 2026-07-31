@@ -191,6 +191,10 @@ function downloadBevCandidatesCsv(candidates: BevCandidate[], year: number, mont
 // never reflects an approval decision; it only tells the operator what to go check in
 // model_powertrain_review.csv. Absent/malformed data must never crash the dashboard.
 function BevWatchlistPanel({ state }: { state: BevWatchlistState | null }) {
+  const [hiddenPeriod, setHiddenPeriod] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : window.localStorage.getItem("hidden-bev-watchlist-period")
+  );
+
   if (state === null) return null; // still loading; avoid a flash of "unavailable"
 
   if (state.kind === "unavailable") {
@@ -221,6 +225,24 @@ function BevWatchlistPanel({ state }: { state: BevWatchlistState | null }) {
   }
 
   const { candidates, totalUnits, year, month } = state;
+  const candidatePeriod = `${year}-${month}`;
+
+  if (hiddenPeriod === candidatePeriod) {
+    return (
+      <div className="mb-4 text-right">
+        <button
+          type="button"
+          onClick={() => {
+            window.localStorage.removeItem("hidden-bev-watchlist-period");
+            setHiddenPeriod(null);
+          }}
+          className="text-[11px] text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+        >
+          Show hidden BEV review
+        </button>
+      </div>
+    );
+  }
 
   return (
     <Card className="mb-4">
@@ -239,6 +261,16 @@ function BevWatchlistPanel({ state }: { state: BevWatchlistState | null }) {
             className="flex items-center gap-1 rounded-sm border border-slate-700 px-2 py-1 font-medium text-slate-300 transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
           >
             <Download className="h-3 w-3" /> Download CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              window.localStorage.setItem("hidden-bev-watchlist-period", candidatePeriod);
+              setHiddenPeriod(candidatePeriod);
+            }}
+            className="rounded-sm px-1 py-1 font-medium text-slate-400 transition-colors hover:text-slate-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+          >
+            Hide for this period
           </button>
         </div>
       </div>

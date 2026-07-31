@@ -86,7 +86,12 @@ if %ERRORLEVEL%==0 (
     exit /b 0
 )
 
-echo ERROR: Python 3.12 was installed, but this Command Prompt cannot see py -3.12 yet.
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" --version
+    exit /b 0
+)
+
+echo ERROR: Python 3.12 was installed, but this Command Prompt cannot find it yet.
 echo Close this window, open a new Command Prompt, and run INSTALL_FROM_ZERO.bat again.
 exit /b 1
 

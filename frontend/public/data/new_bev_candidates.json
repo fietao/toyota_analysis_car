@@ -2,31 +2,11 @@
   "meta": {
     "year": 2569,
     "month": 6,
-    "generated_at": "2026-07-31T01:40:03.190700",
-    "candidate_count": 13,
-    "total_units": 974
+    "generated_at": "2026-07-31T08:52:37.845852",
+    "candidate_count": 11,
+    "total_units": 654
   },
   "candidates": [
-    {
-      "brand": "BYD",
-      "raw_model": "BYD M6 EXTENDED",
-      "model": "BYD M6",
-      "units": 248,
-      "confidence": "high",
-      "reason_code": "approved_family_match",
-      "reason": "Same brand and canonical model family ('BYD M6') as an already-approved BEV.",
-      "review_status": "pending"
-    },
-    {
-      "brand": "BYD",
-      "raw_model": "BYD SEAL 6 PREMIUM",
-      "model": "BYD SEAL 6",
-      "units": 72,
-      "confidence": "high",
-      "reason_code": "approved_family_match",
-      "reason": "Same brand and canonical model family ('BYD SEAL 6') as an already-approved BEV.",
-      "review_status": "pending"
-    },
     {
       "brand": "VOLVO",
       "raw_model": "EX30",

@@ -1,116 +1,116 @@
 ﻿brand2,raw_model,model2,candidate_powertrain,review_status,evidence,reviewer,reviewed_at,notes
-AVATR,AVATR 07 MAX,AVATR 07,BEV,approved,Autoinfo: AVATR 07 Thailand launch https://www.autoinfo.co.th/avatr-07-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-AVATR,AVATR 07 ULTRA AWD,AVATR 07,BEV,approved,Autoinfo: AVATR 07 Thailand launch https://www.autoinfo.co.th/avatr-07-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-AVATR,AVATR 11 LONG RANGE,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,2026-07-22,seeded high-confidence BEV approval
-AVATR,AVATR 11 ROYAL EDITION,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,2026-07-22,seeded high-confidence BEV approval
-AVATR,AVATR 11 STANDARD RANGE,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,ATTO 3 (480KM-ER),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO 1 PREMIUM,BYD ATTO 1,BEV,approved,Official BYD brochure: Atto 1 https://www.byd.com/material/byd-site/np/atto1/atto1.pdf,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO 2 DYNAMIC,BYD ATTO 2,BEV,approved,PaulTan: BYD Atto 2 review https://paultan.org/2025/08/29/byd-atto-2-review/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO 2 PREMIUM,BYD ATTO 2,BEV,approved,PaulTan: BYD Atto 2 review https://paultan.org/2025/08/29/byd-atto-2-review/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO 3 (410KM),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO3 (410KM-DYNAMIC),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO3 (410KM-PREMIUM),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD ATTO3 (480KM-EXT),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD DOLPHIN (435KM-STD),BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD DOLPHIN (490KM-EXT),BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD DOLPHIN EXD,BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD DOLPHIN STD,BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD SEAL EXD AWD,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD SEAL EXD RWD,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD SEAL STD RWD,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD SEALION 7 AWD,BYD SEALION 7,BEV,approved,PaulTan: BYD Sealion 7 launch https://paultan.org/2024/11/14/byd-sealion-7-ev-suv-launched-in-malaysia-two-variants-up-to-530-ps-rm183800-to-rm199800/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,BYD SEALION 7 RWD,BYD SEALION 7,BEV,approved,PaulTan: BYD Sealion 7 launch https://paultan.org/2024/11/14/byd-sealion-7-ev-suv-launched-in-malaysia-two-variants-up-to-530-ps-rm183800-to-rm199800/,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,DOLPHIN (490KM),BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,DOLPHIN FREEDOM,BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-BYD,SEAL AWD PERFORMANCE,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,2026-07-22,seeded high-confidence BEV approval
-DEEPAL + CHANGAN,S05 MAX,S05 BEV,BEV,approved,Changan Thailand: DEEPAL S05 announcement https://www.changan.co.th/en/news/CHANGAN-unveils-DEEPAL-S05/,claude-code,2026-07-22,seeded high-confidence BEV approval
-DEEPAL + CHANGAN,S05 MAX LONG RANGE,S05 BEV,BEV,approved,Changan Thailand: DEEPAL S05 announcement https://www.changan.co.th/en/news/CHANGAN-unveils-DEEPAL-S05/,claude-code,2026-07-22,seeded high-confidence BEV approval
-DEEPAL + CHANGAN,S05 PLUS,S05 BEV,BEV,approved,Changan Thailand: DEEPAL S05 announcement https://www.changan.co.th/en/news/CHANGAN-unveils-DEEPAL-S05/,claude-code,2026-07-22,seeded high-confidence BEV approval
-HYUNDAI,IONIQ5 N,IONIQ5,BEV,approved,HeadlightMag: Hyundai IONIQ 5 launch https://www.headlightmag.com/2023-11-29-official-price-hyundai-ioniq-5-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-HYUNDAI,IONIQ5 N LINE,IONIQ5,BEV,approved,HeadlightMag: Hyundai IONIQ 5 launch https://www.headlightmag.com/2023-11-29-official-price-hyundai-ioniq-5-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,5 EV LONG RANGE DYNAMIC,5 EV,BEV,approved,Autoinfo: Jaecoo 5 EV Thailand launch https://www.autoinfo.co.th/jaecoo-5-ev-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,5 EV LONG RANGE MAX,5 EV,BEV,approved,Autoinfo: Jaecoo 5 EV Thailand launch https://www.autoinfo.co.th/jaecoo-5-ev-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,6 EV LONG RANGE 2WD,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,6 EV LONG RANGE 2WD PRO,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,6 EV LONG RANGE 4WD,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,6T EV LONG RANGE 4WD,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,2026-07-22,seeded high-confidence BEV approval
-JAECOO,JAECOO 6 EV,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,2026-07-22,seeded high-confidence BEV approval
-KIA,EV9 EARTH LONG RANGE,EV9,BEV,approved,Official Kia: EV9 spec https://www.kia.com/th/en/cars/ev9/specification.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-KIA,EV9 GT LINE AWD,EV9,BEV,approved,Official Kia: EV9 spec https://www.kia.com/th/en/cars/ev9/specification.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-KIA,EV9 GT-LINE,EV9,BEV,approved,Official Kia: EV9 spec https://www.kia.com/th/en/cars/ev9/specification.html,claude-code,2026-07-22,seeded high-confidence BEV approval
-LEAPMOTOR,B10 DESIGN BEV,B10,BEV,approved,PaulTan: Leapmotor B10 launch https://paultan.org/2026/07/29/leapmotor-brand-enters-indonesia-with-b10-c10-evs-same-spec-as-my-ckd-and-distributed-by-indomobil/,claude-code,2026-07-22,seeded high-confidence BEV approval
-LEAPMOTOR,B10 LIFE BEV,B10,BEV,approved,PaulTan: Leapmotor B10 launch https://paultan.org/2026/07/29/leapmotor-brand-enters-indonesia-with-b10-c10-evs-same-spec-as-my-ckd-and-distributed-by-indomobil/,claude-code,2026-07-22,seeded high-confidence BEV approval
-LEAPMOTOR,B10 STYLE BEV,B10,BEV,approved,PaulTan: Leapmotor B10 launch https://paultan.org/2026/07/29/leapmotor-brand-enters-indonesia-with-b10-c10-evs-same-spec-as-my-ckd-and-distributed-by-indomobil/,claude-code,2026-07-22,seeded high-confidence BEV approval
-LEAPMOTOR,C10 EV,C10,BEV,approved,PaulTan: Leapmotor C10 launch https://paultan.org/2026/02/23/2026-leapmotor-c10-ev-update-for-malaysia-coming-soon-suv-to-get-more-power-and-range-to-go-ckd/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQB 250,EQB,BEV,approved,Autoinfo: Mercedes-Benz EQB Thailand price https://www.autoinfo.co.th/mercedes-benz-eqb-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQB 250+,EQB,BEV,approved,Autoinfo: Mercedes-Benz EQB Thailand price https://www.autoinfo.co.th/mercedes-benz-eqb-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQE 300,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQE 300 PREMIUM PLUS,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQE 350 4MATIC SUV,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQE 350+,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQS 450,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQS 450 4MATIC SUV,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQS 450 PLUS,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQS 450+,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQS 500 4MATIC,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MERCEDES-BENZ,EQS 500 4MATIC SUV,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MINI,ACEMAN SE RHD,Aceman SE,BEV,approved,HeadlightMag: MINI Aceman SE launch https://www.headlightmag.com/2024-08-20-official-price-mini-aceman-se/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MINI,COOPER ELECTRIC,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MINI,COOPER ELECTRIC LEVEL 3,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MINI,COOPER SE HATCH RHD,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-MINI,COOPER SE RHD,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
-OMODA,C5 EV LONG RANGE DYNAMIC,C5 EV,BEV,approved,"AutolifeThailand (publication): Omoda C5 EV Dynamic official price, 100% electric https://autolifethailand.tv/official-price-omoda-c5-ev-bev-jan-2026/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-OMODA,C5 EV LONG RANGE MAX,C5 EV,BEV,approved,"AutolifeThailand (publication): Omoda C5 EV Dynamic/Max official price, 100% electric https://autolifethailand.tv/official-price-omoda-c5-ev-bev-jan-2026/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-OMODA,C5 EV LONG RANGE PLUS,C5 EV,BEV,approved,"paultan.org (publication): Chery Omoda C5 EV Thailand launch report, Long Range Plus/Ultimate variants https://paultan.org/2024/08/07/chery-omoda-e5-launched-in-thailand-c5-ev-suv-is-priced-from-rm113k-61-kwh-lfp-430-km-wltp-range/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-OMODA,C5 EV LONG RANGE ULTIMATE,C5 EV,BEV,approved,"paultan.org (publication): Chery Omoda C5 EV Thailand launch report, Long Range Plus/Ultimate variants https://paultan.org/2024/08/07/chery-omoda-e5-launched-in-thailand-c5-ev-suv-is-priced-from-rm113k-61-kwh-lfp-430-km-wltp-range/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-OMODA,OMODA C5 EV,C5 EV,BEV,approved,paultan.org (publication): Chery Omoda C5 EV Thailand launch report https://paultan.org/2024/08/07/chery-omoda-e5-launched-in-thailand-c5-ev-suv-is-priced-from-rm113k-61-kwh-lfp-430-km-wltp-range/,Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 LONG RANGE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model 3 Long Range AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43401",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 LONG RANGE PLUS,MODEL 3,ambiguous,ambiguous,Exact registration trim could not be matched to a documented manufacturer trim.,Claude-research-review,2026-07-30,Legacy Evidence Batch 2: trim identity unresolved; excluded until verified.
-TESLA,MODEL 3 LONG RANGE RWD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2025 Tesla Model 3 Long Range RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=48765",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 PERFORMANCE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 Performance AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46205",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 REAR WHEEL DRIVE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46206",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 REAR-WHEEL DRIVE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46206",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 RWD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46206",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 STANDARD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2026 Tesla Model 3 Standard RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=50251",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 STANDARD PLUS,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model 3 Standard Range Plus https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41416",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 STANDARD PLUS RWD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model 3 Standard Range Plus RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43821",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 STANDARD RANGE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model 3 Standard Range https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41415",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL 3 STANDARD RANGE PLUS,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model 3 Standard Range Plus https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41416",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL S LONG RANGE,MODEL S,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model S Long Range https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41417",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL S PERFORMANCE,MODEL S,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model S Performance (19in Wheels) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42283",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL X 100D,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2018 Tesla Model X 100D https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=39842",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL X LONG RANGE,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model X Long Range https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41514",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL X LONG RANGE PLUS,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model X Long Range Plus https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43403",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL X PERFORMANCE,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model X Performance (20in Wheels) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42287",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y L,MODEL Y,BEV,approved,"CarNewsChina (publication): Tesla Model Y L six-seater China launch, quoting official Tesla China announcement https://carnewschina.com/2025/08/19/tesla-officially-launched-its-six-seater-model-y-l-in-china-priced-at-47120-usd/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y LONG RANGE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model Y Long Range AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46212",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y LONG RANGE DUAL MOTOR,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model Y Long Range AWD (dual motor) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46212",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y LONG RANGE RWD,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2026 Tesla Model Y Long Range RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=49743",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y PERFORMANCE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model Y Performance AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46213",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y REAR WHEEL DRIVE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2022 Tesla Model Y RWD (All-Electric) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=45017",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y REAR-WHEEL DRIVE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2022 Tesla Model Y RWD (All-Electric) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=45017",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y RWD,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2022 Tesla Model Y RWD (All-Electric) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=45017",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y STANDARD,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2026 Tesla Model Y Standard RWD (18in Wheels) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=50040",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL Y STANDARD RANGE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model Y Standard Range RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43880",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL3 LONG RANGE PER,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model 3 Long Range Performance AWD (19in) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42280",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-TESLA,MODEL3 LONG RANGE PERFORMANCE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model 3 Long Range Performance AWD (19in) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42280",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-VOLVO,EX30 ULTRA SINGLE MOTOR,EX30,BEV,approved,"9CarThai (publication): Volvo EX30 Ultra Single Motor Extended Range official price, 69 kWh battery, 200 kW motor https://www.9carthai.com/new-volvo-ex30-price/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-WULING,AIR EV LR,Air EV,BEV,approved,"Wuling Thailand / EV Primus (official): Air EV model page, Long Range 300 km variant https://www.wulingthai.com/model/air-ev",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-WULING,AIR EV SR,Air EV,BEV,approved,"Wuling Thailand / EV Primus (official): Air EV model page, Standard Range 200 km variant https://www.wulingthai.com/model/air-ev",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,G6 AWD PERFORMANCE,G6,BEV,approved,"XPeng (official): G6 specification page, AWD Performance variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,G6 LONG RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Long Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,G6 RWD LONG RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Long Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,G6 RWD STANDARD RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Standard Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,G6 STANDARD RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Standard Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,X9 AWD LONG RANGE,X9,ambiguous,ambiguous,Exact registration trim could not be matched to a documented manufacturer trim.,Claude-research-review,2026-07-30,Legacy Evidence Batch 2: trim identity unresolved; excluded until verified.
-XPENG,X9 FWD LONG RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Long Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,X9 FWD STANDARD RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Standard Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,X9 LONG RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Long Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,X9 LONG RANGE(EXECUTIVE),X9,BEV,approved,Headlightmag (publication): XPeng X9 Executive/Luxury official price Thailand https://www.headlightmag.com/official-price-xpeng-x9-excutive-luxury-2025/,Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,X9 LONG RANGE(LUXURY),X9,BEV,approved,Headlightmag (publication): XPeng X9 Executive/Luxury official price Thailand https://www.headlightmag.com/official-price-xpeng-x9-excutive-luxury-2025/,Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-XPENG,X9 STANDARD RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Standard Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
-ZEEKR,X FLAGSHIP,ZEEKR X,BEV,approved,"paultan.org (publication): 2024 Zeekr X Thailand launch, Flagship AWD variant https://paultan.org/2024/07/18/2024-zeekr-x-launched-in-thailand/",Claude-research-review,2026-07-30,Legacy Evidence Batch 2: model-specific source verified.
+AVATR,AVATR 07 MAX,AVATR 07,BEV,approved,Autoinfo: AVATR 07 Thailand launch https://www.autoinfo.co.th/avatr-07-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+AVATR,AVATR 07 ULTRA AWD,AVATR 07,BEV,approved,Autoinfo: AVATR 07 Thailand launch https://www.autoinfo.co.th/avatr-07-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+AVATR,AVATR 11 LONG RANGE,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,7/22/2026,seeded high-confidence BEV approval
+AVATR,AVATR 11 ROYAL EDITION,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,7/22/2026,seeded high-confidence BEV approval
+AVATR,AVATR 11 STANDARD RANGE,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,ATTO 3 (480KM-ER),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO 1 PREMIUM,BYD ATTO 1,BEV,approved,Official BYD brochure: Atto 1 https://www.byd.com/material/byd-site/np/atto1/atto1.pdf,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO 2 DYNAMIC,BYD ATTO 2,BEV,approved,PaulTan: BYD Atto 2 review https://paultan.org/2025/08/29/byd-atto-2-review/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO 2 PREMIUM,BYD ATTO 2,BEV,approved,PaulTan: BYD Atto 2 review https://paultan.org/2025/08/29/byd-atto-2-review/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO 3 (410KM),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO3 (410KM-DYNAMIC),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO3 (410KM-PREMIUM),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD ATTO3 (480KM-EXT),BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD DOLPHIN (435KM-STD),BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD DOLPHIN (490KM-EXT),BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD DOLPHIN EXD,BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD DOLPHIN STD,BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD SEAL EXD AWD,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD SEAL EXD RWD,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD SEAL STD RWD,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD SEALION 7 AWD,BYD SEALION 7,BEV,approved,PaulTan: BYD Sealion 7 launch https://paultan.org/2024/11/14/byd-sealion-7-ev-suv-launched-in-malaysia-two-variants-up-to-530-ps-rm183800-to-rm199800/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,BYD SEALION 7 RWD,BYD SEALION 7,BEV,approved,PaulTan: BYD Sealion 7 launch https://paultan.org/2024/11/14/byd-sealion-7-ev-suv-launched-in-malaysia-two-variants-up-to-530-ps-rm183800-to-rm199800/,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,DOLPHIN (490KM),BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,DOLPHIN FREEDOM,BYD DOLPHIN,BEV,approved,Official BYD EU: BYD Dolphin https://www.byd.com/eu/electric-cars/dolphin.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+BYD,SEAL AWD PERFORMANCE,BYD SEAL,BEV,approved,ReverAutomotive: BYD Seal spec https://www.reverautomotive.com/en/model/seal/tech-spec,claude-code,7/22/2026,seeded high-confidence BEV approval
+DEEPAL + CHANGAN,S05 MAX,S05 BEV,BEV,approved,Changan Thailand: DEEPAL S05 announcement https://www.changan.co.th/en/news/CHANGAN-unveils-DEEPAL-S05/,claude-code,7/22/2026,seeded high-confidence BEV approval
+DEEPAL + CHANGAN,S05 MAX LONG RANGE,S05 BEV,BEV,approved,Changan Thailand: DEEPAL S05 announcement https://www.changan.co.th/en/news/CHANGAN-unveils-DEEPAL-S05/,claude-code,7/22/2026,seeded high-confidence BEV approval
+DEEPAL + CHANGAN,S05 PLUS,S05 BEV,BEV,approved,Changan Thailand: DEEPAL S05 announcement https://www.changan.co.th/en/news/CHANGAN-unveils-DEEPAL-S05/,claude-code,7/22/2026,seeded high-confidence BEV approval
+HYUNDAI,IONIQ5 N,IONIQ5,BEV,approved,HeadlightMag: Hyundai IONIQ 5 launch https://www.headlightmag.com/2023-11-29-official-price-hyundai-ioniq-5-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+HYUNDAI,IONIQ5 N LINE,IONIQ5,BEV,approved,HeadlightMag: Hyundai IONIQ 5 launch https://www.headlightmag.com/2023-11-29-official-price-hyundai-ioniq-5-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,5 EV LONG RANGE DYNAMIC,5 EV,BEV,approved,Autoinfo: Jaecoo 5 EV Thailand launch https://www.autoinfo.co.th/jaecoo-5-ev-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,5 EV LONG RANGE MAX,5 EV,BEV,approved,Autoinfo: Jaecoo 5 EV Thailand launch https://www.autoinfo.co.th/jaecoo-5-ev-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,6 EV LONG RANGE 2WD,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,6 EV LONG RANGE 2WD PRO,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,6 EV LONG RANGE 4WD,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,6T EV LONG RANGE 4WD,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,7/22/2026,seeded high-confidence BEV approval
+JAECOO,JAECOO 6 EV,6 EV,BEV,approved,Springnews: Jaecoo J6 EV Thailand launch https://www.springnews.co.th/digital-tech/auto/838226,claude-code,7/22/2026,seeded high-confidence BEV approval
+KIA,EV9 EARTH LONG RANGE,EV9,BEV,approved,Official Kia: EV9 spec https://www.kia.com/th/en/cars/ev9/specification.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+KIA,EV9 GT LINE AWD,EV9,BEV,approved,Official Kia: EV9 spec https://www.kia.com/th/en/cars/ev9/specification.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+KIA,EV9 GT-LINE,EV9,BEV,approved,Official Kia: EV9 spec https://www.kia.com/th/en/cars/ev9/specification.html,claude-code,7/22/2026,seeded high-confidence BEV approval
+LEAPMOTOR,B10 DESIGN BEV,B10,BEV,approved,PaulTan: Leapmotor B10 launch https://paultan.org/2026/07/29/leapmotor-brand-enters-indonesia-with-b10-c10-evs-same-spec-as-my-ckd-and-distributed-by-indomobil/,claude-code,7/22/2026,seeded high-confidence BEV approval
+LEAPMOTOR,B10 LIFE BEV,B10,BEV,approved,PaulTan: Leapmotor B10 launch https://paultan.org/2026/07/29/leapmotor-brand-enters-indonesia-with-b10-c10-evs-same-spec-as-my-ckd-and-distributed-by-indomobil/,claude-code,7/22/2026,seeded high-confidence BEV approval
+LEAPMOTOR,B10 STYLE BEV,B10,BEV,approved,PaulTan: Leapmotor B10 launch https://paultan.org/2026/07/29/leapmotor-brand-enters-indonesia-with-b10-c10-evs-same-spec-as-my-ckd-and-distributed-by-indomobil/,claude-code,7/22/2026,seeded high-confidence BEV approval
+LEAPMOTOR,C10 EV,C10,BEV,approved,PaulTan: Leapmotor C10 launch https://paultan.org/2026/02/23/2026-leapmotor-c10-ev-update-for-malaysia-coming-soon-suv-to-get-more-power-and-range-to-go-ckd/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQB 250,EQB,BEV,approved,Autoinfo: Mercedes-Benz EQB Thailand price https://www.autoinfo.co.th/mercedes-benz-eqb-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQB 250+,EQB,BEV,approved,Autoinfo: Mercedes-Benz EQB Thailand price https://www.autoinfo.co.th/mercedes-benz-eqb-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQE 300,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQE 300 PREMIUM PLUS,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQE 350 4MATIC SUV,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQE 350+,EQE,BEV,approved,Autoinfo: Mercedes-Benz EQE Thailand price https://www.autoinfo.co.th/mercedes-benz-eqe-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQS 450,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQS 450 4MATIC SUV,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQS 450 PLUS,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQS 450+,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQS 500 4MATIC,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MERCEDES-BENZ,EQS 500 4MATIC SUV,EQS,BEV,approved,Autoinfo: Mercedes-Benz EQS Thailand price https://www.autoinfo.co.th/mercedes-benz-eqs-thailand-price/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MINI,ACEMAN SE RHD,Aceman SE,BEV,approved,HeadlightMag: MINI Aceman SE launch https://www.headlightmag.com/2024-08-20-official-price-mini-aceman-se/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MINI,COOPER ELECTRIC,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MINI,COOPER ELECTRIC LEVEL 3,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MINI,COOPER SE HATCH RHD,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+MINI,COOPER SE RHD,Cooper SE,BEV,approved,Autoinfo: All-New MINI Cooper Electric SE launched in Thailand https://www.autoinfo.co.th/mini-cooper-se-thailand/,claude-code,7/22/2026,seeded high-confidence BEV approval
+OMODA,C5 EV LONG RANGE DYNAMIC,C5 EV,BEV,approved,"AutolifeThailand (publication): Omoda C5 EV Dynamic official price, 100% electric https://autolifethailand.tv/official-price-omoda-c5-ev-bev-jan-2026/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+OMODA,C5 EV LONG RANGE MAX,C5 EV,BEV,approved,"AutolifeThailand (publication): Omoda C5 EV Dynamic/Max official price, 100% electric https://autolifethailand.tv/official-price-omoda-c5-ev-bev-jan-2026/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+OMODA,C5 EV LONG RANGE PLUS,C5 EV,BEV,approved,"paultan.org (publication): Chery Omoda C5 EV Thailand launch report, Long Range Plus/Ultimate variants https://paultan.org/2024/08/07/chery-omoda-e5-launched-in-thailand-c5-ev-suv-is-priced-from-rm113k-61-kwh-lfp-430-km-wltp-range/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+OMODA,C5 EV LONG RANGE ULTIMATE,C5 EV,BEV,approved,"paultan.org (publication): Chery Omoda C5 EV Thailand launch report, Long Range Plus/Ultimate variants https://paultan.org/2024/08/07/chery-omoda-e5-launched-in-thailand-c5-ev-suv-is-priced-from-rm113k-61-kwh-lfp-430-km-wltp-range/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+OMODA,OMODA C5 EV,C5 EV,BEV,approved,paultan.org (publication): Chery Omoda C5 EV Thailand launch report https://paultan.org/2024/08/07/chery-omoda-e5-launched-in-thailand-c5-ev-suv-is-priced-from-rm113k-61-kwh-lfp-430-km-wltp-range/,Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 LONG RANGE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model 3 Long Range AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43401",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 LONG RANGE PLUS,MODEL 3,ambiguous,ambiguous,Exact registration trim could not be matched to a documented manufacturer trim.,Claude-research-review,7/30/2026,Legacy Evidence Batch 2: trim identity unresolved; excluded until verified.
+TESLA,MODEL 3 LONG RANGE RWD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2025 Tesla Model 3 Long Range RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=48765",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 PERFORMANCE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 Performance AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46205",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 REAR WHEEL DRIVE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46206",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 REAR-WHEEL DRIVE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46206",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 RWD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model 3 RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46206",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 STANDARD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2026 Tesla Model 3 Standard RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=50251",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 STANDARD PLUS,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model 3 Standard Range Plus https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41416",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 STANDARD PLUS RWD,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model 3 Standard Range Plus RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43821",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 STANDARD RANGE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model 3 Standard Range https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41415",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL 3 STANDARD RANGE PLUS,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model 3 Standard Range Plus https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41416",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL S LONG RANGE,MODEL S,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model S Long Range https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41417",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL S PERFORMANCE,MODEL S,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model S Performance (19in Wheels) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42283",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL X 100D,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2018 Tesla Model X 100D https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=39842",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL X LONG RANGE,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2019 Tesla Model X Long Range https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=41514",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL X LONG RANGE PLUS,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model X Long Range Plus https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43403",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL X PERFORMANCE,MODEL X,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model X Performance (20in Wheels) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42287",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y L,MODEL Y,BEV,approved,"CarNewsChina (publication): Tesla Model Y L six-seater China launch, quoting official Tesla China announcement https://carnewschina.com/2025/08/19/tesla-officially-launched-its-six-seater-model-y-l-in-china-priced-at-47120-usd/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y LONG RANGE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model Y Long Range AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46212",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y LONG RANGE DUAL MOTOR,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model Y Long Range AWD (dual motor) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46212",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y LONG RANGE RWD,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2026 Tesla Model Y Long Range RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=49743",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y PERFORMANCE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2023 Tesla Model Y Performance AWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=46213",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y REAR WHEEL DRIVE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2022 Tesla Model Y RWD (All-Electric) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=45017",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y REAR-WHEEL DRIVE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2022 Tesla Model Y RWD (All-Electric) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=45017",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y RWD,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2022 Tesla Model Y RWD (All-Electric) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=45017",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y STANDARD,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2026 Tesla Model Y Standard RWD (18in Wheels) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=50040",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL Y STANDARD RANGE,MODEL Y,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2021 Tesla Model Y Standard Range RWD https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=43880",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL3 LONG RANGE PER,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model 3 Long Range Performance AWD (19in) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42280",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+TESLA,MODEL3 LONG RANGE PERFORMANCE,MODEL 3,BEV,approved,"fueleconomy.gov (US DOE/EPA, official government): 2020 Tesla Model 3 Long Range Performance AWD (19in) https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=42280",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+VOLVO,EX30 ULTRA SINGLE MOTOR,EX30,BEV,approved,"9CarThai (publication): Volvo EX30 Ultra Single Motor Extended Range official price, 69 kWh battery, 200 kW motor https://www.9carthai.com/new-volvo-ex30-price/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+WULING,AIR EV LR,Air EV,BEV,approved,"Wuling Thailand / EV Primus (official): Air EV model page, Long Range 300 km variant https://www.wulingthai.com/model/air-ev",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+WULING,AIR EV SR,Air EV,BEV,approved,"Wuling Thailand / EV Primus (official): Air EV model page, Standard Range 200 km variant https://www.wulingthai.com/model/air-ev",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,G6 AWD PERFORMANCE,G6,BEV,approved,"XPeng (official): G6 specification page, AWD Performance variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,G6 LONG RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Long Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,G6 RWD LONG RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Long Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,G6 RWD STANDARD RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Standard Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,G6 STANDARD RANGE,G6,BEV,approved,"XPeng (official): G6 specification page, RWD Standard Range variant https://www.xpeng.com/ae/g6specs.html",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,X9 AWD LONG RANGE,X9,ambiguous,ambiguous,Exact registration trim could not be matched to a documented manufacturer trim.,Claude-research-review,7/30/2026,Legacy Evidence Batch 2: trim identity unresolved; excluded until verified.
+XPENG,X9 FWD LONG RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Long Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,X9 FWD STANDARD RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Standard Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,X9 LONG RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Long Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,X9 LONG RANGE(EXECUTIVE),X9,BEV,approved,Headlightmag (publication): XPeng X9 Executive/Luxury official price Thailand https://www.headlightmag.com/official-price-xpeng-x9-excutive-luxury-2025/,Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,X9 LONG RANGE(LUXURY),X9,BEV,approved,Headlightmag (publication): XPeng X9 Executive/Luxury official price Thailand https://www.headlightmag.com/official-price-xpeng-x9-excutive-luxury-2025/,Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+XPENG,X9 STANDARD RANGE,X9,BEV,approved,"paultan.org (publication): XPeng X9 model research page, 2WD Standard Range variant https://paultan.org/research/xpeng/x9/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
+ZEEKR,X FLAGSHIP,ZEEKR X,BEV,approved,"paultan.org (publication): 2024 Zeekr X Thailand launch, Flagship AWD variant https://paultan.org/2024/07/18/2024-zeekr-x-launched-in-thailand/",Claude-research-review,7/30/2026,Legacy Evidence Batch 2: model-specific source verified.
 BMW,320d M Sport,320d M Sport,,pending,,,,auto-added from latest model data
 FORD,EVEREST,EVEREST,,pending,,,,auto-added from latest model data
 FORD,RANGER,RANGER,,pending,,,,auto-added from latest model data
@@ -353,7 +353,7 @@ MG,EP,EP,,pending,,,,auto-added from latest model data
 MG,HS PHEV,HS PHEV,,pending,,,,auto-added from latest model data
 MG,MG GS,MG GS,,pending,,,,auto-added from latest model data
 MG,MG5,MG5,,pending,,,,auto-added from latest model data
-MG,ZS EV,ZS EV,BEV,approved,paultan.org: MG ZS EV B-seg SUV launched in Thailand https://paultan.org/2019/06/21/mg-zs-ev-electric-suv-launched-in-thailand-1-19m-baht/,Claude-Google-review,2026-07-30,auto-added from latest model data
+MG,ZS EV,ZS EV,BEV,approved,paultan.org: MG ZS EV B-seg SUV launched in Thailand https://paultan.org/2019/06/21/mg-zs-ev-electric-suv-launched-in-thailand-1-19m-baht/,Claude-Google-review,7/30/2026,auto-added from latest model data
 MINI,COOPER D RHD,COOPER D RHD,,pending,,,,auto-added from latest model data
 MINI,Cooper Clubman RHD,Cooper Clubman RHD,,pending,,,,auto-added from latest model data
 MINI,Cooper D 5-Turer RHD,Cooper D 5-Turer RHD,,pending,,,,auto-added from latest model data
@@ -1511,7 +1511,7 @@ HONDA,STEP WGN E HEV SPADA G EX,STEP WGN E HEV SPADA G EX,,pending,,,,auto-added
 HONDA,STEP WGN e-HEV SPADA G EX,STEP WGN e-HEV SPADA G EX,,pending,,,,auto-added from latest model data
 JEEP,WRANGLER OVERLAND 2.2,WRANGLER OVERLAND 2.2,,pending,,,,auto-added from latest model data
 JEEP,WRANGLER RUBICON,WRANGLER RUBICON,,pending,,,,auto-added from latest model data
-KIA,SOUL EV,SOUL EV,BEV,approved,Official Kia press release: all-electric Kia Soul https://www.kiamedia.com/us/en/media/pressreleases/7624/all-electric-kia-soul-under-development-for-us-market2,Claude-Google-review,2026-07-30,auto-added from latest model data
+KIA,SOUL EV,SOUL EV,BEV,approved,Official Kia press release: all-electric Kia Soul https://www.kiamedia.com/us/en/media/pressreleases/7624/all-electric-kia-soul-under-development-for-us-market2,Claude-Google-review,7/30/2026,auto-added from latest model data
 LAMBORGHINI,HURACAN 610-4,HURACAN 610-4,,pending,,,,auto-added from latest model data
 LAMBORGHINI,HURACAN EVO RWD SPYDER,HURACAN EVO RWD SPYDER,,pending,,,,auto-added from latest model data
 LAND ROVER,DEFENDER 2.0L T/C AWD AUTO SE,DEFENDER 2.0L T/C AWD AUTO SE,,pending,,,,auto-added from latest model data
@@ -1545,7 +1545,7 @@ PORSCHE,PANAMERA 4 E-HYBRID EXEC.,PANAMERA 4 E-HYBRID EXEC.,,pending,,,,auto-add
 PORSCHE,TAYCAN TURBO S,TAYCAN TURBO S,,pending,,,,auto-added from latest model data
 SKODA,SUPERB ELEGANCE,SUPERB ELEGANCE,,pending,,,,auto-added from latest model data
 SKYWELL,SHODAI-HIGH ROOF,SHODAI-HIGH ROOF,,pending,,,,auto-added from latest model data
-TESLA,MODEL 3,MODEL 3,BEV,approved,Electrek guide: Tesla Model 3 all-electric sedan specs https://electrek.co/guides/tesla-model-3/,Claude-Google-review,2026-07-30,auto-added from latest model data
+TESLA,MODEL 3,MODEL 3,BEV,approved,Electrek guide: Tesla Model 3 all-electric sedan specs https://electrek.co/guides/tesla-model-3/,Claude-Google-review,7/30/2026,auto-added from latest model data
 TOYOTA,ACV51R-JEPEKT  AA,ACV51R-JEPEKT  AA,,pending,,,,auto-added from latest model data
 TOYOTA,ALPHARD 2.5 HYBRID G,ALPHARD 2.5 HYBRID G,,pending,,,,auto-added from latest model data
 TOYOTA,ALPHARD 2.5 HYBRID G F PACKAGE,ALPHARD 2.5 HYBRID G F PACKAGE,,pending,,,,auto-added from latest model data
@@ -1768,7 +1768,7 @@ NEWHOLLAND,T6080,T6080,,pending,,,,auto-added from latest model data
 NEWHOLLAND,TS6020,TS6020,,pending,,,,auto-added from latest model data
 VOGELE,S1803-2,S1803-2,,pending,,,,auto-added from latest model data
 CATERPILLAR,140M VHP,140M VHP,,pending,,,,auto-added from latest model data
-CATERPILLAR,306E2,306E2,,pending,,,,auto-added from latest model data
+CATERPILLAR,3.06E+04,3.06E+04,,pending,,,,auto-added from latest model data
 KMT,5095,5095,,pending,,,,auto-added from latest model data
 KOMATSU,WA320-7,WA320-7,,pending,,,,auto-added from latest model data
 WIRTGEN,WR250,WR250,,pending,,,,auto-added from latest model data
@@ -2564,7 +2564,7 @@ CATERPILLAR,CB534B,CB534B,,pending,,,,auto-added from latest model data
 KIA,ไม่ระบุ,ไม่ระบุ,,pending,,,,auto-added from latest model data
 VOLKSWAGEN,CARAVELLE COMFORTLINE 2,CARAVELLE COMFORTLINE 2,,pending,,,,auto-added from latest model data
 TOYOTA,B-Cab 4X2 2.7J,B-Cab 4X2 2.7J,,pending,,,,auto-added from latest model data
-AION,AION S,AION S,BEV,approved,GAC Aion S pure electric sedan (BitAuto) https://www.bitauto.com/global/news/100193163218.html,Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION S,AION S,BEV,approved,GAC Aion S pure electric sedan (BitAuto) https://www.bitauto.com/global/news/100193163218.html,Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,AMG GLA 35 4MATIC,AMG GLA 35 4MATIC,,pending,,,,auto-added from latest model data
 Mercedes-Benz,AMG GLE 43 4MATIC Coupe,AMG GLE 43 4MATIC Coupe,,pending,,,,auto-added from latest model data
 Mercedes-Benz,AMG GT-R PRO COUPE,AMG GT-R PRO COUPE,,pending,,,,auto-added from latest model data
@@ -2822,7 +2822,7 @@ BENTLEY,CONTINENTAL GT V8,CONTINENTAL GT V8,,pending,,,,auto-added from latest m
 BMW,320d Sport,320d Sport,,pending,,,,auto-added from latest model data
 BMW,M4 COMPETITION COUPE,M4 COMPETITION COUPE,,pending,,,,auto-added from latest model data
 BMW,M4 Cabrio RHD,M4 Cabrio RHD,,pending,,,,auto-added from latest model data
-BYD,ไม่ระบุ,ไม่ระบุ,ambiguous,ambiguous,Unresolved generic name (unspecified/unknown).,antigravity-agent,2026-07-30,Reviewed in Batch 2
+BYD,ไม่ระบุ,ไม่ระบุ,ambiguous,ambiguous,Unresolved generic name (unspecified/unknown).,antigravity-agent,7/30/2026,Reviewed in Batch 2
 FIAT,BENIMAR MILEO 243,BENIMAR MILEO 243,,pending,,,,auto-added from latest model data
 FIAT,DUCATO,DUCATO,,pending,,,,auto-added from latest model data
 FORD,FORD RANGER iJBW9B4,FORD RANGER iJBW9B4,,pending,,,,auto-added from latest model data
@@ -3612,7 +3612,7 @@ SUMITOMO,SH125X-3B,SH125X-3B,,pending,,,,auto-added from latest model data
 TCM,850,850,,pending,,,,auto-added from latest model data
 TCM,L20-2,L20-2,,pending,,,,auto-added from latest model data
 TCM,SDT8,SDT8,,pending,,,,auto-added from latest model data
-VOGELE,6-83,6-83,,pending,,,,auto-added from latest model data
+VOGELE,Jun-83,Jun-83,,pending,,,,auto-added from latest model data
 VOLVO,EC300DLR,EC300DLR,,pending,,,,auto-added from latest model data
 XCMG,TY230,TY230,,pending,,,,auto-added from latest model data
 HITACHI,EX120-3M,EX120-3M,,pending,,,,auto-added from latest model data
@@ -4015,7 +4015,7 @@ TOYOTA,KUN15R-TRMDYT  B6,KUN15R-TRMDYT  B6,,pending,,,,auto-added from latest mo
 FORD,FORD RANGER iFCS9DH,FORD RANGER iFCS9DH,,pending,,,,auto-added from latest model data
 ASM,TT6EV,TT6EV,,pending,,,,auto-added from latest model data
 GWM,JOLION HYBRID,JOLION HYBRID,,pending,,,,auto-added from latest model data
-GWM,GOOD CAT,GOOD CAT,BEV,approved,https://www.headlightmag.com/2024-01-12-official-price-ora-good-cat-made-in-thailand/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+GWM,GOOD CAT,GOOD CAT,BEV,approved,https://www.headlightmag.com/2024-01-12-official-price-ora-good-cat-made-in-thailand/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 Mercedes-Benz,AMG E53 CABRIOLET,AMG E53 CABRIOLET,,pending,,,,auto-added from latest model data
 Mercedes-Benz,E400d CABRIOLET,E400d CABRIOLET,,pending,,,,auto-added from latest model data
 Mercedes-Benz,G 350 d AMG,G 350 d AMG,,pending,,,,auto-added from latest model data
@@ -4357,7 +4357,7 @@ HONDA,NOVA R,NOVA R,,pending,,,,auto-added from latest model data
 YAMAHA,33S600,33S600,,pending,,,,auto-added from latest model data
 CATERPILLAR,143H AWD,143H AWD,,pending,,,,auto-added from latest model data
 CATERPILLAR,303CCR,303CCR,,pending,,,,auto-added from latest model data
-CATERPILLAR,312E-2,312E-2,,pending,,,,auto-added from latest model data
+CATERPILLAR,3.12E+00,3.12E+00,,pending,,,,auto-added from latest model data
 CATERPILLAR,D6HZ,D6HZ,,pending,,,,auto-added from latest model data
 CATERPILLAR,PM620,PM620,,pending,,,,auto-added from latest model data
 HITACHI,XZ120-3,XZ120-3,,pending,,,,auto-added from latest model data
@@ -4497,14 +4497,13 @@ HANWAY,Muscle,Muscle,,pending,,,,auto-added from latest model data
 KAWASAKI,Z900 SE ACC,Z900 SE ACC,,pending,,,,auto-added from latest model data
 ALPHA,AW507,AW507,,pending,,,,auto-added from latest model data
 ALPHA,AW570E,AW570E,,pending,,,,auto-added from latest model data
-CATERPILLAR,320E-2,320E-2,,pending,,,,auto-added from latest model data
+CATERPILLAR,3.20E+00,3.20E+00,,pending,,,,auto-added from latest model data
 HITACHI,LX100,LX100,,pending,,,,auto-added from latest model data
 KAWASAKI,90ZV-2,90ZV-2,,pending,,,,auto-added from latest model data
 KOMATSU,D31P-20,D31P-20,,pending,,,,auto-added from latest model data
 KOMATSU,PC220LC-8N1,PC220LC-8N1,,pending,,,,auto-added from latest model data
 TCM,L16,L16,,pending,,,,auto-added from latest model data
 WIRTGEN,W210,W210,,pending,,,,auto-added from latest model data
-CATERPILLAR,305.5E2,305.5E2,,pending,,,,auto-added from latest model data
 KOMATSU,507,507,,pending,,,,auto-added from latest model data
 WIRTGEN,W195,W195,,pending,,,,auto-added from latest model data
 CHAMP,LG839,LG839,,pending,,,,auto-added from latest model data
@@ -4701,7 +4700,7 @@ KIA,GRAND CARNIVAL 2.9L LX,GRAND CARNIVAL 2.9L LX,,pending,,,,auto-added from la
 LAND ROVER,DEFENDER V8 BOND EDITION,DEFENDER V8 BOND EDITION,,pending,,,,auto-added from latest model data
 LAND ROVER,RANGE ROVER EVOQUE 1.5LITRE,RANGE ROVER EVOQUE 1.5LITRE,,pending,,,,auto-added from latest model data
 MCLAREN,720S COUPE V8,720S COUPE V8,,pending,,,,auto-added from latest model data
-NETA,NETA V,NETA V,BEV,approved,"paultan.org: Neta V EV launched Thailand, 38.5kWh battery https://paultan.org/2022/08/26/neta-v-ev-launched-in-thailand-38-5-kwh-384-km-range-initial-cbu-china-before-ckd-by-ptt-rm68k/",Claude-Google-review,2026-07-30,auto-added from latest model data
+NETA,NETA V,NETA V,BEV,approved,"paultan.org: Neta V EV launched Thailand, 38.5kWh battery https://paultan.org/2022/08/26/neta-v-ev-launched-in-thailand-38-5-kwh-384-km-range-initial-cbu-china-before-ckd-by-ptt-rm68k/",Claude-Google-review,7/30/2026,auto-added from latest model data
 NISSAN,NOTE X E-POWER,NOTE X E-POWER,,pending,,,,auto-added from latest model data
 PORSCHE,911 CARRERA 4S CABRIOLET,911 CARRERA 4S CABRIOLET,,pending,,,,auto-added from latest model data
 PORSCHE,MACAN 2.0L,MACAN 2.0L,,pending,,,,auto-added from latest model data
@@ -5238,7 +5237,7 @@ BMW,118D M SPORT HATCH MANUAL,118D M SPORT HATCH MANUAL,,pending,,,,auto-added f
 BMW,318D M SPORT SALOON MANUAL,318D M SPORT SALOON MANUAL,,pending,,,,auto-added from latest model data
 BMW,M760Li xDrive Limousine R,M760Li xDrive Limousine R,,pending,,,,auto-added from latest model data
 BMW,X1 sDrive 18d,X1 sDrive 18d,,pending,,,,auto-added from latest model data
-BYD,BYD ATTO 3,BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,Claude-Google-review,2026-07-30,auto-added from latest model data
+BYD,BYD ATTO 3,BYD ATTO 3,BEV,approved,HeadlightMag: BYD ATTO 3 launch https://www.headlightmag.com/2022-10-10-official-price-byd-atto-3-extended-range-1/,Claude-Google-review,7/30/2026,auto-added from latest model data
 HONDA,CR-V'13,CR-V'13,,pending,,,,auto-added from latest model data
 HONDA,STEPWAGON e:HEV PREMIUM LINE,STEPWAGON e:HEV PREMIUM LINE,,pending,,,,auto-added from latest model data
 ISUZU,CAB4 SX 2.5,CAB4 SX 2.5,,pending,,,,auto-added from latest model data
@@ -5354,7 +5353,7 @@ HAMM,GRW280-10,GRW280-10,,pending,,,,auto-added from latest model data
 NISSAN,UDB4RDRE26EWDDER-C,UDB4RDRE26EWDDER-C,,pending,,,,auto-added from latest model data
 Mercedes-Benz,UGE-232 (UNIMOG U218),UGE-232 (UNIMOG U218),,pending,,,,auto-added from latest model data
 TOYOTA,ZRE171R-GEFDKT A1,ZRE171R-GEFDKT A1,,pending,,,,auto-added from latest model data
-GWM,H6 PLUG-IN HYBRID,H6 PLUG-IN HYBRID,PHEV,approved,https://www.headlightmag.com/2022-10-07-official-price-haval-h6-phev-ultra-plug-in-hybrid/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+GWM,H6 PLUG-IN HYBRID,H6 PLUG-IN HYBRID,PHEV,approved,https://www.headlightmag.com/2022-10-07-official-price-haval-h6-phev-ultra-plug-in-hybrid/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 Mercedes-Benz,S500 LWB AMG LINE Premium,S500 LWB AMG LINE Premium,,pending,,,,auto-added from latest model data
 Mercedes-Benz,S680 4 M,S680 4 M,,pending,,,,auto-added from latest model data
 AUDI,Q5 55 TFSI e q S line,Q5 55 TFSI e q S line,,pending,,,,auto-added from latest model data
@@ -5447,7 +5446,7 @@ SUZUKI,SUPER CARRY X PICK UP,SUPER CARRY X PICK UP,,pending,,,,auto-added from l
 HIGER,H5C EV CARGO,H5C EV CARGO,,pending,,,,auto-added from latest model data
 S.T.TUK TUK,ไม่ระบุ,ไม่ระบุ,,pending,,,,auto-added from latest model data
 TKI,003EV TUK TUK,003EV TUK TUK,,pending,,,,auto-added from latest model data
-MG,MG4 ELECTRIC,MG4 ELECTRIC,BEV,approved,"paultan.org: 2026 MG4 Thailand, LFP battery BEV hatch https://paultan.org/2026/04/07/2026-mg4-in-thailand-same-rwd-ev-hatch-but-with-new-interior-lfp-batteries-around-460-km-wltp-range/",Claude-Google-review,2026-07-30,auto-added from latest model data
+MG,MG4 ELECTRIC,MG4 ELECTRIC,BEV,approved,"paultan.org: 2026 MG4 Thailand, LFP battery BEV hatch https://paultan.org/2026/04/07/2026-mg4-in-thailand-same-rwd-ev-hatch-but-with-new-interior-lfp-batteries-around-460-km-wltp-range/",Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,G63 AMG,G63 AMG,,pending,,,,auto-added from latest model data
 AUDI,A6 50 TFSI,A6 50 TFSI,,pending,,,,auto-added from latest model data
 AUDI,Q5 55 TFSI e q S line BE,Q5 55 TFSI e q S line BE,,pending,,,,auto-added from latest model data
@@ -5905,7 +5904,7 @@ BMW,M240i xDrive Coupe RHD MX,M240i xDrive Coupe RHD MX,,pending,,,,auto-added f
 BMW,M3 Competition Limousine,M3 Competition Limousine,,pending,,,,auto-added from latest model data
 BMW,M4 CSL,M4 CSL,,pending,,,,auto-added from latest model data
 BMW,M8 COMPETITION COUPE,M8 COMPETITION COUPE,,pending,,,,auto-added from latest model data
-BYD,TANG EV,TANG EV,BEV,approved,"Official BYD spec sheet, Blade Battery BEV SUV https://www.byd.com/eu/electric-cars/tang",Claude-Google-review,2026-07-30,auto-added from latest model data
+BYD,TANG EV,TANG EV,BEV,approved,"Official BYD spec sheet, Blade Battery BEV SUV https://www.byd.com/eu/electric-cars/tang",Claude-Google-review,7/30/2026,auto-added from latest model data
 CITROEN,C5 X 1.6PHEV,C5 X 1.6PHEV,,pending,,,,auto-added from latest model data
 DAIHATSU,COPEN 20TH ANNIVERSARY,COPEN 20TH ANNIVERSARY,,pending,,,,auto-added from latest model data
 FORD,F-150 RAPTOR,F-150 RAPTOR,,pending,,,,auto-added from latest model data
@@ -6156,7 +6155,7 @@ TOYOTA,Commuter (Silver) E4,Commuter (Silver) E4,,pending,,,,auto-added from lat
 NISSAN,BVL2RWLD23FHP-A--G,BVL2RWLD23FHP-A--G,,pending,,,,auto-added from latest model data
 DAIHATSU,HIJET TRUCK JUMBO EXTRA,HIJET TRUCK JUMBO EXTRA,,pending,,,,auto-added from latest model data
 TOYOTA,"HILUX TIGER C-CAB / 2L,P/S","HILUX TIGER C-CAB / 2L,P/S",,pending,,,,auto-added from latest model data
-AION,AION Y PLUS,AION Y,BEV,approved,MarkLines: GAC officially launches Aion Y Plus EV in Thailand https://www.marklines.com/en/news/294310,Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION Y PLUS,AION Y,BEV,approved,MarkLines: GAC officially launches Aion Y Plus EV in Thailand https://www.marklines.com/en/news/294310,Claude-Google-review,7/30/2026,auto-added from latest model data
 AUDI,RS 7 SB q performance,RS 7 SB q performance,,pending,,,,auto-added from latest model data
 BENTLEY,BENTAYGA AZURE HYBRID,BENTAYGA AZURE HYBRID,,pending,,,,auto-added from latest model data
 BLAVAL,EQ,EQ,,pending,,,,auto-added from latest model data
@@ -6165,7 +6164,7 @@ BMW,M2 Coupe RHD MX,M2 Coupe RHD MX,,pending,,,,auto-added from latest model dat
 BMW,M3 Competition M xDrive T,M3 Competition M xDrive T,,pending,,,,auto-added from latest model data
 JAC,EVO-T8,EVO-T8,,pending,,,,auto-added from latest model data
 JAGUAR,XE 2.0L I4P PETROL RWD,XE 2.0L I4P PETROL RWD,,pending,,,,auto-added from latest model data
-KIA,EV6,EV6,BEV,approved,Official Kia page: dedicated E-GMP EV platform https://www.kia.com/us/en/ev6,Claude-Google-review,2026-07-30,auto-added from latest model data
+KIA,EV6,EV6,BEV,approved,Official Kia page: dedicated E-GMP EV platform https://www.kia.com/us/en/ev6,Claude-Google-review,7/30/2026,auto-added from latest model data
 KYC,V5EV,V5EV,,pending,,,,auto-added from latest model data
 LAMBORGHINI,URUS S,URUS S,,pending,,,,auto-added from latest model data
 LAND ROVER,DEFENDER 110 D300 75TH LIMITED,DEFENDER 110 D300 75TH LIMITED,,pending,,,,auto-added from latest model data
@@ -6442,7 +6441,7 @@ NEX,XML6593JEVJ0,XML6593JEVJ0,,pending,,,,auto-added from latest model data
 NEX,DYQ1031BEV1R,DYQ1031BEV1R,,pending,,,,auto-added from latest model data
 TOYOTA,A-Cab 4x2 2.7J,A-Cab 4x2 2.7J,,pending,,,,auto-added from latest model data
 EVT,EV6,EV6,,pending,,,,auto-added from latest model data
-GWM,ORA 07,ORA 07,BEV,approved,https://www.headlightmag.com/2023-11-12-official-price-ora-07-special-deal/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+GWM,ORA 07,ORA 07,BEV,approved,https://www.headlightmag.com/2023-11-12-official-price-ora-07-special-deal/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 Mercedes-Benz,MAYBACH S680,MAYBACH S680,,pending,,,,auto-added from latest model data
 Mercedes-Benz,S 500 L 4MATIC LIMOUSINE,S 500 L 4MATIC LIMOUSINE,,pending,,,,auto-added from latest model data
 BENTLEY,FLYING SPUR MULLINER HYB,FLYING SPUR MULLINER HYB,,pending,,,,auto-added from latest model data
@@ -6533,7 +6532,7 @@ SERES,EC31,EC31,,pending,,,,auto-added from latest model data
 HINO,FG1JGRD,FG1JGRD,,pending,,,,auto-added from latest model data
 Deepal + Changan,L07,L07,,pending,,,,auto-added from latest model data
 Deepal + Changan,S07,S07,,pending,,,,auto-added from latest model data
-AION,AION ES,AION ES,BEV,approved,Official GAC page: 'High-Quality Pure Electric Sedan' https://www.gacgroup.com/en/sedan/aion-es,Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION ES,AION ES,BEV,approved,Official GAC page: 'High-Quality Pure Electric Sedan' https://www.gacgroup.com/en/sedan/aion-es,Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,AMG EQE 53 4MATIC+,AMG EQE 53 4MATIC+,,pending,,,,auto-added from latest model data
 ASTON MARTIN,VANTAGE F1 COUPE,VANTAGE F1 COUPE,,pending,,,,auto-added from latest model data
 AUDI,A5,A5,,pending,,,,auto-added from latest model data
@@ -6979,7 +6978,7 @@ HYUNDAI,SANTA FE,SANTA FE,,pending,,,,auto-added from latest model data
 HYUNDAI,SANTA FE HYBRID,SANTA FE HYBRID,,pending,,,,auto-added from latest model data
 JIAYUAN,JY7252-ZQR,JY7252-ZQR,,pending,,,,auto-added from latest model data
 KIA,SORENTO,SORENTO,,pending,,,,auto-added from latest model data
-NETA,NETA V-II,NETA V-II,BEV,approved,"Official Neta Thailand: 'Introducing NETA V-II, a 100% electric city car' https://www.headlightmag.com/2024-03-26-official-price-neta-v-ll/",Claude-Google-review,2026-07-30,auto-added from latest model data
+NETA,NETA V-II,NETA V-II,BEV,approved,"Official Neta Thailand: 'Introducing NETA V-II, a 100% electric city car' https://www.headlightmag.com/2024-03-26-official-price-neta-v-ll/",Claude-Google-review,7/30/2026,auto-added from latest model data
 NISSAN,SKYLINE R32 V-SPEC II N1,SKYLINE R32 V-SPEC II N1,,pending,,,,auto-added from latest model data
 PORSCHE,911 CARRERA 4S COUPE,911 CARRERA 4S COUPE,,pending,,,,auto-added from latest model data
 PORSCHE,CAYENNE TURBO E-HYBRID COUPE,CAYENNE TURBO E-HYBRID COUPE,,pending,,,,auto-added from latest model data
@@ -7061,7 +7060,7 @@ NEX,DYX1040,DYX1040,,pending,,,,auto-added from latest model data
 Deepal + Changan,LUMIN L DC,LUMIN,,pending,,,,auto-added from latest model data
 Mercedes-Benz,S 350D LWB SALOON,S 350D LWB SALOON,,pending,,,,auto-added from latest model data
 JEEP,COMPASS LIMITED,COMPASS LIMITED,,pending,,,,auto-added from latest model data
-KIA,EV5,EV5,BEV,approved,Official Kia Thailand spec page https://www.kia.com/th/en/cars/ev5/specification.html,Claude-Google-review,2026-07-30,auto-added from latest model data
+KIA,EV5,EV5,BEV,approved,Official Kia Thailand spec page https://www.kia.com/th/en/cars/ev5/specification.html,Claude-Google-review,7/30/2026,auto-added from latest model data
 LAND ROVER,RANGEROVER SPORTSV EDITION ONE,RANGEROVER SPORTSV EDITION ONE,,pending,,,,auto-added from latest model data
 LEXUS,LM500H,LM500H,,pending,,,,auto-added from latest model data
 MASERATI,QUATTROPORTE GRANLUSSO,QUATTROPORTE GRANLUSSO,,pending,,,,auto-added from latest model data
@@ -7151,7 +7150,7 @@ TOYOTA,GR SUPRA RZ 6MT,GR SUPRA RZ 6MT,,pending,,,,auto-added from latest model 
 TOYOTA,LANDCRUISER HARDTOP 4.0L,LANDCRUISER HARDTOP 4.0L,,pending,,,,auto-added from latest model data
 TOYOTA,VELLFIRE 250,VELLFIRE 250,,pending,,,,auto-added from latest model data
 TOYOTA,VELLFIRE EXECUTIVE LOUNGE,VELLFIRE EXECUTIVE LOUNGE,,pending,,,,auto-added from latest model data
-ZEEKR,ZEEKR X,ZEEKR X,BEV,approved,"Official Zeekr page, pure electric platform https://www.zeekrlife.com/en-au/models/new-zeekr-x/",Claude-Google-review,2026-07-30,auto-added from latest model data
+ZEEKR,ZEEKR X,ZEEKR X,BEV,approved,"Official Zeekr page, pure electric platform https://www.zeekrlife.com/en-au/models/new-zeekr-x/",Claude-Google-review,7/30/2026,auto-added from latest model data
 MITSUBISHI,L049GWMNTJU,L049GWMNTJU,,pending,,,,auto-added from latest model data
 H SEM,WINGS G,WINGS G,,pending,,,,auto-added from latest model data
 I-MOTOR,VAPOR CBS,VAPOR CBS,,pending,,,,auto-added from latest model data
@@ -7213,15 +7212,15 @@ BIZ NEX,NEX,NEX,,pending,,,,auto-added from latest model data
 TKI,003-1 TUK TUK,003-1 TUK TUK,,pending,,,,auto-added from latest model data
 TKI,003EV TUK TUK PICKUP,003EV TUK TUK PICKUP,,pending,,,,auto-added from latest model data
 DMDL1,LB600L,LB600L,,pending,,,,auto-added from latest model data
-NETA,NETA X,NETA X,BEV,approved,Official Neta Thailand product page: Neta X - Electric SUV https://www.headlightmag.com/2024-07-25-official-price-neta-x/,Claude-Google-review,2026-07-30,auto-added from latest model data
-AION,HYPTEC SSR,HYPTEC SSR,BEV,approved,https://www.headlightmag.com/2023-10-10-new-cars-worldwide-gac-aion-hyper-ssr/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+NETA,NETA X,NETA X,BEV,approved,Official Neta Thailand product page: Neta X - Electric SUV https://www.headlightmag.com/2024-07-25-official-price-neta-x/,Claude-Google-review,7/30/2026,auto-added from latest model data
+AION,HYPTEC SSR,HYPTEC SSR,BEV,approved,https://www.headlightmag.com/2023-10-10-new-cars-worldwide-gac-aion-hyper-ssr/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 Mercedes-Benz,AMG CLE 53 4MATIC coupe,AMG CLE 53 4MATIC coupe,,pending,,,,auto-added from latest model data
 Mercedes-Benz,CLE 300 4MATIC coupe,CLE 300 4MATIC coupe,,pending,,,,auto-added from latest model data
 Mercedes-Benz,G400 D AMG LINE PREMIUM PLUS,G400 D AMG LINE PREMIUM PLUS,,pending,,,,auto-added from latest model data
 Mercedes-Benz,MAYBACH S 680,MAYBACH S 680,,pending,,,,auto-added from latest model data
 Mercedes-Benz,SL63 AMG,SL63 AMG,,pending,,,,auto-added from latest model data
-BYD,BYD M6 DYNAMIC,BYD M6,BEV,approved,https://www.reverautomotive.com/en/model/m6/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2
-BYD,BYD M6 EXTENDED,BYD M6,,pending,,,,auto-added from latest model data
+BYD,BYD M6 DYNAMIC,BYD M6,BEV,approved,https://www.reverautomotive.com/en/model/m6/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2
+BYD,BYD M6 EXTENDED,BYD M6,BEV,approved,GOOGLE,jet,7/31/2026,Reviewed in Batch 2
 DAIHATSU,COPEN CERO S,COPEN CERO S,,pending,,,,auto-added from latest model data
 HYUNDAI,IONIQ6,IONIQ6,,pending,,,,auto-added from latest model data
 LEXUS,LC 500 EDGE,LC 500 EDGE,,pending,,,,auto-added from latest model data
@@ -7281,8 +7280,8 @@ TOYOTA,GUN120R-CTTSXT,GUN120R-CTTSXT,,pending,,,,auto-added from latest model da
 UD TRUCKS,CWE08N43R350SS9,CWE08N43R350SS9,,pending,,,,auto-added from latest model data
 PANTHERA,TL,TL,,pending,,,,auto-added from latest model data
 LEVC,TX5,TX5,,pending,,,,auto-added from latest model data
-AION,HYPTEC HT 620 LUXURY,HYPTEC HT,BEV,approved,https://www.headlightmag.com/2024-09-19-official-price-aion-hyptec-ht/,antigravity-agent,2026-07-30,Reviewed in Batch 2
-AION,HYPTEC HT 620 PREMIUM,HYPTEC HT,BEV,approved,https://www.headlightmag.com/2024-09-19-official-price-aion-hyptec-ht/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+AION,HYPTEC HT 620 LUXURY,HYPTEC HT,BEV,approved,https://www.headlightmag.com/2024-09-19-official-price-aion-hyptec-ht/,antigravity-agent,7/30/2026,Reviewed in Batch 2
+AION,HYPTEC HT 620 PREMIUM,HYPTEC HT,BEV,approved,https://www.headlightmag.com/2024-09-19-official-price-aion-hyptec-ht/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 AUDI,Q8 e-tron 50 q,Q8 e-tron 50 q,,pending,,,,auto-added from latest model data
 BENTLEY,CONTINENTAL GTC S V8,CONTINENTAL GTC S V8,,pending,,,,auto-added from latest model data
 BMW,430D CONVERTIBLE Mild-hybrid,430D CONVERTIBLE Mild-hybrid,,pending,,,,auto-added from latest model data
@@ -7364,7 +7363,7 @@ PEUGEOT,408 P54 CG,408 P54 CG,,pending,,,,auto-added from latest model data
 TOYOTA,CROWN CROSSOVER G,CROWN CROSSOVER G,,pending,,,,auto-added from latest model data
 TOYOTA,LAND CRUISER 250 VX FIRST,LAND CRUISER 250 VX FIRST,,pending,,,,auto-added from latest model data
 TOYOTA,VELLFIRE Z GOLDEN EYES III,VELLFIRE Z GOLDEN EYES III,,pending,,,,auto-added from latest model data
-ZEEKR,ZEEKR 009,ZEEKR 009,BEV,approved,Official Zeekr page: 'Pure Electric Luxury MPV' https://www.zeekrlife.com/en-au/models/009/,Claude-Google-review,2026-07-30,auto-added from latest model data
+ZEEKR,ZEEKR 009,ZEEKR 009,BEV,approved,Official Zeekr page: 'Pure Electric Luxury MPV' https://www.zeekrlife.com/en-au/models/009/,Claude-Google-review,7/30/2026,auto-added from latest model data
 AJ,BEATS,BEATS,,pending,,,,auto-added from latest model data
 DUCATI,HYPERMOTARD 698 MONO,HYPERMOTARD 698 MONO,,pending,,,,auto-added from latest model data
 DUCATI,HYPERMOTARD 698 MONO RVE,HYPERMOTARD 698 MONO RVE,,pending,,,,auto-added from latest model data
@@ -7410,7 +7409,7 @@ DAE,HYK1020BEYO2,HYK1020BEYO2,,pending,,,,auto-added from latest model data
 NEOMOR,D01,D01,,pending,,,,auto-added from latest model data
 MITSUBISHI,K14TUNSRUX,K14TUNSRUX,,pending,,,,auto-added from latest model data
 YUCHAI,NZ5162GSS,NZ5162GSS,,pending,,,,auto-added from latest model data
-AION,AION V 602 LUXURY,AION V,BEV,approved,"paultan.org: GAC Aion V EV SUV, 204 PS, 75kWh LFP https://paultan.org/2024/11/11/gac-aion-v-open-for-booking-in-thailand-ev-suv-with-204-ps-up-to-602-km-range-below-rm141k/",Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION V 602 LUXURY,AION V,BEV,approved,"paultan.org: GAC Aion V EV SUV, 204 PS, 75kWh LFP https://paultan.org/2024/11/11/gac-aion-v-open-for-booking-in-thailand-ev-suv-with-204-ps-up-to-602-km-range-below-rm141k/",Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,G 450 D,G 450 D,,pending,,,,auto-added from latest model data
 BENTLEY,FLYING SPUR A HYBRID,FLYING SPUR A HYBRID,,pending,,,,auto-added from latest model data
 DENZA,DENZA D9 AWD,DENZA D9,,pending,,,,auto-added from latest model data
@@ -7433,7 +7432,7 @@ SUBARU,BRZ 2.4 EyeSight RWD 6AT,BRZ 2.4 EyeSight RWD 6AT,,pending,,,,auto-added 
 TOYOTA,ACV51R-JEPEKT  AC,ACV51R-JEPEKT  AC,,pending,,,,auto-added from latest model data
 TOYOTA,LAND CRUISER 71 HARDTOP 4.0L,LAND CRUISER 71 HARDTOP 4.0L,,pending,,,,auto-added from latest model data
 TOYOTA,LAND CRUISER GX 3.5L,LAND CRUISER GX 3.5L,,pending,,,,auto-added from latest model data
-WULING,Binguo SRDTH,Bingou,BEV,approved,https://autolifethailand.tv/official-price-wuling-binguo-ev-thailand-assembly/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+WULING,Binguo SRDTH,Bingou,BEV,approved,https://autolifethailand.tv/official-price-wuling-binguo-ev-thailand-assembly/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 JAGUAR,F-PACE 5.0L S/C PETROL AWD,F-PACE 5.0L S/C PETROL AWD,,pending,,,,auto-added from latest model data
 AUDI,Q8 SB e-tron 50 q S line,Q8 SB e-tron 50 q S line,,pending,,,,auto-added from latest model data
 Mercedes-Benz,G 450 D AMG-Line,G 450 D AMG-Line,,pending,,,,auto-added from latest model data
@@ -7494,8 +7493,8 @@ Mercedes-Benz,V 300 d,V 300 d,,pending,,,,auto-added from latest model data
 ABARTH,500e,500e,,pending,,,,auto-added from latest model data
 BENTLEY,CONTINENTAL GT AZURE V8,CONTINENTAL GT AZURE V8,,pending,,,,auto-added from latest model data
 BMW,220I COUPE RHD,220I COUPE RHD,,pending,,,,auto-added from latest model data
-BYD,BYD SEALION 6 DM-i DYNAMIC,BYD SEALION 6,PHEV,approved,https://www.reverautomotive.com/en/model/sealion6_dm-i/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2
-BYD,BYD SEALION 6 DM-i PREMIUM,BYD SEALION 6,PHEV,approved,https://www.reverautomotive.com/en/model/sealion6_dm-i/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2
+BYD,BYD SEALION 6 DM-i DYNAMIC,BYD SEALION 6,PHEV,approved,https://www.reverautomotive.com/en/model/sealion6_dm-i/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2
+BYD,BYD SEALION 6 DM-i PREMIUM,BYD SEALION 6,PHEV,approved,https://www.reverautomotive.com/en/model/sealion6_dm-i/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2
 HONDA,JAZZ HYBRID'12,JAZZ HYBRID'12,,pending,,,,auto-added from latest model data
 LEXUS,GX550,GX550,,pending,,,,auto-added from latest model data
 MCLAREN,ARTURA COUPE,ARTURA COUPE,,pending,,,,auto-added from latest model data
@@ -7544,13 +7543,13 @@ JUNEYAO,JY AIR Standard,JY AIR,,pending,,,,auto-added from latest model data
 Mercedes-Benz,E300 AMG LINE CONVERTIBLE,E300 AMG LINE CONVERTIBLE,,pending,,,,auto-added from latest model data
 BENTLEY,BENTAYGA A V8,BENTAYGA A V8,,pending,,,,auto-added from latest model data
 BMW,i5 eDrive40 Touring RHD,i5 eDrive40 Touring RHD,,pending,,,,auto-added from latest model data
-BYD,BYD SEALION 6,BYD SEALION 6,ambiguous,ambiguous,Model family contains both PHEV and BEV variants globally; unresolved generic nameplate.,antigravity-agent,2026-07-30,Reviewed in Batch 2
+BYD,BYD SEALION 6,BYD SEALION 6,ambiguous,ambiguous,Model family contains both PHEV and BEV variants globally; unresolved generic nameplate.,antigravity-agent,7/30/2026,Reviewed in Batch 2
 FORD,MUSTANG DARK HORSE,MUSTANG DARK HORSE,,pending,,,,auto-added from latest model data
 JAECOO,ไม่ระบุ,ไม่ระบุ,,pending,,,,auto-added from latest model data
 JEEP,WRANGLER 4 DOOR 2.0 RUBICON,WRANGLER 4 DOOR 2.0 RUBICON,,pending,,,,auto-added from latest model data
 JUNEYAO,JY AIR Plus,JY AIR,,pending,,,,auto-added from latest model data
-LEAPMOTOR,T03 300,T03 300,BEV,approved,HeadlightMag: Leapmotor T03 electric city car https://www.headlightmag.com/2024-06-20-world-news-leapmotor-international-to-produce-t03-in-poland/,Claude-Google-review,2026-07-30,auto-added from latest model data
-LEAPMOTOR,T03 400,T03 400,BEV,approved,HeadlightMag: Leapmotor T03 electric city car https://www.headlightmag.com/2024-06-20-world-news-leapmotor-international-to-produce-t03-in-poland/,Claude-Google-review,2026-07-30,auto-added from latest model data
+LEAPMOTOR,T03 300,T03 300,BEV,approved,HeadlightMag: Leapmotor T03 electric city car https://www.headlightmag.com/2024-06-20-world-news-leapmotor-international-to-produce-t03-in-poland/,Claude-Google-review,7/30/2026,auto-added from latest model data
+LEAPMOTOR,T03 400,T03 400,BEV,approved,HeadlightMag: Leapmotor T03 electric city car https://www.headlightmag.com/2024-06-20-world-news-leapmotor-international-to-produce-t03-in-poland/,Claude-Google-review,7/30/2026,auto-added from latest model data
 MG,ZS1,ZS1,,pending,,,,auto-added from latest model data
 MITSUBISHI,LANCER EVOLUTION X FINAL,LANCER EVOLUTION X FINAL,,pending,,,,auto-added from latest model data
 PORSCHE,911 TARGA 4S HERITAGE EDITION,911 TARGA 4S HERITAGE EDITION,,pending,,,,auto-added from latest model data
@@ -7612,7 +7611,7 @@ TATA,WINGER FL 3200 FR 125 AC,WINGER FL 3200 FR 125 AC,,pending,,,,auto-added fr
 GWM,POER,POER,,pending,,,,auto-added from latest model data
 VOLVO,FM1342R52420CLSI (EURO 5) CBU,FM1342R52420CLSI (EURO 5) CBU,,pending,,,,auto-added from latest model data
 VOLVO,FM1364R49420CLSI-TH,FM1364R49420CLSI-TH,,pending,,,,auto-added from latest model data
-GWM,GRAND CAT,ORA 07,BEV,approved,https://www.headlightmag.com/2023-11-12-official-price-ora-07-special-deal/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+GWM,GRAND CAT,ORA 07,BEV,approved,https://www.headlightmag.com/2023-11-12-official-price-ora-07-special-deal/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 Mercedes-Benz,G 580,G 580,,pending,,,,auto-added from latest model data
 Mercedes-Benz,MAYBACH GLS600,MAYBACH GLS600,,pending,,,,auto-added from latest model data
 AUDI,Q8 TFSI e q S line edition one,Q8 TFSI e q S line edition one,,pending,,,,auto-added from latest model data
@@ -7764,7 +7763,7 @@ TOYOTA,"HILUX TIGER B-CAB / 2L,P/S","HILUX TIGER B-CAB / 2L,P/S",,pending,,,,aut
 UD TRUCKS,CWE11N43R410CSSI,CWE11N43R410CSSI,,pending,,,,auto-added from latest model data
 UD TRUCKS,CWE11N43R370CSS9,CWE11N43R370CSS9,,pending,,,,auto-added from latest model data
 CHENGLONG,LZ5180XXYM3AZBEV12T,LZ5180XXYM3AZBEV12T,,pending,,,,auto-added from latest model data
-MG,S5 EV,S5 EV,BEV,approved,"MarkLines: BIMS 2025 MG S5 EV launched in Thailand, locally assembled https://www.marklines.com/en/news/323891",Claude-Google-review,2026-07-30,auto-added from latest model data
+MG,S5 EV,S5 EV,BEV,approved,"MarkLines: BIMS 2025 MG S5 EV launched in Thailand, locally assembled https://www.marklines.com/en/news/323891",Claude-Google-review,7/30/2026,auto-added from latest model data
 GWM,H6 HYBRID,H6 HYBRID,,pending,,,,auto-added from latest model data
 BENTLEY,FLYING SPUR HYBRID S,FLYING SPUR HYBRID S,,pending,,,,auto-added from latest model data
 BMW,iX xDrive50,iX xDrive50,,pending,,,,auto-added from latest model data
@@ -7862,7 +7861,7 @@ YUCHAI,LZ1041L2ACT,LZ1041L2ACT,,pending,,,,auto-added from latest model data
 SCANIA,8X4,8X4,,pending,,,,auto-added from latest model data
 YUCHAI,NZ5161ZYSR,NZ5161ZYSR,,pending,,,,auto-added from latest model data
 Deepal + Changan,HUNTER K50,HUNTER K50,,pending,,,,auto-added from latest model data
-AION,AION UT 500 PREMIUM,AION UT,BEV,approved,thedriven.io: GAC opens orders for Aion UT electric hatchback https://thedriven.io/2026/03/13/gac-opens-orders-for-aion-ut-electric-hatchback-with-initial-driveway-price-under-31000/,Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION UT 500 PREMIUM,AION UT,BEV,approved,thedriven.io: GAC opens orders for Aion UT electric hatchback https://thedriven.io/2026/03/13/gac-opens-orders-for-aion-ut-electric-hatchback-with-initial-driveway-price-under-31000/,Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,CLS 250 CDI BE COUPE,CLS 250 CDI BE COUPE,,pending,,,,auto-added from latest model data
 AUDI,A5 CP 45 TFSI q S line eo,A5 CP 45 TFSI q S line eo,,pending,,,,auto-added from latest model data
 BMW,X7 M60i xDrive,X7 M60i xDrive,,pending,,,,auto-added from latest model data
@@ -7875,7 +7874,7 @@ JIAYUAN,JY7222-ZQR,JY7222-ZQR,,pending,,,,auto-added from latest model data
 MAZDA,CX-3,CX-3,,pending,,,,auto-added from latest model data
 RIDDARA,HORIZON PRO 4WD SUNROOF,HORIZON,,pending,,,,auto-added from latest model data
 RIDDARA,RD6 86KWH 2WD,RD6,,pending,,,,auto-added from latest model data
-SERES,SERES 3,SERES 3,BEV,approved,Car250: DFSK SERES 3 EV https://www.car250.com/dfsk-seres-3-ev.html,Claude-Google-review,2026-07-30,auto-added from latest model data
+SERES,SERES 3,SERES 3,BEV,approved,Car250: DFSK SERES 3 EV https://www.car250.com/dfsk-seres-3-ev.html,Claude-Google-review,7/30/2026,auto-added from latest model data
 SUBARU,WRX 4D 2.4 EyeSight AWD 6MT,WRX 4D 2.4 EyeSight AWD 6MT,,pending,,,,auto-added from latest model data
 VOLKSWAGEN,GOLF ESTATE 8 2.0 TDI,GOLF ESTATE 8 2.0 TDI,,pending,,,,auto-added from latest model data
 VOLKSWAGEN,TOURAN MATCH ESTATE 1.5 TSI,TOURAN MATCH ESTATE 1.5 TSI,,pending,,,,auto-added from latest model data
@@ -7932,18 +7931,18 @@ JIAYUAN,JY1320-ZLH,JY1320-ZLH,,pending,,,,auto-added from latest model data
 KING LONG,VENUS 3,VENUS 3,,pending,,,,auto-added from latest model data
 SCANIA,P 420 B6X4NZ,P 420 B6X4NZ,,pending,,,,auto-added from latest model data
 TKI,003EV TUK TUK SCT,003EV TUK TUK SCT,,pending,,,,auto-added from latest model data
-AION,AION UT 420 STANDARD,AION UT,BEV,approved,thedriven.io: GAC opens orders for Aion UT electric hatchback https://thedriven.io/2026/03/13/gac-opens-orders-for-aion-ut-electric-hatchback-with-initial-driveway-price-under-31000/,Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION UT 420 STANDARD,AION UT,BEV,approved,thedriven.io: GAC opens orders for Aion UT electric hatchback https://thedriven.io/2026/03/13/gac-opens-orders-for-aion-ut-electric-hatchback-with-initial-driveway-price-under-31000/,Claude-Google-review,7/30/2026,auto-added from latest model data
 Deepal + Changan,S05 REEV MAX,S05 REEV,,pending,,,,auto-added from latest model data
 GWM,GWM TANK 500,GWM TANK 500,,pending,,,,auto-added from latest model data
 ZX Auto,FP3A,FP3A,,pending,,,,auto-added from latest model data
 DONGFENG,NAMMI 06,NAMMI 06,,pending,,,,auto-added from latest model data
-JAC,T8EV,T8EV,BEV,approved,https://www.springnews.co.th/digital-tech/auto/836706,antigravity-agent,2026-07-30,Reviewed in Batch 2
+JAC,T8EV,T8EV,BEV,approved,https://www.springnews.co.th/digital-tech/auto/836706,antigravity-agent,7/30/2026,Reviewed in Batch 2
 MAXUS,MIFA9,MIFA9,,pending,,,,auto-added from latest model data
 PORSCHE,911 TURBO 50 YEARS,911 TURBO 50 YEARS,,pending,,,,auto-added from latest model data
 SUZUKI,FRONX 1.5L,FRONX 1.5L,,pending,,,,auto-added from latest model data
 ASTON MARTIN,DBS SUPERLEGGERA COUPE,DBS SUPERLEGGERA COUPE,,pending,,,,auto-added from latest model data
 MITSUBISHI,A13ASTMHRU,A13ASTMHRU,,pending,,,,auto-added from latest model data
-AION,AION Y PLUS 490 PREMIUM,AION Y,BEV,approved,MarkLines: GAC officially launches Aion Y Plus EV in Thailand https://www.marklines.com/en/news/294310,Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION Y PLUS 490 PREMIUM,AION Y,BEV,approved,MarkLines: GAC officially launches Aion Y Plus EV in Thailand https://www.marklines.com/en/news/294310,Claude-Google-review,7/30/2026,auto-added from latest model data
 AJ,NCV,NCV,,pending,,,,auto-added from latest model data
 APRILIA,RSV4 FACTORY,RSV4 FACTORY,,pending,,,,auto-added from latest model data
 APRILIA,TUONO V4 FACTORY,TUONO V4 FACTORY,,pending,,,,auto-added from latest model data
@@ -7997,8 +7996,8 @@ BMW,328I M SPORT,328I M SPORT,,pending,,,,auto-added from latest model data
 BMW,840I M SPORT COUPE,840I M SPORT COUPE,,pending,,,,auto-added from latest model data
 BMW,X3 20d xDrive RHD,X3 20d xDrive RHD,,pending,,,,auto-added from latest model data
 BMW,iX1 eDrive20L,iX1 eDrive20L,,pending,,,,auto-added from latest model data
-BYD,BYD SEAL U (DMI-PREMIUM),BYD SEAL U,PHEV,approved,https://autolifethailand.tv/photo-byd-sealion6-phev-dmi-thailand-spec/,antigravity-agent,2026-07-30,Reviewed in Batch 2; model2 corrected from BYD SEAL to BYD SEAL U
-BYD,BYD SEAL 5 DM-i PREMIUM,BYD SEAL 5 DM-i,PHEV,approved,https://www.reverautomotive.com/en/model/seal5-dm-i/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2
+BYD,BYD SEAL U (DMI-PREMIUM),BYD SEAL U,PHEV,approved,https://autolifethailand.tv/photo-byd-sealion6-phev-dmi-thailand-spec/,antigravity-agent,7/30/2026,Reviewed in Batch 2; model2 corrected from BYD SEAL to BYD SEAL U
+BYD,BYD SEAL 5 DM-i PREMIUM,BYD SEAL 5 DM-i,PHEV,approved,https://www.reverautomotive.com/en/model/seal5-dm-i/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2
 FERRARI,SF90 XX STRADALE,SF90 XX STRADALE,,pending,,,,auto-added from latest model data
 NAZA,FORZA,FORZA,,pending,,,,auto-added from latest model data
 NISSAN,BDWARBZN17XHAF---B,BDWARBZN17XHAF---B,,pending,,,,auto-added from latest model data
@@ -8012,7 +8011,7 @@ SUBARU,FORESTER 2.5i-S AWD CVT,FORESTER 2.5i-S AWD CVT,,pending,,,,auto-added fr
 TOYOTA,CROWN SPORT RS,CROWN SPORT RS,,pending,,,,auto-added from latest model data
 TOYOTA,LAND CRUISER 70 AX 2.8L 4WD,LAND CRUISER 70 AX 2.8L 4WD,,pending,,,,auto-added from latest model data
 TOYOTA,LANDCRUISER LC300 GX,LANDCRUISER LC300 GX,,pending,,,,auto-added from latest model data
-ZEEKR,ZEEKR 7X,ZEEKR 7X,BEV,approved,"Official Zeekr page, 800V/900V BEV SUV https://www.zeekrlife.com/en-au/models/zeekr-7x/",Claude-Google-review,2026-07-30,auto-added from latest model data
+ZEEKR,ZEEKR 7X,ZEEKR 7X,BEV,approved,"Official Zeekr page, 800V/900V BEV SUV https://www.zeekrlife.com/en-au/models/zeekr-7x/",Claude-Google-review,7/30/2026,auto-added from latest model data
 MINI,JCW RHD,JCW RHD,,pending,,,,auto-added from latest model data
 TOYOTA,AHV40R-JEXGBT  BL,AHV40R-JEXGBT  BL,,pending,,,,auto-added from latest model data
 AJ,TAURUS,TAURUS,,pending,,,,auto-added from latest model data
@@ -8140,7 +8139,7 @@ FERRARI,12Cilindri Spider,12Cilindri Spider,,pending,,,,auto-added from latest m
 GMC,YUKON DENALI,YUKON DENALI,,pending,,,,auto-added from latest model data
 HONDA,CIVIC TYPE R RACING BLACK,CIVIC TYPE R RACING BLACK,,pending,,,,auto-added from latest model data
 HONDA,FIT RS,FIT RS,,pending,,,,auto-added from latest model data
-KIA,CARNIVAL HEV 7P LUXURY,CARNIVAL HEV 7P LUXURY,HEV,approved,https://www.kia.com/th/th/cars/carnival-hev/specification.html,antigravity-agent,2026-07-30,Reviewed in Batch 2
+KIA,CARNIVAL HEV 7P LUXURY,CARNIVAL HEV 7P LUXURY,HEV,approved,https://www.kia.com/th/th/cars/carnival-hev/specification.html,antigravity-agent,7/30/2026,Reviewed in Batch 2
 LAND ROVER,DEFENDER 75TH LIMITED EDITION,DEFENDER 75TH LIMITED EDITION,,pending,,,,auto-added from latest model data
 LAND ROVER,RANGE ROVER VELAR DYNAMIC HSE,RANGE ROVER VELAR DYNAMIC HSE,,pending,,,,auto-added from latest model data
 MASERATI,GRANTURISMO FOLGORE,GRANTURISMO FOLGORE,,pending,,,,auto-added from latest model data
@@ -8223,7 +8222,7 @@ BENTLEY,CONTINENTAL GT S V8,CONTINENTAL GT S V8,,pending,,,,auto-added from late
 CHERY,V23 2WD PLAY,V23,,pending,,,,auto-added from latest model data
 CHEVROLET,CORVETTE Z06 CONVERTIBLE 3LZ,CORVETTE Z06 CONVERTIBLE 3LZ,,pending,,,,auto-added from latest model data
 GMC,HUMMER EV EDITION 1,HUMMER EV EDITION 1,,pending,,,,auto-added from latest model data
-KIA,CARNIVAL HEV 7P PREMIUM,CARNIVAL HEV 7P PREMIUM,HEV,approved,https://www.kia.com/th/th/cars/carnival-hev/specification.html,antigravity-agent,2026-07-30,Reviewed in Batch 2
+KIA,CARNIVAL HEV 7P PREMIUM,CARNIVAL HEV 7P PREMIUM,HEV,approved,https://www.kia.com/th/th/cars/carnival-hev/specification.html,antigravity-agent,7/30/2026,Reviewed in Batch 2
 NISSAN,X-TRIAL e-POWER,X-TRIAL e-POWER,,pending,,,,auto-added from latest model data
 RIDDARA,RD6 ECON,RD6,,pending,,,,auto-added from latest model data
 SUZUKI,HUSTLER HYBRID G,HUSTLER HYBRID G,,pending,,,,auto-added from latest model data
@@ -8272,7 +8271,7 @@ FOTON,eTUNLAND,eTUNLAND,,pending,,,,auto-added from latest model data
 SRM,T3EV,T3EV,,pending,,,,auto-added from latest model data
 HINO,FC9JJ1A-CBAHF,FC9JJ1A-CBAHF,,pending,,,,auto-added from latest model data
 YUCHAI,NZ5161ZYSH,NZ5161ZYSH,,pending,,,,auto-added from latest model data
-AION,AION V 505 PREMIUM,AION V,BEV,approved,"paultan.org: GAC Aion V EV SUV, 204 PS, 75kWh LFP https://paultan.org/2024/11/11/gac-aion-v-open-for-booking-in-thailand-ev-suv-with-204-ps-up-to-602-km-range-below-rm141k/",Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION V 505 PREMIUM,AION V,BEV,approved,"paultan.org: GAC Aion V EV SUV, 204 PS, 75kWh LFP https://paultan.org/2024/11/11/gac-aion-v-open-for-booking-in-thailand-ev-suv-with-204-ps-up-to-602-km-range-below-rm141k/",Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,G450 D AMG,G450 D AMG,,pending,,,,auto-added from latest model data
 BMW,X3 M50 xDrive RHD,X3 M50 xDrive RHD,,pending,,,,auto-added from latest model data
 BMW,i7 eDrive50 RHD,i7 eDrive50 RHD,,pending,,,,auto-added from latest model data
@@ -8405,7 +8404,7 @@ FARIZON,SUPERVAN SV,SUPERVAN SV,,pending,,,,auto-added from latest model data
 JONWAY,T21,T21,,pending,,,,auto-added from latest model data
 CHENGLONG,LZ3240M3CC2,LZ3240M3CC2,,pending,,,,auto-added from latest model data
 FAW,CA1040P40K58LE5YZA84,CA1040P40K58LE5YZA84,,pending,,,,auto-added from latest model data
-GWM,WEY G9 PLUG-IN HYBRID,WEY G9 PLUG-IN HYBRID,PHEV,approved,https://autolifethailand.tv/official-price-gwm-wey-g9-hi4-phev-thailand/,antigravity-agent,2026-07-30,Reviewed in Batch 2
+GWM,WEY G9 PLUG-IN HYBRID,WEY G9 PLUG-IN HYBRID,PHEV,approved,https://autolifethailand.tv/official-price-gwm-wey-g9-hi4-phev-thailand/,antigravity-agent,7/30/2026,Reviewed in Batch 2
 Mercedes-Benz,G450D AMG LINE,G450D AMG LINE,,pending,,,,auto-added from latest model data
 Mercedes-Benz,V300D,V300D,,pending,,,,auto-added from latest model data
 AUDI,A5 Avant e-hybrid q Tech Plus,A5 Avant e-hybrid q Tech Plus,,pending,,,,auto-added from latest model data
@@ -8426,7 +8425,7 @@ TOYOTA,GR YARIS RC AERO PERFORMANCE,GR YARIS RC AERO PERFORMANCE,,pending,,,,aut
 TOYOTA,GR86 RZ YELLOW LIMITED,GR86 RZ YELLOW LIMITED,,pending,,,,auto-added from latest model data
 TOYOTA,ROOMY CUSTOM G T 1.0L,ROOMY CUSTOM G T 1.0L,,pending,,,,auto-added from latest model data
 VOLVO,ES90,ES90,,pending,,,,auto-added from latest model data
-BYD,BYD SEAL 5 DM-i STANDARD,BYD SEAL 5 DM-i,PHEV,approved,https://www.reverautomotive.com/en/model/seal5-dm-i/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2
+BYD,BYD SEAL 5 DM-i STANDARD,BYD SEAL 5 DM-i,PHEV,approved,https://www.reverautomotive.com/en/model/seal5-dm-i/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2
 BAOSHIMA,SU8,SU8,,pending,,,,auto-added from latest model data
 BAOSHIMA,Vmax3.0,Vmax3.0,,pending,,,,auto-added from latest model data
 BAOSHIMA,Y2,Y2,,pending,,,,auto-added from latest model data
@@ -8497,7 +8496,7 @@ ASM,ATT3,ATT3,,pending,,,,auto-added from latest model data
 ASM,ATT3EV,ATT3EV,,pending,,,,auto-added from latest model data
 AUDI,S6 Sportback e-tron quattro,S6 Sportback e-tron quattro,,pending,,,,auto-added from latest model data
 BMW,X6 M50D,X6 M50D,,pending,,,,auto-added from latest model data
-BYD,BYD SEAL 5 DM-i DYNAMIC,BYD SEAL 5 DM-i,PHEV,approved,https://www.reverautomotive.com/en/model/seal5-dm-i/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2
+BYD,BYD SEAL 5 DM-i DYNAMIC,BYD SEAL 5 DM-i,PHEV,approved,https://www.reverautomotive.com/en/model/seal5-dm-i/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2
 CHERY,TIGGO8 PHEV 2WD ESTEEM,TIGGO8 PHEV,,pending,,,,auto-added from latest model data
 CHERY,TIGGO8 PHEV 4WD ELITE,TIGGO8 PHEV,,pending,,,,auto-added from latest model data
 FORD,RANGER SUPER DUTY,RANGER SUPER DUTY,,pending,,,,auto-added from latest model data
@@ -8547,14 +8546,14 @@ CASE,1110EX-D,1110EX-D,,pending,,,,auto-added from latest model data
 SANY,SYM1030T1BEVH3,SYM1030T1BEVH3,,pending,,,,auto-added from latest model data
 TKI,004-1 TUK TUK,004-1 TUK TUK,,pending,,,,auto-added from latest model data
 EVEASY,GSE,GSE,,pending,,,,auto-added from latest model data
-AION,AION V 500 PREMIUM,AION V,BEV,approved,"paultan.org: GAC Aion V EV SUV, 204 PS, 75kWh LFP https://paultan.org/2024/11/11/gac-aion-v-open-for-booking-in-thailand-ev-suv-with-204-ps-up-to-602-km-range-below-rm141k/",Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION V 500 PREMIUM,AION V,BEV,approved,"paultan.org: GAC Aion V EV SUV, 204 PS, 75kWh LFP https://paultan.org/2024/11/11/gac-aion-v-open-for-booking-in-thailand-ev-suv-with-204-ps-up-to-602-km-range-below-rm141k/",Claude-Google-review,7/30/2026,auto-added from latest model data
 Mercedes-Benz,AMG GT R PRO,AMG GT R PRO,,pending,,,,auto-added from latest model data
 Mercedes-Benz,G580 EQ Edition One,G580 EQ Edition One,,pending,,,,auto-added from latest model data
 BMW,M3 COMPETITION TOURING WITH M,M3 COMPETITION TOURING WITH M,,pending,,,,auto-added from latest model data
 BMW,M3 CS Touring,M3 CS Touring,,pending,,,,auto-added from latest model data
 BMW,M4 CS RHD,M4 CS RHD,,pending,,,,auto-added from latest model data
-BYD,BYD SEAL 6 DYNAMIC,BYD SEAL 6,BEV,approved,https://www.reverautomotive.com/en/model/seal6/tech-spec,antigravity-agent,2026-07-30,Reviewed in Batch 2; corrected from PHEV to BEV based on Rever specifications
-BYD,BYD SEAL 6 PREMIUM,BYD SEAL 6,,pending,,,,auto-added from latest model data
+BYD,BYD SEAL 6 DYNAMIC,BYD SEAL 6,BEV,approved,https://www.reverautomotive.com/en/model/seal6/tech-spec,antigravity-agent,7/30/2026,Reviewed in Batch 2; corrected from PHEV to BEV based on Rever specifications
+BYD,BYD SEAL 6 PREMIUM,BYD SEAL 6,BEV,approved,chat GPt,JET,7/30/2026,BEV
 FARIZON,FARIZON SUPERVAN SV6,FARIZON SUPERVAN SV6,,pending,,,,auto-added from latest model data
 LEXUS,LC500 L PACKAGE,LC500 L PACKAGE,,pending,,,,auto-added from latest model data
 LEXUS,RC F FINAL EDITION,RC F FINAL EDITION,,pending,,,,auto-added from latest model data
@@ -8627,8 +8626,8 @@ VPL,VPL26R,VPL26R,,pending,,,,auto-added from latest model data
 ไม่ระบุ,PAGEANT CHAMPAGNE,PAGEANT CHAMPAGNE,,pending,,,,auto-added from latest model data
 HINO,XZU720R-WKFTST3,XZU720R-WKFTST3,,pending,,,,auto-added from latest model data
 DAIHATSU,HIJET CARGO DELUXE,HIJET CARGO DELUXE,,pending,,,,auto-added from latest model data
-AION,AION Y PLUS 410 PREMIUM,AION Y,BEV,approved,MarkLines: GAC officially launches Aion Y Plus EV in Thailand https://www.marklines.com/en/news/294310,Claude-Google-review,2026-07-30,auto-added from latest model data
-BYD,BYD ATTO 1 DYNAMIC,BYD ATTO 1 DYNAMIC,BEV,approved,"Official BYD brochure, Blade Battery BEV https://www.byd.com/material/byd-site/np/atto1/atto1.pdf",Claude-Google-review,2026-07-30,auto-added from latest model data
+AION,AION Y PLUS 410 PREMIUM,AION Y,BEV,approved,MarkLines: GAC officially launches Aion Y Plus EV in Thailand https://www.marklines.com/en/news/294310,Claude-Google-review,7/30/2026,auto-added from latest model data
+BYD,BYD ATTO 1 DYNAMIC,BYD ATTO 1 DYNAMIC,BEV,approved,"Official BYD brochure, Blade Battery BEV https://www.byd.com/material/byd-site/np/atto1/atto1.pdf",Claude-Google-review,7/30/2026,auto-added from latest model data
 BYD,BYD SEALION5 DM-i DYNAMIC,BYD SEALION5 DM-i DYNAMIC,,pending,,,,auto-added from latest model data
 GWM,ORA 5,ORA 5,,pending,,,,auto-added from latest model data
 Mercedes-Benz,Mercedes-Maybach S 580 e,Mercedes-Maybach S 580 e,,pending,,,,auto-added from latest model data
@@ -8646,7 +8645,7 @@ MORGAN,PLUS SIX SUPERSPORT,PLUS SIX SUPERSPORT,,pending,,,,auto-added from lates
 OMODA,C5 EV MAX+,C5 EV MAX+,,pending,,,,auto-added from latest model data
 PORSCHE,PANAMERA TURBO S E-HYBRID,PANAMERA TURBO S E-HYBRID,,pending,,,,auto-added from latest model data
 SUZUKI,e VITARA,e VITARA,,pending,,,,auto-added from latest model data
-TESLA,Model Y,Model Y,BEV,approved,Autolifethailand: TESLA Model Y Thailand launch https://autolifethailand.tv/official-price-tesla-model-y-thailand/,Claude-Google-review,2026-07-30,auto-added from latest model data
+TESLA,Model Y,Model Y,BEV,approved,Autolifethailand: TESLA Model Y Thailand launch https://autolifethailand.tv/official-price-tesla-model-y-thailand/,Claude-Google-review,7/30/2026,auto-added from latest model data
 TOYOTA,CROWN SPORT Z THE 70TH,CROWN SPORT Z THE 70TH,,pending,,,,auto-added from latest model data
 TOYOTA,PRIUS HYBRID X 2WD,PRIUS HYBRID X 2WD,,pending,,,,auto-added from latest model data
 HONDA,CIVIC'13,CIVIC'13,,pending,,,,auto-added from latest model data
@@ -8709,3 +8708,8 @@ LIUGONG,CLG6622E,CLG6622E,,pending,,,,auto-added from latest model data
 ETAN4U,S-20004WD,S-20004WD,,pending,,,,auto-added from latest model data
 DAYUN,DYQ1033BEV1R-H,DYQ1033BEV1R-H,,pending,,,,auto-added from latest model data
 DONGFENG,E-STAR T,E-STAR T,,pending,,,,auto-added from latest model data
+CATERPILLAR,306E2,306E2,,pending,,,,auto-added from latest model data
+VOGELE,6-83,6-83,,pending,,,,auto-added from latest model data
+CATERPILLAR,312E-2,312E-2,,pending,,,,auto-added from latest model data
+CATERPILLAR,320E-2,320E-2,,pending,,,,auto-added from latest model data
+CATERPILLAR,305.5E2,305.5E2,,pending,,,,auto-added from latest model data

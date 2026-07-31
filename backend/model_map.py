@@ -6,6 +6,7 @@ rows are always appended as pending; only a human reviewer can approve/reject/ma
 ambiguous.
 """
 import csv
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -21,6 +22,32 @@ REVIEW_HEADERS = [
 ]
 VALID_CANDIDATE_POWERTRAIN = {"BEV", "HEV", "PHEV", "ICE", "ambiguous", "unknown", ""}
 VALID_REVIEW_STATUS = {"pending", "approved", "rejected", "ambiguous"}
+
+
+def normalize_reviewed_at(value):
+    """Accept common Excel date values and return the canonical YYYY-MM-DD form."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    if text.isdigit() and 1 <= int(text) <= 100000:
+        return (datetime(1899, 12, 30) + timedelta(days=int(text))).date().isoformat()
+
+    for date_format in (
+        "%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y",
+        "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
+    ):
+        try:
+            return datetime.strptime(text, date_format).date().isoformat()
+        except ValueError:
+            pass
+
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError as error:
+        raise ValueError(
+            f"reviewed_at {text!r} must be a valid Excel-style date or ISO timestamp"
+        ) from error
 
 
 def normalize_key(brand2, raw_model):
@@ -110,13 +137,11 @@ def load_model_powertrain_review():
                 )
 
             if reviewed_at:
-                import datetime
                 try:
-                    datetime.datetime.strptime(reviewed_at, "%Y-%m-%d")
-                except ValueError:
-                    raise ValueError(
-                        f"{MODEL_POWERTRAIN_REVIEW_PATH}:{i}: reviewed_at {reviewed_at!r} must be in YYYY-MM-DD format"
-                    )
+                    reviewed_at = normalize_reviewed_at(reviewed_at)
+                except ValueError as error:
+                    raise ValueError(f"{MODEL_POWERTRAIN_REVIEW_PATH}:{i}: {error}") from error
+                row["reviewed_at"] = reviewed_at
 
             key = normalize_key(brand2, raw_model)
             if key in result:

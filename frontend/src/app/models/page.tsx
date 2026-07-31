@@ -167,6 +167,14 @@ export default function ModelsPage() {
     });
   };
 
+  const expandVisibleBrands = () => {
+    setExpandedBrands((previous) => new Set([...previous, ...paginatedTree.map((brand) => brand.toggleKey)]));
+  };
+
+  const hideAllModels = () => setExpandedBrands(new Set());
+
+  const visibleBrandsExpanded = paginatedTree.length > 0 && paginatedTree.every((brand) => brand.isExpanded);
+
   const handleExportExcel = async () => {
     if (!data || exporting) return;
     setExporting(true);
@@ -340,6 +348,26 @@ export default function ModelsPage() {
                 })}
               </div>
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3 text-xs text-slate-400">
+            <span>Model rows are hidden by default.</span>
+            <button
+              type="button"
+              onClick={expandVisibleBrands}
+              disabled={visibleBrandsExpanded || paginatedTree.length === 0}
+              className="rounded-sm border border-slate-700 px-2 py-1 font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+            >
+              Show models on this page
+            </button>
+            <button
+              type="button"
+              onClick={hideAllModels}
+              disabled={expandedBrands.size === 0}
+              className="rounded-sm px-2 py-1 font-medium text-slate-400 transition-colors hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+            >
+              Hide all models
+            </button>
           </div>
         </div>
 

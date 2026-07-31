@@ -7,7 +7,7 @@ BACKEND = TESTS.parent
 sys.path.insert(0, str(BACKEND))
 
 import pytest
-from model_map import approved_bev_keys, approved_bev_model_keys, model2_map, normalize_key
+from model_map import approved_bev_keys, approved_bev_model_keys, model2_map, normalize_key, normalize_reviewed_at
 
 
 def test_normalize_key():
@@ -15,6 +15,22 @@ def test_normalize_key():
     assert normalize_key("AION", "AION UT  420  STANDARD") == ("AION", "AION UT 420 STANDARD")
     assert normalize_key("  aion  ", "  aion ut 420 standard  ") == ("AION", "AION UT 420 STANDARD")
     assert normalize_key("", "") == ("", "")
+
+
+@pytest.mark.parametrize(("value", "expected"), [
+    ("2026-07-22", "2026-07-22"),
+    ("7/22/2026", "2026-07-22"),
+    ("22/7/2026", "2026-07-22"),
+    ("2026-07-22T09:30:00Z", "2026-07-22"),
+    ("46225", "2026-07-22"),
+])
+def test_normalize_reviewed_at(value, expected):
+    assert normalize_reviewed_at(value) == expected
+
+
+def test_normalize_reviewed_at_rejects_invalid_date():
+    with pytest.raises(ValueError, match="valid Excel-style date"):
+        normalize_reviewed_at("not a date")
 
 
 def test_model2_map_loads():

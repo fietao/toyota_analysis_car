@@ -30,9 +30,10 @@ if errorlevel 1 (
 )
 
 echo Starting dashboard server...
+echo The browser will open when the server is ready.
 echo Press Ctrl+C to stop the server.
 echo.
-start "" "%URL%"
+start "" /b powershell.exe -NoProfile -WindowStyle Hidden -Command "$deadline = (Get-Date).AddSeconds(30); while ((Get-Date) -lt $deadline) { if ((Test-NetConnection -ComputerName localhost -Port 3001 -InformationLevel Quiet -WarningAction SilentlyContinue)) { Start-Process '%URL%'; exit }; Start-Sleep -Milliseconds 500 }"
 
 call npm.cmd run dev -- --port 3001
 

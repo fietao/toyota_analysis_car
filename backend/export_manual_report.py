@@ -399,4 +399,11 @@ def export():
 
 
 if __name__ == "__main__":
-    export()
+    try:
+        export()
+    except ValueError as error:
+        print()
+        print("MANUAL REPORT NOT EXPORTED")
+        print(f"Problem: {error}")
+        print("Fix: open backend/config/model_powertrain_review.csv, correct the named row, save it as CSV UTF-8, then run BUILD_RELEASE.bat again.")
+        sys.exit(1)
