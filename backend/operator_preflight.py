@@ -17,6 +17,7 @@ Exit 0 = ready. Exit 1 = operator must fix the CSV and re-run.
 """
 import csv
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -31,6 +32,27 @@ REVIEW_HEADERS = [
 ]
 VALID_CANDIDATE_POWERTRAIN = {"BEV", "HEV", "PHEV", "ICE", "ambiguous", "unknown", ""}
 VALID_REVIEW_STATUS = {"pending", "approved", "rejected", "ambiguous"}
+
+
+def normalize_reviewed_at(value):
+    """Accept the same common Excel/ISO date values as model_map.py."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.isdigit() and 1 <= int(text) <= 100000:
+        return (datetime(1899, 12, 30) + timedelta(days=int(text))).date().isoformat()
+    for date_format in (
+        "%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y",
+        "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
+    ):
+        try:
+            return datetime.strptime(text, date_format).date().isoformat()
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError as error:
+        raise ValueError("invalid date") from error
 
 
 def _norm(v):
@@ -105,9 +127,8 @@ def validate_review_csv(path=DEFAULT_CSV):
                 )
 
             if reviewed_at:
-                import datetime
                 try:
-                    datetime.datetime.strptime(reviewed_at, "%Y-%m-%d")
+                    normalize_reviewed_at(reviewed_at)
                 except ValueError:
                     errors.append(
                         f"{where}: คอลัมน์ reviewed_at = {reviewed_at!r} ไม่ถูกต้อง — "

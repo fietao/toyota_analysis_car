@@ -123,12 +123,14 @@ def test_count_pending():
         tmp.unlink()
 
 
+def test_common_excel_date_formats_pass():
+    for value in ("7/30/2026", "30/7/2026", "2026/07/30", "2026-07-30T09:00:00Z", "46233"):
+        check(f"valid date {value}", _write([dict(GOOD, reviewed_at=value)]), expect_error=False)
+
+
 def test_bad_date_format():
-    check("bad date format 1", _write([dict(GOOD, reviewed_at="7/30/2026")]),
+    check("bad date format", _write([dict(GOOD, reviewed_at="not a date")]),
           expect_error=True, needle="reviewed_at")
-    check("bad date format 2", _write([dict(GOOD, reviewed_at="2026/07/30")]),
-          expect_error=True, needle="reviewed_at")
-    # blank is fine
     check("blank date format", _write([dict(PENDING, reviewed_at="")]),
           expect_error=False)
 
@@ -146,6 +148,9 @@ def test_contract_matches_model_map():
         failures.append("VALID_REVIEW_STATUS drifted from model_map")
     if op.VALID_CANDIDATE_POWERTRAIN != model_map.VALID_CANDIDATE_POWERTRAIN:
         failures.append("VALID_CANDIDATE_POWERTRAIN drifted from model_map")
+    for value in ("2026-07-30", "7/30/2026", "30/7/2026", "46233"):
+        if op.normalize_reviewed_at(value) != model_map.normalize_reviewed_at(value):
+            failures.append(f"date normalization differs for {value}")
 
 
 if __name__ == "__main__":
@@ -160,6 +165,7 @@ if __name__ == "__main__":
     test_blank_required()
     test_collects_all_errors()
     test_count_pending()
+    test_common_excel_date_formats_pass()
     test_bad_date_format()
     test_contract_matches_model_map()
     if failures:
