@@ -127,6 +127,10 @@ const HEALTH_TONE_ICON: Record<HealthTone, typeof CheckCircle2> = {
 // Data Health strip — the single at-a-glance answer to "is the live dashboard data
 // good right now" for a non-coding operator. Driven entirely by operator_status.json.
 function DataHealthStrip({ status, unavailable }: { status: OperatorStatus | null; unavailable: boolean }) {
+  const [hiddenReviewPeriod, setHiddenReviewPeriod] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : window.localStorage.getItem("hidden-review-status-period")
+  );
+
   if (unavailable) {
     return (
       <div className="mb-4 rounded-sm border border-slate-800 bg-slate-900 px-3 py-2 text-[11px] text-slate-500">
@@ -138,6 +142,25 @@ function DataHealthStrip({ status, unavailable }: { status: OperatorStatus | nul
 
   const tone = healthTone(status.status, status.totals_match);
   const Icon = HEALTH_TONE_ICON[tone];
+  const canHide = status.status === "review_needed" && status.totals_match;
+  const statusPeriod = status.reporting_period ?? status.last_run_at;
+
+  if (canHide && hiddenReviewPeriod === statusPeriod) {
+    return (
+      <div className="mb-4 text-right">
+        <button
+          type="button"
+          onClick={() => {
+            window.localStorage.removeItem("hidden-review-status-period");
+            setHiddenReviewPeriod(null);
+          }}
+          className="text-[11px] text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+        >
+          Show hidden review status
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -167,6 +190,18 @@ function DataHealthStrip({ status, unavailable }: { status: OperatorStatus | nul
       <span className="text-slate-400">
         Next <span className="ml-1 text-slate-200">{status.next_action}</span>
       </span>
+      {canHide && (
+        <button
+          type="button"
+          onClick={() => {
+            window.localStorage.setItem("hidden-review-status-period", statusPeriod);
+            setHiddenReviewPeriod(statusPeriod);
+          }}
+          className="ml-auto rounded-sm px-1 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-slate-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-light"
+        >
+          Hide for this period
+        </button>
+      )}
     </div>
   );
 }
