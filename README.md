@@ -26,6 +26,11 @@ GitHub Pages workflow.
 - `docs/`: Project/product docs (`PRODUCT.md`, `DESIGN.md`, `SKILLS.md`).
 - `handoffs/`: Current operator runbook and release handoff.
 
+For admin operation, file safety, monthly update steps, and what can/cannot be deleted,
+see `docs/OPERATOR_ADMIN_MANUAL.md`.
+For a very simple Thai training deck, use
+`handoffs/thai-simple-admin-manual-2026-07-31.pptx`.
+
 ## Pipeline (Backend)
 
 The two DLT sources remain at separate grains. Model rows never receive `Powertrain`;
