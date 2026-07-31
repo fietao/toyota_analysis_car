@@ -5,7 +5,11 @@ Monthly Thailand new-car registration analysis pipeline (DLT data) and Next.js f
 ## Use the dashboard
 
 The repository includes the latest generated public JSON, so the dashboard can run without
-the private/raw Excel inputs:
+the private/raw Excel inputs. For a non-technical user, double-click `START.bat` at the repo
+root — it installs anything missing on first run, then opens the dashboard. Nothing else to
+type or configure.
+
+Technical users can run the same two steps by hand instead:
 
 ```powershell
 INSTALL_FROM_ZERO.bat
@@ -49,11 +53,11 @@ These scripts at the project root cover normal operation and handoff:
 
 | Script | When | What it does |
 |---|---|---|
+| `START.bat` | Any time, on any laptop, for a non-technical user | One double-click: installs anything missing (first run only), then opens the dashboard. No menu, no typing. |
 | `INSTALL_FROM_ZERO.bat` | First time on a fresh Windows laptop | Checks or installs Python 3.12, Node.js LTS/npm, and Git with `winget`, then runs `SETUP.bat`. |
 | `TAKEOVER.bat` | Handoff sessions on another laptop | Opens a plain-language menu: start the dashboard, run the monthly update, open the monthly guide/latest summary/model review file, run frontend checks, plus one-time install/setup and takeover notes. |
 | `SETUP.bat` | Once, or after pulling dependency changes | Installs backend Python packages (`backend/requirements.txt`) and frontend npm packages. |
-| `MONTHLY_UPDATE.bat` | Monthly, by a non-coding operator | Guided double-click flow: checks the 2 raw files, preflights the model-review CSV, rebuilds the pipeline + dashboard + Sheets 7-8, builds into a staging copy, validates it, and only then atomically swaps the live JSON (rollback on any failure — the dashboard always keeps the last good data). Writes `reports/monthly_operator_summary.txt` and a timestamped `logs/` file, all with Thai messages. See `docs/THAI_OPERATOR_MONTHLY_GUIDE.md`. |
-| `UPDATE.bat` | Monthly (developer) | Runs `update_raw_data.py`: classifies new fuel types, rebuilds the pipeline, and exports dashboard data. |
+| `MONTHLY_UPDATE.bat` | Monthly, by anyone (operator or developer) | Guided double-click flow: checks the 2 raw files, preflights the model-review CSV, rebuilds the pipeline + dashboard + Sheets 7-8, builds into a staging copy, validates it, and only then atomically swaps the live JSON (rollback on any failure — the dashboard always keeps the last good data). Writes `reports/monthly_operator_summary.txt` and a timestamped `logs/` file, all with Thai messages. See `docs/THAI_OPERATOR_MONTHLY_GUIDE.md`. |
 | `BUILD_RELEASE.bat` | Before publishing | Runs the full deterministic pipeline, exports dashboard/analyst/manual-report data, validates against a markdown export and the public-release gate, then builds the Next.js production bundle. Set `MARKDOWN_REPORT_PATH` to point at the `*_sheets1-9.md` export directly; otherwise it looks for the newest one in `%USERPROFILE%\Downloads`. |
 
 After a monthly build, review newly appended `pending` rows in

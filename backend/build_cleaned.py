@@ -77,37 +77,6 @@ def find_file(pattern, label):
     return Path(max(matches, key=os.path.getmtime))
 
 
-# what is kwargs
-def read_sheet_raw(path, sheet_name, **kwargs):
-    try:
-        return pd.read_excel(str(path), sheet_name=sheet_name, header=None, engine="calamine", **kwargs)
-    except Exception as e:
-        print(f"  Warning: could not read '{sheet_name}': {e}")
-        return pd.DataFrame()
-
-
-def read_brand2_rows(wb):
-    try:
-        ws = wb["Data"]
-        rows = []
-        for raw_brand, brand2 in ws.iter_rows(
-            min_row=1, max_row=8, min_col=14, max_col=15, values_only=True
-        ):
-            e = str(raw_brand).strip() if raw_brand is not None else ""
-            f = str(brand2).strip() if brand2 is not None else ""
-            if (
-                e
-                and e.upper() not in ("NAN", "BRAND1", "ยี่ห้อรถ", "E", "BRAND")
-                and f
-                and f.upper() not in ("NAN", "BRAND2", "ยี่ห้อรถ2", "F")
-            ):
-                rows.append((e, f))
-        return rows
-    except Exception as e:
-        print(f"  Warning: could not read brand2 rows: {e}")
-        return []
-
-
 def add_brand2(df, brand_map):
     upper = df["ยี่ห้อรถ"].astype(str).str.strip().str.upper()
     df.insert(df.columns.get_loc("ยี่ห้อรถ") + 1, "ยี่ห้อรถ2",
@@ -118,28 +87,6 @@ def ordered_cols(df):
     cols  = [c for c in FINAL_COLS if c in df.columns]
     extra = [c for c in df.columns if c not in FINAL_COLS]
     return df[cols + extra]
-
-
-def write_rows(ws, df, start_row=0):
-    for r_idx, row in enumerate(df.itertuples(index=False, name=None), start=start_row):
-        for c_idx, val in enumerate(row):
-            if not pd.isna(val):
-                ws.write(r_idx, c_idx, val)
-
-
-def clean_powertrain_value(value):
-    if pd.isna(value):
-        return "OTH"
-    value = str(value).strip()
-    return value if value and value.lower() != "nan" and value != "(blank)" else "OTH"
-
-
-def dump_map_to_csv(mapping: dict, path: str, key_field="fuel", value_field="powertrain"):
-    with open(path, mode="w", encoding="utf-8", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([key_field, value_field])
-        for key in sorted(mapping.keys()):
-            writer.writerow([key, mapping[key]])
 
 
 def load_powertrain_map(path: str, key_field="fuel", value_field="powertrain") -> dict:
@@ -174,17 +121,6 @@ def sort_cleaned_data(df, brand2_order=None):
     out = out.sort_values(sort_cols, kind="mergesort", na_position="last")
     return out.drop(columns=["_month_sort", "_source_sort", "_brand2_sort"], errors="ignore")
 
-
-
-def enable_pivot_refresh(wb):
-    """Set refreshOnLoad to True for all pivot tables in the workbook."""
-    try:
-        for ws in wb.worksheets:
-            for pivot in ws._pivots:
-                if pivot.cache:
-                    pivot.cache.refreshOnLoad = True
-    except Exception as e:
-        print(f"  Warning: Could not set refreshOnLoad on pivots: {e}")
 
 
 def _col(n):
@@ -442,163 +378,6 @@ def rewrite_data_rows(workbook_path, dataframe, data_start_row):
                 zout.writestr(item, zin.read(item.filename))
     tmp.replace(path)
     print(f"      Saved: {path.name} ({len(dataframe):,} rows from row {data_start_row})")
-
-
-def _add_summary_sheet(workbook_path, sheet_name, df_cleaned):
-    """Add a new sheet with two side-by-side tables from df_cleaned:
-    Cols A-C: ชนิดเชื้อเพลิง | Powertrain | Total (all fuel types)
-    Cols E-I: Brand | รุ่นรถ | รุ่นรถ2 | Powertrain | Total (BEV series only)
-    """
-    path = Path(workbook_path)
-
-    tbl_a = (
-        df_cleaned
-        .groupby(["ชนิดเชื้อเพลิง", "Powertrain"], dropna=False)["จำนวนรถ"]
-        .sum()
-        .reset_index()
-        .sort_values(["Powertrain", "ชนิดเชื้อเพลิง"])
-        .reset_index(drop=True)
-    )
-
-    bev_mask = df_cleaned["ชนิดเชื้อเพลิง"].astype(str).str.strip() == "ไฟฟ้า"
-    tbl_b = (
-        df_cleaned[bev_mask]
-        .groupby(["ยี่ห้อรถ2", "รุ่นรถ", "รุ่นรถ2", "Powertrain"], dropna=False)["จำนวนรถ"]
-        .sum()
-        .reset_index()
-        .sort_values(["ยี่ห้อรถ2", "รุ่นรถ2", "รุ่นรถ"])
-        .reset_index(drop=True)
-    )
-
-    A_HEADERS = ["ชนิดเชื้อเพลิง", "Powertrain", "Total"]
-    B_HEADERS = ["Brand", "รุ่นรถ", "รุ่นรถ2", "Powertrain", "Total"]
-    A_OFF, B_OFF = 1, 5
-
-    def _fmt(v):
-        try:
-            return f"{int(v):,}"
-        except (TypeError, ValueError):
-            return ""
-
-    def _cell(col_idx, row_idx, value):
-        try:
-            if pd.isna(value):
-                return ""
-        except (TypeError, ValueError):
-            pass
-        col = _col(col_idx)
-        ref = f"{col}{row_idx}"
-        s = str(value).strip()
-        if not s or s.lower() in ("nan", "none", "<na>"):
-            return ""
-        return f'<c r="{ref}" t="inlineStr"><is><t>{_esc(s)}</t></is></c>'
-
-    # Collect all cells keyed by row number to avoid duplicate <row> elements
-    row_cells: dict[int, list[str]] = {}
-
-    def _add(r, *cells):
-        row_cells.setdefault(r, []).extend(c for c in cells if c)
-
-    # Header row
-    _add(1,
-        *[_cell(A_OFF + i, 1, h) for i, h in enumerate(A_HEADERS)],
-        *[_cell(B_OFF + i, 1, h) for i, h in enumerate(B_HEADERS)],
-    )
-
-    # Table A data rows
-    for idx, row in tbl_a.reset_index(drop=True).iterrows():
-        r = idx + 2
-        _add(r,
-            _cell(A_OFF,     r, row["ชนิดเชื้อเพลิง"]),
-            _cell(A_OFF + 1, r, row["Powertrain"]),
-            _cell(A_OFF + 2, r, _fmt(row["จำนวนรถ"])),
-        )
-
-    # Grand Total — placed in the row right after Table A data
-    grand_total = int(tbl_a["จำนวนรถ"].sum())
-    gt_r = len(tbl_a) + 2
-    _add(gt_r,
-        _cell(A_OFF,     gt_r, "Grand Total"),
-        _cell(A_OFF + 2, gt_r, _fmt(grand_total)),
-    )
-
-    # Table B data rows
-    for idx, row in tbl_b.reset_index(drop=True).iterrows():
-        r = idx + 2
-        _add(r,
-            _cell(B_OFF,     r, row["ยี่ห้อรถ2"]),
-            _cell(B_OFF + 1, r, row["รุ่นรถ"]),
-            _cell(B_OFF + 2, r, row["รุ่นรถ2"]),
-            _cell(B_OFF + 3, r, row["Powertrain"]),
-            _cell(B_OFF + 4, r, _fmt(row["จำนวนรถ"])),
-        )
-
-    rows_xml = [
-        f'<row r="{r}">{"".join(cells)}</row>'
-        for r, cells in sorted(row_cells.items())
-        if cells
-    ]
-
-    sheet_xml = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
-        ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        '<sheetData>' + "".join(rows_xml) + "</sheetData>"
-        "</worksheet>"
-    ).encode("utf-8")
-
-    with zipfile.ZipFile(str(path), "r") as z:
-        wb_xml   = z.read("xl/workbook.xml").decode("utf-8")
-        rels_xml = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
-        ct_xml   = z.read("[Content_Types].xml").decode("utf-8")
-        all_parts = set(z.namelist())
-
-    used_ns  = {int(m) for m in re.findall(r'xl/worksheets/sheet(\d+)\.xml', " ".join(all_parts))}
-    next_n   = max(used_ns, default=0) + 1
-    new_part = f"xl/worksheets/sheet{next_n}.xml"
-
-    used_rids = {int(r) for r in re.findall(r'Id="rId(\d+)"', rels_xml)}
-    new_rid   = f"rId{max(used_rids, default=0) + 1}"
-
-    used_sids = {int(s) for s in re.findall(r'sheetId="(\d+)"', wb_xml)}
-    next_sid  = max(used_sids, default=0) + 1
-
-    esc_name = _esc(sheet_name)
-    wb_xml = wb_xml.replace(
-        "</sheets>",
-        f'<sheet name="{esc_name}" sheetId="{next_sid}" r:id="{new_rid}"/></sheets>',
-    )
-    rels_xml = rels_xml.replace(
-        "</Relationships>",
-        f'<Relationship Id="{new_rid}" '
-        f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
-        f'Target="worksheets/sheet{next_n}.xml"/>'
-        "</Relationships>",
-    )
-    ct_xml = ct_xml.replace(
-        "</Types>",
-        f'<Override PartName="/xl/worksheets/sheet{next_n}.xml" '
-        f'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-        "</Types>",
-    )
-
-    tmp = path.with_suffix(".tmp2.xlsx")
-    with zipfile.ZipFile(str(path), "r") as zin, \
-         zipfile.ZipFile(str(tmp), "w", compression=zipfile.ZIP_DEFLATED) as zout:
-        for item in zin.infolist():
-            fname = item.filename
-            if fname == "xl/workbook.xml":
-                zout.writestr(fname, wb_xml.encode("utf-8"))
-            elif fname == "xl/_rels/workbook.xml.rels":
-                zout.writestr(fname, rels_xml.encode("utf-8"))
-            elif fname == "[Content_Types].xml":
-                zout.writestr(fname, ct_xml.encode("utf-8"))
-            else:
-                zout.writestr(item, zin.read(fname))
-        zout.writestr(new_part, sheet_xml)
-
-    tmp.replace(path)
-    print(f"      Added sheet '{sheet_name}': {len(tbl_a)} fuel rows | {len(tbl_b)} BEV series rows")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

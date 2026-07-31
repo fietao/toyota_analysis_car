@@ -79,24 +79,6 @@ export type PeriodComparison = {
   topBrandMover: { name: string; delta: number } | null;
 };
 
-export function selectDeepDiveFilterOptions(tree: BrandNode[] | undefined, selectedBrands: string[]) {
-  const brandsSet = new Set<string>();
-  const modelsSet = new Set<string>();
-
-  tree?.forEach((node) => {
-    if (node.brand) brandsSet.add(node.brand);
-    if (selectedBrands.length > 0 && !selectedBrands.includes(node.brand)) return;
-    node.models?.forEach((model) => {
-      if (model.name) modelsSet.add(model.name);
-    });
-  });
-
-  return {
-    allBrands: Array.from(brandsSet).sort(),
-    allModels: Array.from(modelsSet).sort(),
-  };
-}
-
 export function modelBrandPairs(tree: BrandNode[] | undefined): { brand: string; model: string }[] {
   return (tree ?? []).flatMap((b) => (b.models ?? []).map((m) => ({ brand: b.brand, model: m.name })));
 }
@@ -228,15 +210,6 @@ export function segmentBreakdown(model: ModelNode, activeYears: string[], select
       total += sumMonthlyArrays(seg.monthly, year, selectedVehicleTypes, selectedProvinces).reduce((s, v) => s + v, 0);
     });
     totals[seg.powertrain] = (totals[seg.powertrain] || 0) + total;
-  });
-  return totals;
-}
-
-export function brandSegmentBreakdown(brand: BrandNode, activeYears: string[], selectedVehicleTypes: string[], selectedProvinces: string[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  (brand.models || []).forEach((model) => {
-    const mb = segmentBreakdown(model, activeYears, selectedVehicleTypes, selectedProvinces);
-    Object.entries(mb).forEach(([pt, v]) => { totals[pt] = (totals[pt] || 0) + v; });
   });
   return totals;
 }

@@ -62,10 +62,20 @@ def closely_matches_raw_model(brand_tokens: list, pending_tokens: list, approved
     but are different model families, so brand tokens must be stripped before comparing —
     otherwise every model under a brand with an approved BEV would look like a raw-model
     match, degenerating into brand-only inference.
+
+    If the approved raw model only reads as BEV because of an explicit EV/BEV/ELECTRIC
+    marker token, the pending row must carry that same marker too. Without this, a shared
+    first token that is just the base model-line name (e.g. MINI 'Cooper S Hatch RHD' vs
+    approved 'Cooper Electric', or MG 'ZS' vs approved 'ZS EV') false-matches the ICE trim
+    of a model line that also has a genuinely electric trim.
     """
     p = _strip_brand_prefix(pending_tokens, brand_tokens)
     a = _strip_brand_prefix(approved_tokens, brand_tokens)
-    return bool(p) and bool(a) and p[0] == a[0]
+    if not (p and a and p[0] == a[0]):
+        return False
+    if set(approved_tokens) & NAME_MARKER_TOKENS and not set(pending_tokens) & NAME_MARKER_TOKENS:
+        return False
+    return True
 
 
 def classify(brand2, raw_model, model2, *, approved_family_keys, approved_raw_by_brand):

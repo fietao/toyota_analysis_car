@@ -165,7 +165,7 @@ def sync_model_powertrain_review(df_model, path=None):
     existing_rows = []
     existing_keys = set()
     if path.exists():
-        with open(path, encoding='utf-8-sig', newline='') as f:  # tolerate Excel-saved BOM; rewrite drops it
+        with open(path, encoding='utf-8-sig', newline='') as f:  # BOM written on rewrite so Excel renders Thai text
             reader = csv.DictReader(f)
             _check_headers(reader, REVIEW_HEADERS, path)
             for row in reader:
@@ -200,7 +200,7 @@ def sync_model_powertrain_review(df_model, path=None):
     if not new_rows:
         return
 
-    with open(path, "w", encoding="utf-8", newline="") as f:
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=REVIEW_HEADERS)
         w.writeheader()
         w.writerows(existing_rows + new_rows)

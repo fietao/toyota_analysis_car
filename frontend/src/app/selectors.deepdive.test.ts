@@ -9,12 +9,10 @@ import {
   POWERTRAINS,
   brandTotals,
   brandMonthlyValues,
-  brandSegmentBreakdown,
   seriesTotals,
   seriesMonthlyValues,
   segmentBreakdown,
   filterSegments,
-  selectDeepDiveFilterOptions,
   selectRankingsData,
   modelBrandPairs,
   modelOwnerLookup,
@@ -154,8 +152,6 @@ test("N/A is never hidden from the breakdown, filtered or not", () => {
   const alpha = acme.models[0];
   const breakdown = segmentBreakdown(alpha, [YEAR], [], []);
   assert.ok((breakdown["N/A"] ?? 0) > 0);
-  const brandBreakdown = brandSegmentBreakdown(acme, [YEAR], [], []);
-  assert.ok((brandBreakdown["N/A"] ?? 0) > 0);
 });
 
 test("no selector reads a fuel field: fixtures carry no fuel data and still reconcile", () => {
@@ -222,15 +218,6 @@ test("modelBrandPairs flattens the tree to brand/model ownership pairs", () => {
     { brand: "MITSUBISHI", model: "TRITON" },
   ]);
   assert.deepEqual(modelBrandPairs(undefined), []);
-});
-
-test("Deep Dive model filter options narrow to the selected brand models", () => {
-  const tree = fixture();
-
-  assert.deepEqual(selectDeepDiveFilterOptions(tree, []).allModels, ["ALPHA", "TRITON"]);
-  assert.deepEqual(selectDeepDiveFilterOptions(tree, ["ACME"]).allModels, ["ALPHA"]);
-  assert.deepEqual(selectDeepDiveFilterOptions(tree, ["MITSUBISHI"]).allModels, ["TRITON"]);
-  assert.deepEqual(selectDeepDiveFilterOptions(tree, ["ACME", "MITSUBISHI"]).allModels, ["ALPHA", "TRITON"]);
 });
 
 test("Deep Dive matrix province options come from meta and the model tree", () => {

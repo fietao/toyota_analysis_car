@@ -108,6 +108,40 @@ def test_no_brand_only_inference_multiword_brand():
     _check("no_brand_only_inference", result is None, result)
 
 
+def test_no_match_when_approved_marker_absent_from_pending():
+    """Shared base model-line name is not enough when the approved BEV's own name only
+    reads as electric via an EV/BEV/ELECTRIC marker the pending row does not carry —
+    e.g. MINI's petrol 'Cooper S' trims vs the approved 'Cooper Electric'."""
+    approved_raw_by_brand = {rules.normalize("MINI"): [("COOPER ELECTRIC", rules.tokenize("COOPER ELECTRIC"))]}
+    for raw in ("Cooper S Hatch RHD", "Cooper S Cabrio RHD", "Cooper S Countryman RHD"):
+        result = rules.classify(
+            "MINI", raw, raw, approved_family_keys=set(), approved_raw_by_brand=approved_raw_by_brand,
+        )
+        _check(f"no_match_marker_absent[{raw}]", result is None, result)
+
+
+def test_no_match_petrol_trim_of_marker_named_bev():
+    """Same shape with a bare model number: MG 'ZS' (petrol) vs approved 'ZS EV'."""
+    approved_raw_by_brand = {rules.normalize("MG"): [("ZS EV", rules.tokenize("ZS EV"))]}
+    result = rules.classify(
+        "MG", "ZS", "ZS", approved_family_keys=set(), approved_raw_by_brand=approved_raw_by_brand,
+    )
+    _check("no_match_zs_petrol", result is None, result)
+
+
+def test_match_still_fires_when_both_sides_carry_the_marker():
+    """The marker requirement must not break genuine matches where the pending row
+    also carries the same EV marker as the approved model."""
+    approved_raw_by_brand = {
+        rules.normalize("JAECOO"): [("6 EV LONG RANGE 2WD", rules.tokenize("6 EV LONG RANGE 2WD"))]
+    }
+    result = rules.classify(
+        "JAECOO", "6 EV 2WD MAX", "6 EV",
+        approved_family_keys=set(), approved_raw_by_brand=approved_raw_by_brand,
+    )
+    _check("match_both_carry_marker", result == ("approved_model_match", "6 EV LONG RANGE 2WD"), result)
+
+
 def test_closely_matches_strips_shared_brand_prefix():
     """Directly exercise the token-comparison helper: a shared multi-word brand prefix
     must not itself count as a match once stripped."""
@@ -133,6 +167,9 @@ if __name__ == "__main__":
     test_approved_family_match()
     test_approved_raw_model_match()
     test_approved_raw_model_no_match_different_model_number()
+    test_no_match_when_approved_marker_absent_from_pending()
+    test_no_match_petrol_trim_of_marker_named_bev()
+    test_match_still_fires_when_both_sides_carry_the_marker()
     test_whole_token_ev_marker()
     test_ev_substring_is_not_a_marker()
     test_suppression_blocks_all_rules()

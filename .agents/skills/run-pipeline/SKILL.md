@@ -47,9 +47,10 @@ C:/Users/georg/AppData/Local/Programs/Python/Python312/python.exe C:/dev/ai-read
 
 ## Operator trigger
 
-`UPDATE.bat` (project root) — double-click trigger for non-technical operators:
-- Drop the two new DLT `.xlsx` files into `raw data/`, then run UPDATE.bat.
-- Calls `update_raw_data.py` (no arguments needed); auto-detects newest files.
+`MONTHLY_UPDATE.bat` (project root) — double-click trigger for non-technical operators:
+- Drop the two new DLT `.xlsx` files into `raw data/`, then run MONTHLY_UPDATE.bat.
+- Calls `monthly_update.py`, which runs `update_raw_data.py` as one of its build steps (no
+  arguments needed; auto-detects newest files), inside a staged, validated, atomic publish.
 - Raw files are cumulative (full history); each new file replaces the previous month's.
 
 ## Refer folder

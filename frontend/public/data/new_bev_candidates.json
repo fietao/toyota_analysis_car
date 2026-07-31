@@ -2,39 +2,139 @@
   "meta": {
     "year": 2569,
     "month": 6,
-    "generated_at": "2026-07-30T12:00:00",
-    "candidate_count": 3,
-    "total_units": 187
+    "generated_at": "2026-07-31T01:40:03.190700",
+    "candidate_count": 13,
+    "total_units": 974
   },
   "candidates": [
     {
-      "brand": "AVATR",
-      "raw_model": "AVATR 11 ULTRA",
-      "model": "AVATR 11",
-      "units": 102,
-      "confidence": "high",
-      "reason_code": "approved_model_match",
-      "reason": "Raw model name closely resembles the approved BEV raw model 'AVATR 07 MAX'.",
-      "review_status": "pending"
-    },
-    {
-      "brand": "ZEEKR",
-      "raw_model": "ZEEKR 009",
-      "model": "ZEEKR 009",
-      "units": 65,
+      "brand": "BYD",
+      "raw_model": "BYD M6 EXTENDED",
+      "model": "BYD M6",
+      "units": 248,
       "confidence": "high",
       "reason_code": "approved_family_match",
-      "reason": "Same brand and canonical model family ('ZEEKR 009') as an already-approved BEV.",
+      "reason": "Same brand and canonical model family ('BYD M6') as an already-approved BEV.",
       "review_status": "pending"
     },
     {
-      "brand": "DEEPAL",
-      "raw_model": "DEEPAL S07 EV",
-      "model": "S07",
-      "units": 20,
-      "confidence": "medium",
-      "reason_code": "electric_name_marker",
-      "reason": "Raw model name contains an electric-vehicle name marker (EV/BEV/ELECTRIC).",
+      "brand": "BYD",
+      "raw_model": "BYD SEAL 6 PREMIUM",
+      "model": "BYD SEAL 6",
+      "units": 72,
+      "confidence": "high",
+      "reason_code": "approved_family_match",
+      "reason": "Same brand and canonical model family ('BYD SEAL 6') as an already-approved BEV.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "VOLVO",
+      "raw_model": "EX30",
+      "model": "EX30",
+      "units": 10,
+      "confidence": "high",
+      "reason_code": "approved_family_match",
+      "reason": "Same brand and canonical model family ('EX30') as an already-approved BEV.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "WULING",
+      "raw_model": "Bingou SRDTH CCS2",
+      "model": "Bingou",
+      "units": 5,
+      "confidence": "high",
+      "reason_code": "approved_family_match",
+      "reason": "Same brand and canonical model family ('Bingou') as an already-approved BEV.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "JAECOO",
+      "raw_model": "6 EV 2WD MAX",
+      "model": "6 EV 2WD MAX",
+      "units": 214,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model '6 EV LONG RANGE 2WD'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "OMODA",
+      "raw_model": "C5 EV MAX+",
+      "model": "C5 EV MAX+",
+      "units": 180,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'C5 EV LONG RANGE DYNAMIC'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "JAECOO",
+      "raw_model": "5 EV MAX+",
+      "model": "5 EV MAX+",
+      "units": 151,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model '5 EV LONG RANGE DYNAMIC'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "GWM",
+      "raw_model": "ORA 5",
+      "model": "ORA 5",
+      "units": 82,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'ORA 07'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "MINI",
+      "raw_model": "Cooper S Countryman RHD",
+      "model": "Cooper S Countryman RHD",
+      "units": 7,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'COOPER SE HATCH RHD'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "MINI",
+      "raw_model": "Cooper S Hatch RHD",
+      "model": "Cooper S Hatch RHD",
+      "units": 2,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'COOPER SE HATCH RHD'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "MINI",
+      "raw_model": "Cooper S Cabrio RHD",
+      "model": "Cooper S Cabrio RHD",
+      "units": 1,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'COOPER SE HATCH RHD'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "MINI",
+      "raw_model": "Cooper S Clubman RHD",
+      "model": "Cooper S Clubman RHD",
+      "units": 1,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'COOPER SE HATCH RHD'.",
+      "review_status": "pending"
+    },
+    {
+      "brand": "MINI",
+      "raw_model": "Cooper S Convertible RHD",
+      "model": "Cooper S Convertible RHD",
+      "units": 1,
+      "confidence": "high",
+      "reason_code": "approved_model_match",
+      "reason": "Raw model name closely resembles the approved BEV raw model 'COOPER SE HATCH RHD'.",
       "review_status": "pending"
     }
   ]

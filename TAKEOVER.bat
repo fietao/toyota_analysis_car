@@ -71,11 +71,18 @@ start "" "%~dp0docs\THAI_OPERATOR_MONTHLY_GUIDE.md"
 goto after_action
 
 :open_summary
-call "%~dp0OPEN_OPERATOR_SUMMARY.bat"
+if not exist "%~dp0reports\monthly_operator_summary.txt" (
+    echo ยังไม่มีไฟล์สรุป - กรุณาดับเบิลคลิก MONTHLY_UPDATE.bat ก่อน
+    echo No summary yet - run MONTHLY_UPDATE.bat first.
+    goto after_action
+)
+start "" "%~dp0reports\monthly_operator_summary.txt"
 goto after_action
 
 :open_review_csv
-call "%~dp0OPEN_MODEL_REVIEW_CSV.bat"
+echo กำลังเปิดไฟล์รีวิวรุ่นรถ - แก้แล้วบันทึกแบบ CSV UTF-8 จากนั้นรัน MONTHLY_UPDATE.bat
+echo Opening the model-review CSV - edit, save as CSV UTF-8, then run MONTHLY_UPDATE.bat
+start "" "%~dp0backend\config\model_powertrain_review.csv"
 goto after_action
 
 :frontend_checks

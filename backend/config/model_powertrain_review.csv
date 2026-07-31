@@ -1,4 +1,4 @@
-brand2,raw_model,model2,candidate_powertrain,review_status,evidence,reviewer,reviewed_at,notes
+﻿brand2,raw_model,model2,candidate_powertrain,review_status,evidence,reviewer,reviewed_at,notes
 AVATR,AVATR 07 MAX,AVATR 07,BEV,approved,Autoinfo: AVATR 07 Thailand launch https://www.autoinfo.co.th/avatr-07-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
 AVATR,AVATR 07 ULTRA AWD,AVATR 07,BEV,approved,Autoinfo: AVATR 07 Thailand launch https://www.autoinfo.co.th/avatr-07-thailand/,claude-code,2026-07-22,seeded high-confidence BEV approval
 AVATR,AVATR 11 LONG RANGE,AVATR 11,BEV,approved,Official AVATR Thailand brochure: Avatr 11 https://www.avatr.co.th/cd23266c-7032-4c10-b746-ff8b4822ad27/E-leaflet_EN_website.pdf,claude-code,2026-07-22,seeded high-confidence BEV approval

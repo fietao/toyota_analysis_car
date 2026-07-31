@@ -3,3 +3,4 @@ openpyxl==3.1.5
 python-calamine==0.7.0
 pyarrow==24.0.0
 pytest==9.1.1
+requests==2.33.0
